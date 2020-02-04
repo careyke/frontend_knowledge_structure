@@ -18,7 +18,7 @@ transform: rotate(30deg) translate(20px,30px);
 ```  
 
 #### transform-functions列表
-function | 说明 | 示例 | 派生  
+function | 说明 | 示例 | 派生
 ------- | ------- | -------  
 <div style="width: 100px">translate | 平移元素，基点默认为元素的中心点,可以通过transform-origin修改 | <div style="width: 180px">translate(20px,30px) | translateX(20px),<br>translateY(2px),translateZ(0px),translate3d(0,0,0)  
 scale | 缩放元素 | scale(x,y) | scaleX(),<br>scaleY()  
@@ -49,7 +49,7 @@ transition:width 2s ease-in,height 1s esae-out; //多个属性
 ```  
 
 #### transition属性列表
-属性名 | 说明 | 取值 | 示例  
+属性名 | 说明 | 取值 | 示例
 ------- | ------- | -------  
 transition-property | 产生过渡动画的属性 | [css属性] / all / none | transition-property: width
 transition-duration | 过渡动画的持续时间 | number[s] | transition-duration: 2s
@@ -97,8 +97,8 @@ keyframes-selector | 必需，定义动画的关键帧。<br>合法的值：<br>
 css-style | 必需，动画的变化属性 
 
 #### animation的属性列表
-属性 | 说明 
-------- | ------- 
+属性 | 说明
+------- | -------
 <div style="width: 200px">animation-name | 用来调用@keyframes定义好的动画，与@keyframes定义的动画名称一致 
 animation-duration | 一次完整动画的持续时间 
 animation-timing-function | 动画中间帧的计算函数，规则动画速度曲线 
