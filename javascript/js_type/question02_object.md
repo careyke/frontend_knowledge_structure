@@ -87,11 +87,11 @@ obj.a //2
 ```  
 configurable:false的属性的特点：
 - configurable:false是一个**不可逆**的操作
-- 可以将属性的writable由true设置成false，反向则不行
-- delete该属性会失效，无法删除。
+- **可以将属性的writable由true设置成false，反向则不行。如果writable是true，则可以修改属性的值**。
+- **delete该属性会失效，无法删除。**
 
 #### 3.4 enumerable
-描述属性是否可以枚举。普通方式定义的变量，enumerable默认是true。通过defineProperty定义的变量，enumerable默认是false
+描述属性是否可以枚举。**普通方式定义的变量，enumerable默认是true。通过defineProperty定义的变量，enumerable默认是false**
 可枚举属性的特点：
 - **可以使用Object.keys()获取当前属性值**
 ```js
@@ -126,7 +126,7 @@ for(let k in obj){
 #### 3.5 getter和setter
 js中可以使用getter和setter来修改对象属性的默认读写操作。在读取属性的时候调用getter函数，在写入属性的时候调用setter函数。
 
-**当属性中设置了getter和setter的时候，属性描述对象中的value和writable会被忽略，同时设置了会报错**
+**当属性中设置了getter和setter的时候，属性描述对象中的value和writable会被忽略，如果同时设置了会报错**
 
 ```js
 let obj={};
@@ -165,12 +165,12 @@ bject.freeze(..) 会创建一个冻结对象，**这个方法实际上会在一�
 
 ### 5.判断属性是否在对象中
 1. in操作符 —— **会将原型链上对象的属性也包含进去。**
-2. hasOwnProperty —— 判断属性是否在当前对象上
-3. Object.key() —— 获取对象上所有**可枚举**的属性
+2. hasOwnProperty —— 判断属性是否在当前对象上，不包含原型链
+3. Object.keys() —— 获取对象上所有**可枚举**的属性
 4. Object.getOwnPropertyNames(..) —— 获取对象上**所有的**属性，无论是否可枚举
 
 ### 6.遍历对象
-普通对象的遍历：只能使用for..in来遍历属性名。但是需要注意的是，**for..in会遍历原型链上对象的属性，所以需要使用hasOwnProperty()方法过滤。**
+普通对象的遍历：只能使用for..in来遍历**可枚举的**属性名。但是需要注意的是，**for..in会遍历原型链上对象的可枚举属性，所以需要使用hasOwnProperty()方法过滤。**
 
 对于数组来说，遍历的方式有很多种：
 1. for循环
