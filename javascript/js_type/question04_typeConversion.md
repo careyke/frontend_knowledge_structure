@@ -16,6 +16,8 @@ Symbol.toPrimitive对应的值的形式是：function(hint){}。
 - hint参数表示转换的期望类型，取值有string, number, default
 
 #### 1.1.2 ToPrimitive操作的规则
+对于**基本类型来说，直接返回原来的值**。
+对于**对象类型**来说：
 1. 如果对象中**存在Symbol.toPrimitive**方法，就直接执行该方法。
 2. 如果对象中没有定义这个方法，会默认去调用内置的**[[DefaultValue]] (hint)**方法
   - 如果传入的hint是string，就执行toString()方法，如果返回值是基本类型就直接返回；如果没有toString()方法或者toString()返回的不是基本类型，就继续执行valueOf()方法
