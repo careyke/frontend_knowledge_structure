@@ -40,7 +40,7 @@ for(let v of a){
 
 1. 遍历器对象必须要有一个next(...)方法，用来遍历内部数据
 2. 调用next方法返回值是一个形如`{value:123, done:boolean}` 的对象，value表示遍历的值，done表示是否遍历完成
-3. 遍历器对象还可以有return(...) 和 throw(...) 方法，用于提前结束遍历。**for...of中使用break提前结束遍历内部调用的就是return方法。**内部抛错中断也会调用return方法
+3. 遍历器对象还可以有return(...) 和 throw(...) 方法，在提前结束遍历是会调用。**for...of中使用break提前结束遍历的时候内部会调用return方法。**内部抛错中断也会调用return方法（类似于钩子）
 
 ```js
 var arr = [1,2,3];
@@ -97,7 +97,7 @@ for(let v of arr){
 //1
 //next
 //return
-// Uncaught error 先调用return方法 在抛出错误
+// Uncaught error 先调用return方法 再抛出错误
 ```
 
 ## 2. 迭代器和Generaor函数之间的关系
@@ -170,7 +170,7 @@ for(let v of arr){
 
 注意：
 
-**for...of 内部调用next遍历的时候，返回值中如果done属性是true的话，那个值不会被使用。也就是说，遍历的是yield关键字后面的状态**
+**for...of 内部调用next遍历的时候，返回值中如果done属性是true的话，那个值不会被使用。也就是说，遍历的是yield关键字后面的状态，return语句中的值不会被使用**
 
 ## 3. 调用迭代器的使用场景
 
