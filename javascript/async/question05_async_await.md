@@ -115,7 +115,7 @@ p.then((data)=>{console.log(data)}).catch((err)=>{console.log(err)});
    Promise.reject('error');
    //类似于
    Promise.reject('error').catch((err)=>{
-     [迭代器].throw(err);  // 内部迭代器的throw方法
+     [遍历器].throw(err);  // 内部遍历器的throw方法
    })
    ```
 

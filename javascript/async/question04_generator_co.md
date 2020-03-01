@@ -8,9 +8,9 @@
 
 和传统的函数不一样，Generator函数并不是通过 `func()` 的形式调用之后就可以同步执行函数体的，Generator函数的执行有以下特点：
 
-1. Generator函数调用之后，并不会立即执行函数体，而是返回的是一个**迭代器对象**
-2. Generator函数体的执行需要依赖这个迭代器对象，迭代器中存在一个next()方法，用来开始执行函数体。
-3. Generator函数体的**执行过程是可以打断和恢复**，通过 yield 关键字就可以打断执行，然后通过迭代器的next方法恢复执行
+1. Generator函数调用之后，并不会立即执行函数体，而是返回的是一个**遍历器对象**
+2. Generator函数体的执行需要依赖这个遍历器对象，遍历器中存在一个next()方法，用来开始执行函数体。
+3. Generator函数体的**执行过程是可以打断和恢复**，通过 yield 关键字就可以打断执行，然后通过遍历器的next方法恢复执行
 
 ```js
 function* gen(){
@@ -28,7 +28,7 @@ g.next(); // {value: 'd',done: false}
 
 ### 1.2 next()的返回值和yield语句的返回值
 
-迭代器的next(...)方法的返回值是一个对象：`{value: ,done:boolean}`
+遍历器的next(...)方法的返回值是一个对象：`{value: ,done:boolean}`
 
 1. done属性表示的是这个函数体是否执行完，遇到return语句或者执行到函数体最后，则表示执行完成，done为true；否则是false
 2. value表示的是当前执行片段的返回值，**通常是yield或者return关键字后面表达式的值**。当done为true的时候，再执行next()方法返回值的value为undefined
@@ -104,7 +104,7 @@ try{
 g.next(); //{value:undefined, done:true} 因为没有在内部捕获
 ```
 
-Generator的迭代器对象中提供了一个throw()方法，用来**在函数体外抛出错误，在函数体内捕获。**
+Generator的遍历器对象中提供了一个throw()方法，用来**在函数体外抛出错误，在函数体内捕获。**
 
 1. throw方法抛出的错误可以在函数体内捕获，相当于**将上一个yield语句替换成一个抛出异常的语句**。如果内部没有捕获，则函数体的执行提前结束。
 2. throw()抛出的错误也可以在函数体外捕获
@@ -137,7 +137,7 @@ g.throw('error'); // {value: 2, done:false} 开启下一个片段的执行
 g.next(); // {value:3, done:true}
 ```
 
-### 1.4 迭代器的next()、throw()和return()方法之间的差别
+### 1.4 遍历器的next()、throw()和return()方法之间的差别
 
 1. 这三个方法都能恢复下一个片段的执行。但是只有next()能在最开始开启函数体的执行。
 
@@ -187,7 +187,7 @@ g.next(); // {value:3, done:true}
 
 ### 1.5 yield* 语句
 
-在一个Generator中调用另一个Generator函数时，使用yield* 语句会非常的方便。`yield*`会**自动去迭代这个迭代器对象**。就是for...of语句的简写。但是yield*只能用在Generator函数体中
+在一个Generator中调用另一个Generator函数时，使用yield* 语句会非常的方便。`yield*`会**自动去迭代这个遍历器对象**。就是for...of语句的简写。但是yield*只能用在Generator函数体中
 
 ```js
 function* gen1(){
