@@ -112,3 +112,40 @@ exports={
 
 上面第三种方式不行就是因为：赋值操作改变的是形参exports，并没有改变module对象中的exports属性
 
+## 4. CommonJS中的循环引用的规则
+
+**CommonJS中是引入一个模块的时候，其中引入的是module对象中的exports属性，这个属性默认值是`{}`，和模块代码是否执行完没有关系。**所以在循环引用的时候，仍然是遵循此规则分析
+
+```js
+// a.js
+exports.done = false;
+var b = require('./b.js');
+console.log('在 a.js 之中，b.done = %j', b.done);
+exports.done = true;
+console.log('a.js 执行完毕');
+
+// b.js
+exports.done = false;
+var a = require('./a.js');
+console.log('在 b.js 之中，a.done = %j', a.done);
+exports.done = true;
+console.log('b.js 执行完毕');
+
+```
+
+当执行a.js的时候
+
+1. 在require方法执行之前，`moduelA.exports={done.false}`，然后去执行b.js
+2. **在执行b.js的时候，碰到`require('./a.js')`语句，此时a模块对象已经存在，直接从moduleA.exports中获取值，所以`a={done:false}`**
+3. 接着执行b.js中剩余的代码，打印信息，并且得到`moduleB.exports={done:true}`
+4. 然后返回a.js执行剩下的内容，得到`moduleA.exports={done:true}`
+
+打印顺序为：
+
+```js
+在 b.js 之中，a.done = false
+b.js 执行完毕
+在 b.js 之中，b.done = true
+a.js 执行完毕
+```
+
