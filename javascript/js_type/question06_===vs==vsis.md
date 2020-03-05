@@ -15,7 +15,7 @@
 NaN == NaN  //false
 
 +0 == -0  //true
-```  
+```
 **==总结**：
 1. 对于不同类型的数据，会有一个隐式类型转化，变成相同类型再比较。
 2. NaN之间使用==判断是不相等的。
@@ -28,7 +28,7 @@ NaN == NaN  //false
 NaN === NaN  //false
 
 +0 === -0  //true
-```  
+```
 **===总结**：
 1. 不同类型的数据不相等
 2. NaN 不等于 NaN
@@ -42,7 +42,7 @@ Object.is(12,'12')  //false
 Object.is(NaN,NaN)  //true
 
 Object.is(+0,-0)  //false
-```  
+```
 **Object.is()总结**：
 1. 不同类型的数据不相等
 2. NaN和NaN 相等
