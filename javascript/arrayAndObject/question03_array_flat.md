@@ -214,6 +214,21 @@ Array.prototype.myFlat=function(num = 1){
   return flat(this, num);
 }
 
+//也可以使用Generator实现
+Array.prototype.myFlatBtGenerator=function(num = 1){
+  if(!Number(num) || Number() < 0) return this; //参数判断
+  function* flat(arr, n){
+    for(let v of arr){
+      if(Array.isArray(v) && n>0){
+        yield* flat(v, n-1);
+      }else{
+        yield v;
+      }
+    }
+  }
+  return [...flat(this,num)];
+}
+
 
 flatTestArray.myflat(); // [1, 2, 3, 4, 5, 6, Array(5)]
 flatTestArray.myFlat(2); // [1, 2, 3, 4, 5, 6, "7", "8", 9, Array(2), 10]
@@ -226,4 +241,8 @@ flatTestArray.myFlat('1w'); // [1, 2, 3, Array(4)]
 
 [1,2,[3,,4,5],6].myFlat(Infinity); // [1, 2, 3, 4, 5, 6]  reduce函数会跳过数组的空位
 ```
+
+##  3. 参考文章
+
+1. [面试官连环追问：数组拍平（扁平化） flat 方法实现](https://juejin.im/post/5dff18a4e51d455804256d31#heading-2)
 
