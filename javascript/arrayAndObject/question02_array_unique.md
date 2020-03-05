@@ -364,3 +364,9 @@ pref(uniqueBySet);
 3. sort的方式，面对**有多种数据类型的数组**，存在风险。要考虑清楚
 4. 推荐使用ES6中的Map和Set方式，性能和效果都很好
 
+## 4. 参考文章
+
+1. [JavaScript专题之数组去重](https://juejin.im/post/5949d85f61ff4b006c0de98b#heading-7)
+
+2. [解锁多种JavaScript数组去重姿势](https://juejin.im/post/5b0284ac51882542ad774c45#heading-6)
+
