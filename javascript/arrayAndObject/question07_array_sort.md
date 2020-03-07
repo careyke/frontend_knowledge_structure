@@ -278,3 +278,10 @@ const quickSort = (a, from, to) => {
 }
 ```
 
+
+
+## 参看文章
+
+1. [JavaScript专题之解读 v8 排序源码](https://juejin.im/post/59e80dc6f265da432a7aaf15#heading-11)
+2. [第十七篇: 能不能实现数组sort方法？](https://juejin.im/post/5dbebbfa51882524c507fddb#heading-35)
+
