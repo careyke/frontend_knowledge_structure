@@ -528,7 +528,7 @@ MyPromise.allSettled = function(promiseArr){
           resolve(result);
         }
       },(reason)=>{
-        result.push({status:Fulfilled, reason: reason});
+        result.push({status:Rejected, reason: reason});
         if(result.length === len){
           resolve(result);
         }
