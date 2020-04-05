@@ -8,7 +8,7 @@ HTML5语法向下兼容了大部分HTML4的语法，但是**HTML5文档的解析
 HTML5不在基于SGML，所以不再需要是用DTD来声明文档类型。而是变成下面的方式
 ```js
 <!doctype html>
-```  
+```
 
 #### 2.文档编码
 HTML5使用了charset meta来声明文档的编码方式
@@ -18,7 +18,7 @@ HTML5使用了charset meta来声明文档的编码方式
 
 // html5
 <meta charset="utf-8">
-```  
+```
 
 #### 3.HTML5支持了音频和视频
 ```js
@@ -30,7 +30,7 @@ HTML5使用了charset meta来声明文档的编码方式
   抱歉，您的浏览器不支持内嵌视频，不过不用担心，你可以 <a href="videofile.ogg">下载</a>
   并用你喜欢的播放器观看!
 </video>
-```  
+```
 
 #### 4.HTML5增加了canvas和svg标签，用来展示丰富的图形
 ```js
@@ -47,17 +47,17 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 ctx.fillStyle = 'green';
 ctx.fillRect(10, 10, 150, 100);
-```  
+```
 
 #### 5.HTML5增加了很多语义化的标签
 ```html
 <header> <footer> <section> <article> <nav> <aside> <main> <figure>
-```  
+```
 
 #### 6.删除很多描述样式的标签，进一步分离结构和样式
 ```html
 <basefont> <font> <big> <center> <strike> <tt>
-```  
+```
 
 #### 7.新增属性，这里主要针对表单元素来说明
 - input标签增加多种type：tel, search, email, url, number, date, time, range, color。

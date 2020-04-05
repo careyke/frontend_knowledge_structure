@@ -25,7 +25,7 @@
   border-right-color: transparent;
   border-bottom-color: transparent;
 }
-```  
+```
 
 
 ### CSS实现自适应正方形
@@ -42,11 +42,11 @@
   height: 10vw;
   background-color: red;
 }
-```  
+```
 这种方法很简单，缺点就是可能会有兼容性问题。
 
 #### 2.使用margin/padding
-对于margin和padding的长度中有一点很重要：**那就是margin和pading的百分比值相对于的是父元素content区域的width**。而不是top,bottom相对于width,left,right相对于height。
+对于margin和padding的长度中有一点很重要：**那就是margin和pading的百分比值相对于的是父元素content区域的width**。而不是top,bottom相对于height，left,right相对于width。
 
 下面两个方法都是根据这个原理来实现的。
 
@@ -58,7 +58,7 @@
   background-color: red;
   height: 0;
 }
-```  
+```
 缺点：
 1. 正方形区域内部的内容都会溢出来，一旦设置overflow: hidden的话，内容就看不到了
 2. **由于height始终是0，对于设置的max-height就会永远不生效，因为max-height限制的是盒子content区域的高度。**
@@ -80,7 +80,7 @@
   margin-top: 100%;
   content: "";
 }
-```  
+```
 这里父元素一定要新建一个BFC，不然会产生高度塌陷。产生高度塌陷的条件[MDN](https://developer.mozilla.org/zh-CN/docs/Web/CSS/CSS_Box_Model/Mastering_margin_collapsing)
 
 缺点：**如果正方体元素内部有内容，会将高度撑高。所以如果需要在内部添加内容，需要使用的绝对定位。**
