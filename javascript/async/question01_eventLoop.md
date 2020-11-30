@@ -30,7 +30,7 @@ while(true){
     }
   }
 }
-``` 
+```
 这个伪代码主要是帮助理解事件循环机制的中心思想，就是**宿主环境将js代码分成多个代码块存放在事件（任务）队列中（提供API的形式），然后循环去执行事件队列中的代码块，直到清空事件队列。**
 
 ### 2.2 宏任务队列和微任务队列
@@ -94,7 +94,7 @@ setTimeout(function() {
 
 //依次输出：
 //1 3 5 4 2 6 7
-```  
+```
 
 ### 2.4 Node环境中的eventLoop
 Node环境中的事件循环和浏览器中的事件循环是完全不同的。
@@ -172,7 +172,7 @@ setTimeout(()=>{
 
 //对于v11及之后的版本
 // timer1 -> promise1 -> timer2 -> promise2
-```  
+```
 
 
 
@@ -192,7 +192,7 @@ setTimeout(()=>{console.log('2')},2);
 setTimeout(()=>{console.log('1')},1)
 
 // 1 -> 2
-```  
+```
 
 ##### 2.4.5.2 开始分析setTimeout和setImmediate的执行顺序
 这两个方法的回调函数的**执行顺序取决于当前的eventLoop上下文**
@@ -207,7 +207,7 @@ setTimeout(function timeout () {
 setImmediate(function immediate () {
   console.log('immediate');
 });
-```  
+```
 上述代码的执行顺序是不确定的，因为setTimeout在timers阶段执行，setImmediate在check阶段执行。两者的顺序取决于机器的性能。**setTimeout(fn,0)实际就是setTimeout(fn,1)，系统在进入eventLoop也是需要时间的**
 - **如果进入eventLoop耗费的时间大于1ms**，则进入timers阶段的时候，Timers Queue已经有任务，直接执行即可。此时setTimeout先执行
 - **如果进入eventLoop耗费的时间小于1ms**，则进入timers阶段的时候，Timers Queue为空。继续进入下一个阶段，直到check阶段中执行setImmediate。此时setImmediate先执行
@@ -225,7 +225,7 @@ fs.readFile(__filename, () => {
     })
 })
 // immediate -> timeout
-```  
+```
 **因为I/O callback是在poll阶段执行的**，当Poll Queue执行完成之后，因为有timers callback和setImmediate，所以不会阻塞在这个阶段。**存在timers callback，所以会循环到timers阶段去执行回调函数，循环的过程中会先经过check阶段，所以会先执行setImmediate**
 
 
