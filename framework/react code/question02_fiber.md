@@ -4,7 +4,18 @@
 
 在Stack架构中，这个载体叫做**虚拟DOM节点**。而在Fiber架构中，这个载体叫做 **Fiber 节点**，每个`ReactElement`都会生成一个对应的`Fiber`节点。
 
+> 思考：这里之所以不直接使用ReactElement作为载体，感觉是因为ReactElement是直接面向使用者的，不宜放置很多使用者不需要看到的信息
+
 > 本系列文章中的源码都是出自 **`React17.0.1`** 版本
+
+
+
+**几个概念先说明一下**：
+
+除去Scheduler之外，React的工作可以分成两个阶段：
+
+1. **`render`阶段**：Reconciler作用的阶段。因为会调用组件的`render`方法
+2. **`commit`阶段**：Renderer作用的阶段。就像你完成一个需求的编码后执行`git commit`提交代码到分支上一样。`commit`阶段会把`render`阶段提交的信息渲染在页面上
 
 
 
@@ -55,12 +66,12 @@ function FiberNode(
   this.lanes = NoLanes;
   this.childLanes = NoLanes;
 
-  // 双缓存属性，指向另一次更新时改节点对应的Fiber节点
+  // 双缓存属性，指向另一次更新时该节点对应的Fiber节点
   this.alternate = null;
 }
 ```
 
-可以看出，Fiber节点作为Fiber架构的最小工作单位，其中包含的属性是非常多的。下面根据作用不同分成几类来进行解释
+可以看出，**Fiber节点作为Fiber架构的最小工作单位**，其中包含的属性是非常多的。下面根据作用不同分成几类来进行解释
 
 ### 1.1 Fiber节点的基本属性
 
@@ -132,5 +143,62 @@ this.index = 0;
 
 ### 1.3 Fiber节点的工作单元属性
 
-作为Fiber架构中的最小工作单元，每个ReactElement的更新都会导致对应Fiber节点的更新，
+Fiber节点作为Fiber架构中的最小工作单元，**更新的时候负责对比和收集对应`ReactElement`节点更新前后的变化，然后在`commit`节点将这些变化渲染到真实的DOM中**。
+
+所以Fiber节点中保存了和本次更新相关的信息。
+
+```javascript
+// 表示本次更新中对应ReactElement接收到的最新Props
+// 设置这个属性的时候，组件的更新流程还没有开始
+this.pendingProps = pendingProps;
+
+// 表示对应ReactElement当前的Props
+this.memoizedProps = null;
+
+// 表示本次更新中，对应组件的更新操作，是一个链表结构。后面更新流程时会详细说明
+this.updateQueue = null;
+
+// 表示组件当前的state，FunctionComponent中是一个链表结构,ClassComponent是一个对象
+this.memoizedState = null;
+
+// 表示当前组件依赖的context，后续将上下文的时候会详细介绍
+this.dependencies = null;
+
+this.mode = mode;
+
+// 标识当前节点在本次更新需要做的操作，通常有Placement,Update和Deletion
+// 也就是对应DOM节点需要做的操作
+this.flags = NoFlags;
+this.subtreeTag = NoSubtreeEffect;
+this.deletions = null;
+
+// 在render阶段之后，所有需要更新的Fiber节点会组成一个链表
+// 方便commit阶段更新所有节点
+// 下面三个属性就是遍历这个链表的属性
+this.nextEffect = null;
+this.firstEffect = null;
+this.lastEffect = null;
+```
+
+### 1.4 Fiber节点优先级相关属性
+
+```javascript
+this.lanes = NoLanes;
+this.childLanes = NoLanes;
+```
+
+会在后续分析Scheduler的时候详细介绍
+
+### 1.5 Fiber节点双缓存属性
+
+```javascript
+// 指向另一颗Fiber树对应的Fiber节点
+this.alternate = null;
+```
+
+为了实现双缓存，Fiber架构内部构建了两棵Fiber树。后面会详细介绍
+
+
+
+## 2. Fiber架构的工作原理
 

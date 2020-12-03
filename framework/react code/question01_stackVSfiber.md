@@ -192,7 +192,7 @@ Fiber架构在结构上可以分成三层：
 1. 兼容性不好
 2. 触发的频率不稳定，受很多因素的影响。比如当浏览器的页签不处于激活状态的时候，该页签中的页面触发`requestIdleCallback` 的频率会变得很低
 
-基于上面的原因，React放弃了使用 `requestIdelCallback` 来实现时间切片，而是利用 **Task(宏任务)** 实现了功能更加完善的 `requestIdleCallback` polyfill。
+基于上面的原因，React放弃了使用 `requestIdelCallback` 来实现时间切片，而是利用 **Task(宏任务)** 实现了功能更加完善的 `requestIdleCallback` polyfill —— Scheduler
 
 Scheduler的功能：
 
