@@ -78,8 +78,8 @@ function FiberNode(
 Fiber节点作为连接 `ReactElement` 和真实DOM节点的载体，其中包含了双方的信息，确保能够一一对应。
 
 ```javascript
-// 大部分情况下表示当前节点对应的React Element的类型，FunctionComponent、ClassComponent或者HostComponent...
-// 也有特殊情况，比如RootFiber节点没有对应的ReactElement
+// 大部分情况下表示当前节点对应的React Component的类型，FunctionComponent、ClassComponent或者HostComponent...
+// 也有特殊情况，比如RootFiber节点没有对应的React Component
 this.tag = tag;
 
 // React Element中的key属性
@@ -88,11 +88,12 @@ this.key = key;
 // 大部分情况下和type是一样的，某些情况不同，比如使用React.Mome()包裹的组件
 this.elementType = null;
 
-// 表示对应ReactElemet的构造方法。对于FunctionComponent，指的是函数本身；对于ClassComponent，指的是对应的Class
+// 表示对应ReactElemet的type。对于FunctionComponent，指的是函数本身；对于ClassComponent，指的是对应的Class
 // 对于HostComponent 指的是对应的真实DOM的tagName
 this.type = null;
 
-// 表示当前React Element对应的真实节点。对于FunctionComponent，值为null；对于ClassComponent，指的是对应ReactElement的实例
+// 表示当前React Element对应的真实节点。对于FunctionComponent，值为null；
+// 对于ClassComponent，指的是对应React Component的实例,(不是React Element)
 // 对于HostComponent，指的是对应的真实的DOM节点
 // 对于RootFiber，指的是React应用的根节点FiberRootNode
 this.stateNode = null;
