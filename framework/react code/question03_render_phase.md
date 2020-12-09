@@ -86,6 +86,7 @@ function renderRootSync(root: FiberRoot, lanes: Lanes) {
 
   // 这里使用内部变量workInProgressRoot来保存上一次更新时的fiberRootNode
   // 如果和本次的fiberRootNode不相等，说明本次更新的是其他React应用树，需要重新创建workInProgress rootFiber
+  // 注意：workInProgressRoot在commit阶段会重新设置为null
   if (workInProgressRoot !== root || workInProgressRootRenderLanes !== lanes) {
     // 这个方法中会创建workInProgress rootFiber
     prepareFreshStack(root, lanes);
@@ -152,7 +153,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 可以看出：
 
 1. “递”过程主要是执行`beginWork`
-2. “归”构成主要是执行`completeWork`
+2. “归”过程主要是执行`completeWork`
 
 后面主要是解析这两个方法，看看究竟做了哪些工作。
 
@@ -215,7 +216,7 @@ function beginWork(
 
 1. `current `—— 表示当前Fiber节点对应`current Fiber Tree`上的Fiber节点，也就是`workInProgress.alternate`
 
-2. `workInProgress` —— 表示当前组件对应的Fiber节点，workInProgress Fiber Tree上的节点。也就是执行`beginWork`的主体
+2. `workInProgress` —— 表示**本次更新**中，当前组件对应的Fiber节点，也就是workInProgress Fiber Tree上的节点
 3. `renderLanes` —— 优先级相关的属性，暂时可以不考虑
 
 
@@ -224,14 +225,61 @@ function beginWork(
 
 可以将beginWork的工作分成**两个部分**：
 
-1. 组件`mount`阶段：直接创建新的子Fiber节点
-2. 组件`update`阶段：判断是否匹配优化路径，如果不满足则需要新创建子Fiber节点；如果匹配优化路径，就克隆对应的`currentFiber`，复用其中的属性。
-
-#### 2.2.2 update阶段
+1. 组件`mount`阶段：直接创建新的子Fiber节点，没有优化流程
+2. 组件`update`阶段：判断是否匹配优化路径，如果不满足则需要新创建子Fiber节点；如果匹配优化路径，则进入优化流程**复用对应的`currentFiber`**。
 
 
 
-didReceiveUpdate变量会在创建子Fiber的流程中产生作用，比如FunctionComponent：
+#### 2.2.2 更新优化（*）—— 复用currentFiber
+
+前面讲Fiber架构的时候提到过，render阶段的主要工作是根据`current Fiber Tree`和新生成的`ReactElement Tree`来生成`workInProgress Fiber Tree`。但是如果每次更新都重新运行所有组件的render方法，生成新的ReactElement，然后生成新的Fiber节点，**对于没有任何修改的节点这是很冗余的操作**。React内部对这种情况做了相应的优化
+
+##### 2.2.2.1 优化效果
+
+在创建子Fiber节点过程中可以优化的节点，都会调用`bailoutOnAlreadyFinishedWork`方法
+
+```javascript
+function bailoutOnAlreadyFinishedWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes,
+): Fiber | null {
+  // ... 省略
+
+  // 判断当前节点的子节点本次是否需要更新（反应在优先级上）
+  if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
+    // 如果子节点都不需要更新，本次更新直接跳过所有后代节点
+    // 当前节点直接进入“归”过程
+    // 相当于当前节点的所有后代节点都复用对应的currentFiber
+    return null;
+  } else {
+    // 如果当前节点的后代节点中有节点需要在本次更新
+    // 那就只克隆子Fiber节点，然后继续“递”过程
+    cloneChildFibers(current, workInProgress);
+    return workInProgress.child;
+  }
+}
+```
+
+优化的效果：**进入优化的节点，不需要调用render方法生成ReactElement，然后再生成对应的Fiber节点。而是直接复用`current Fiber Tree`中的节点。**
+
+节点复用也分成两种情况：
+
+1. **复用整个`currentFiber`对象**：当节点的后代节点也没有更新的时候，后代节点会直接复用对应的整个`currentFiber`对象。
+2. **复用`currentFiber`中的属性**：也就是**克隆**`currentFiber`节点，克隆出来的节点也是新的节点。
+
+> 这里需要说明的一点是：**由于在commit阶段中，都会执行`workInProgress = null`这个操作，所以每次更新的时候，都会从rootFiber开始遍历生成新的`workInProgress Fiber Tree`，在遍历的过程中插入优化的环节**。
+
+
+
+##### 2.2.2.2 优化的前提条件：
+
+1. `oldProps === newProps`，即更新前后的props不变，默认情况下并没有做对象的浅对比，调用render新生成的Fiber节点都不满足该条件。
+2. `!includesSomeLane(renderLanes, updateLanes)=== true` ，即表示当前节点的优先级不够，不参与本次更新，后面再细讲。
+
+当这两个条件同时满足的时候，会进入优化流程。但是**这两个条件都不是优化的必要条件，不同类型的节点有不同的逻辑判断是否进入优化流程**。
+
+比如FunctionComponent，需要`didReceiveUpdate === false`
 
 ```javascript
 function updateFunctionComponent(
@@ -251,7 +299,7 @@ function updateFunctionComponent(
 }
 ```
 
-除了这个条件之外，有一些类型的组件也可以通过**其他的条件来判断是否复用`currentFiber`**，比如ClassComponent：
+比如ClassComponent，需要`shouldUpdate===false`，`shouldComponentUpdate`生命周期的返回值可以影响这个变量
 
 ```javascript
 function finishClassComponent(
@@ -277,55 +325,38 @@ function finishClassComponent(
 }
 ```
 
-可以看到，`ClassComponent`可以通过**`shouldComponentUpdate`**的返回值判断是否复用`currentFiber`。
+#### 2.2.3 创建子fiber节点
 
-> 凡是调用`bailoutOnAlreadyFinishedWork`的方法都会复用`currentFiber`，你可以在当前文件中搜索该方法了解react更多复用`currentFiber`的规则
+**在创建子Fiber节点之前，先要获取当前ReactElement最新的子ReactElement**。不同类型的ReactElement生成children的方式不同，这里着重提一下ClassComponent。
 
-#### 2.2.3 mount阶段
+ClassComponent在生成子节点的过程中，会调用对应的生命周期函数，最后调用`render`方法生成子ReactElement。这个阶段中具体调用了哪些生命周期，可以看[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L852)
 
-对于mount阶段，虽然`didReceiveUpdate = false`，但是由于对应的`currentFiber`为`null`，所以不能复用`currentFiber`，会直接进入创建子Fiber节点的流程。
+最后都是调用`reconcileChildren`方法，进入创建子Fiber节点的流程。
 
-#### 2.2.4 创建子fiber节点之前的准备工作
-
-对于不同类型的组件，在创建子FIber节点之前，都需要做一些准备工作。下面分析几种常见的类型
-
-1. `FunctionComponent`
-
-   ```javascript
-   function updateFunctionComponent(
-     current,
-     workInProgress,
-     Component,
-     nextProps: any,
-     renderLanes,
-   ) {
-     let context;
-     let nextChildren;
-     // 处理context
-     prepareToReadContext(workInProgress, renderLanes);
-       // 运行对应的组件方法，生成当前ReactElement的children
-     nextChildren = renderWithHooks(
-       current,
-       workInProgress,
-       Component,
-       nextProps,
-       context,
-       renderLanes,
-     );
-   
-     // 判断update阶段是否复用
-     if (current !== null && !didReceiveUpdate) {
-       bailoutHooks(current, workInProgress, renderLanes);
-       return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
-     }
-   
-     // React DevTools reads this flag.
-     workInProgress.flags |= PerformedWork;
-     reconcileChildren(current, workInProgress, nextChildren, renderLanes);
-     return workInProgress.child;
-   }
-   ```
-
-   1. 处理context，后面会有专门章节介绍
-   2. 运行组件函数，生成当前ReactElement的children
+```javascript
+export function reconcileChildren(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  nextChildren: any,
+  renderLanes: Lanes,
+) {
+  if (current === null) {
+    // mount阶段
+    workInProgress.child = mountChildFibers(
+      workInProgress,
+      null,
+      nextChildren,
+      renderLanes,
+    );
+  } else {
+    // update阶段
+    workInProgress.child = reconcileChildFibers(
+      workInProgress,
+      current.child,
+      nextChildren,
+      renderLanes,
+    );
+  }
+}
+```
 
