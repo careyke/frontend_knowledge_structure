@@ -49,7 +49,7 @@ export function updateContainer(
 
 > 源码对应[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberReconciler.new.js#L250)
 
-**说明mount和update一样，都是先产生一个或多个update，然后再调用`scheduleUpdateOnFiber`开启一次更新操作。**（后面讲update流程的时候会详细讲解）
+**说明应用mount和update一样，都是先产生一个或多个update，然后再调用`scheduleUpdateOnFiber`开启一次更新操作。**（后面讲update流程的时候会详细讲解）
 
 进入更新操作
 
@@ -72,7 +72,7 @@ render阶段的工作可以分成两个部分：
 1. **”递“阶段** —— 从`workInProgress rootFiber`开始向下进行**深度优先遍历**，每遍历一个`Fiber节点`就调用一次`beginWork`方法，该方法会创建该`Fiber节点`的子节点。然后继续向下遍历并创建，直到遇到叶子节点的时候，进入”归“阶段。
 2. **”归“节点** —— 对当前节点执行`completeWork`方法，执行完之后如果存在兄弟节点，则会进入兄弟节点的”递“阶段。如果不存在兄弟节点，就会进入父节点的”归“阶段。
 
-可以看出，”递“和”归“是**交错运行**的，直到`rootFiber`的归阶段执行完，整个`render`阶段才算完成。
+可以看出，”递“和”归“是**交错运行**的，直到`rootFiber`的“归”阶段执行完，整个`render`阶段才算完成。
 
 > React内部遍历Fiber Tree使用的算法是深度优先遍历。如果强行使用广度优先遍历，会非常麻烦，sibling指针不适合广度优先遍历
 
@@ -269,6 +269,8 @@ function bailoutOnAlreadyFinishedWork(
 2. **复用`currentFiber`中的属性**：也就是**克隆**`currentFiber`节点，克隆出来的节点也是新的节点。
 
 > 这里需要说明的一点是：**由于在commit阶段中，都会执行`workInProgress = null`这个操作，所以每次更新的时候，都会从rootFiber开始遍历生成新的`workInProgress Fiber Tree`，在遍历的过程中插入优化的环节**。
+>
+> 通过`currentFiber`来创建`workInProgressFiber`的时候，会执行`workInProgress.child = current.child`，所以才会产生前面复用整个`currentFiber`的情况。（创建函数见[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiber.new.js#L252)）
 
 
 
@@ -329,7 +331,7 @@ function finishClassComponent(
 
 **在创建子Fiber节点之前，先要获取当前ReactElement最新的子ReactElement**。不同类型的ReactElement生成children的方式不同，这里着重提一下ClassComponent。
 
-ClassComponent在生成子节点的过程中，会调用对应的生命周期函数，最后调用`render`方法生成子ReactElement。这个阶段中具体调用了哪些生命周期，可以看[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L852)
+ClassComponent在生成子节点的过程中，会**调用对应的生命周期函数**，最后调用`render`方法生成子ReactElement。这个阶段中具体调用了哪些生命周期，可以看[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L852)
 
 最后都是调用`reconcileChildren`方法，进入创建子Fiber节点的流程。
 
@@ -359,4 +361,24 @@ export function reconcileChildren(
   }
 }
 ```
+
+这里之所以要区分mount阶段和update阶段，是为了减少对真实DOM操作的次数。**对于本次更新中新增的子树（subtree），最后只需要执行一次DOM操作就可以了，而不是`subtree`中每个新增的节点都需要进行一次插入操作。也就是说只在当前`subtree`根节点中增加一个`Placement flag`**
+
+其实`mountChildFibers`和`reconcileChildFibers`两个方法的逻辑基本是一样的，唯一不同的是`shouldTrackSideEffects`的取值不同。
+
+优化的关键代码：（这里只分析单一子节点的情况，多子节点也是实现相对麻烦，但是结果是一样的）
+
+```javascript
+function placeSingleChild(newFiber: Fiber): Fiber {
+  if (shouldTrackSideEffects && newFiber.alternate === null) {
+    newFiber.flags = Placement;
+  }
+  return newFiber;
+}
+```
+
+1. 如果当前节点是mount阶段的时候，`shouldTrackSideEffects===false`，其子节点都不会加上`Placement flags`。
+2. 如果当前节点是update阶段，`shouldTrackSideEffects===true，并且子节点是新增的节点，就在当前子节点上加上`Placement flags`。
+
+如此就达到了优化的效果，对于新增的subtree，在commit阶段只进行一次DOM操作。
 
