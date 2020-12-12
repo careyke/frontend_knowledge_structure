@@ -137,6 +137,8 @@ function performUnitOfWork(unitOfWork: Fiber): void {
     next = beginWork(current, unitOfWork, subtreeRenderLanes);
   }
 
+	// 子节点创建完成之后，最新的props(pendingProps)就已经被消费完成
+	// 可以作为下一次更新的memoizedProps
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
     // 如果是叶子节点，插入一个”归“过程
@@ -249,8 +251,8 @@ function bailoutOnAlreadyFinishedWork(
   // 判断当前节点的子节点本次是否需要更新（反应在优先级上）
   if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
     // 如果子节点都不需要更新，本次更新直接跳过所有后代节点
-    // 当前节点直接进入“归”过程
-    // 相当于当前节点的所有后代节点都复用对应的currentFiber
+    // 当前节点直接进入“归”过程，后代节点都不需要进入“归”阶段
+    // 相当于当前节点的所有后代节点都复用对应的currentFiber，也包括真实DOM
     return null;
   } else {
     // 如果当前节点的后代节点中有节点需要在本次更新
@@ -276,7 +278,7 @@ function bailoutOnAlreadyFinishedWork(
 
 ##### 2.2.2.2 优化的前提条件：
 
-1. `oldProps === newProps`，即更新前后的props不变，默认情况下并没有做对象的浅对比，调用render新生成的Fiber节点都不满足该条件。
+1. `oldProps === newProps`，即更新前后的props不变，默认情况下并**没有做对象的浅对比**，调用render新生成的Fiber节点都不满足该条件。
 2. `!includesSomeLane(renderLanes, updateLanes)=== true` ，即表示当前节点的优先级不够，不参与本次更新，后面再细讲。
 
 当这两个条件同时满足的时候，会进入优化流程。但是**这两个条件都不是优化的必要条件，不同类型的节点有不同的逻辑判断是否进入优化流程**。
@@ -381,4 +383,283 @@ function placeSingleChild(newFiber: Fiber): Fiber {
 2. 如果当前节点是update阶段，`shouldTrackSideEffects===true，并且子节点是新增的节点，就在当前子节点上加上`Placement flags`。
 
 如此就达到了优化的效果，对于新增的subtree，在commit阶段只进行一次DOM操作。
+
+#### 2.2.4 总结
+
+从上面分析中可以得出“递”节点的主要工作：
+
+1. 根据`currentFiber`和新的`ReactElement`来生成`workInProgressFiber`。
+2. 执行`diff`算法，判断节点更新的类型，并给新增和删除的节点打上对应的flag，分别是`Deletion`和`Placement`。
+3. 对于执行了render方法的节点，如果**更新之后有副作用操作**，比如`useEffect`、`componentDidMount`等，会给节点打上对应的 `flag`，比如`Update`、 `Snapshot`等
+
+> 后面会专门介绍diff算法的实现
+
+
+
+### 2.3 “归”过程——completeWork
+
+> 该方法的源码看[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberCompleteWork.new.js#L800)
+
+```javascript
+function completeWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes,
+): Fiber | null {
+  // 此时workInProgress.memoizedProps === workInProgress.pendingProps
+  // 对于update的节点来说 获取oldProps可以从current.memoizedProps中获取
+  const newProps = workInProgress.pendingProps;
+
+  switch (workInProgress.tag) {
+    case IndeterminateComponent:
+    case LazyComponent:
+    case SimpleMemoComponent:
+    case FunctionComponent:
+    case ForwardRef:
+    case Fragment:
+    case Mode:
+    case Profiler:
+    case ContextConsumer:
+    case MemoComponent:
+      return null;
+    case ClassComponent: {
+      const Component = workInProgress.type;
+      if (isLegacyContextProvider(Component)) {
+        popLegacyContext(workInProgress);
+      }
+      return null;
+    }
+    case HostRoot: {
+      // ...省略
+      return null;
+    }
+    case HostComponent: {
+      // ...省略
+      return null;
+    }
+    case HostText: {
+      // ...省略
+      return null;
+    }
+    case SuspenseComponent: {
+      // ...省略
+    }
+    case HostPortal:
+      // ...省略
+    case FundamentalComponent: {
+      // ...省略
+    }
+    case ScopeComponent: {
+      // ...省略
+    }
+    case OffscreenComponent:
+    case LegacyHiddenComponent: {
+      // ...省略
+    }
+  }
+}
+```
+
+上面代码可以看出，对于我们熟悉的`ClassComponent`和`FunctionComponent`类型的节点，并没有执行和渲染相关的操作。所以下面来着重**分析一下`HostComponent`类型**的节点。
+
+```javascript
+case HostComponent: {
+    popHostContext(workInProgress);
+    const rootContainerInstance = getRootHostContainer();
+    const type = workInProgress.type;
+    if (current !== null && workInProgress.stateNode != null) {
+      // update阶段，
+      // ...省略
+    } else {
+      // mount阶段
+      // ...省略
+    }
+    return null;
+}
+```
+
+和`beginWork`一样，completeWork中也将节点分成两个阶段来处理：`mount`阶段和`update`阶段
+
+#### 2.3.1 mount阶段——HostComponent
+
+```javascript
+// 创建当前HostComponent Fiber对应的真实DOM
+const instance = createInstance(
+    type,
+    newProps,
+    rootContainerInstance,
+    currentHostContext,
+    workInProgress,
+);
+
+// 将子节点对应的真实DOM拼到当前节点的DOM节点中，行程一颗DOM subtree
+// 因为completeWork是从下到上的，所以当前节点的子节点对应的DOM节点此时已经创建好了
+appendAllChildren(instance, workInProgress, false, false);
+
+// 将真实DOM节点保存在Fiber中
+workInProgress.stateNode = instance;
+
+// 初始化事件处理，给autoFocus===true的节点打一个update flag，聚焦需要更新UI页面
+if (
+    finalizeInitialChildren(
+        instance,
+        type,
+        newProps,
+        rootContainerInstance,
+        currentHostContext,
+    )
+) {
+    markUpdate(workInProgress);
+}
+```
+
+对于mount阶段的节点，在`completeWork`的执行过程中，**主要是创建对应的真实的DOM节点，然后在内存中组装成一颗离屏的DOM子树。在commit阶段再将该离屏DOM树插入页面DOM树中。**
+
+#### 2.3.2 update阶段——HostComponent
+
+```javascript
+updateHostComponent(
+    current,
+    workInProgress,
+    type,
+    newProps,
+    rootContainerInstance,
+);
+
+updateHostComponent = function (
+    current: Fiber,
+    workInProgress: Fiber,
+    type: Type,
+    newProps: Props,
+    rootContainerInstance: Container,
+) {
+    const oldProps = current.memoizedProps;
+    if (oldProps === newProps) {
+        // 表示当前节点经过了beginWork中的优化，复用了currentFiber
+      	// 所以真实DOM没有更新
+        return;
+    }
+    const instance: Instance = workInProgress.stateNode;
+    const currentHostContext = getHostContext();
+  	// 对比oldProps和newProps，获取更新的部分
+    const updatePayload = prepareUpdate(
+        instance,
+        type,
+        oldProps,
+        newProps,
+        rootContainerInstance,
+        currentHostContext,
+    );
+    // HostComponent类型的Fiber 其updateQueue是对比之后需要更新的Props，在commit阶段将这些变化渲染到DOM上
+    workInProgress.updateQueue = (updatePayload: any);
+    if (updatePayload) {
+      	// 给当前节点打上update flag
+        markUpdate(workInProgress);
+    }
+};
+```
+
+**对于`HostComponent`类型的Fiber节点来说，其中的`updateQueue`属性记录的是新旧`props`对比之后需要更新的部分**。
+
+**`updatePayload`的数据结构是一个数组，偶数索引表示变化的属性名`propKey`，基数索引表示变化的属性值`propValue`**
+
+<img src="/Users/herman/private/projects/frontend_knowledge_structure/framework/react code/images/updatePayload.jpg" alt="updatePayload" style="zoom:100%;" />
+
+#### 2.3.3 总结
+
+“归”过程主要是**针对`HostComponent`类型的节点**，进行更新DOM之前的准备工作
+
+1. 对于新增的节点，创建对应的离屏`DOM subtree`
+2. 对于更新的节点，对比新旧属性，找出需要更新的属性，储存在节点中，并给节点打上`Update flag`
+
+自此`render`阶段的绝大部分工作就已经完成了，`workInProgress Fiber Tree`创建完成，需要更新的节点也已经打上了`flag`，似乎就可以进入`commit`阶段开始渲染对应的更新了。
+
+但是这里有一个问题，commit阶段需要取到所有打了`flag` 的节点，如果重新遍历一次树的话，这样做显然是低效的。为了解决这个问题，React内部建立了一个**`effectList`链表**来解决这个问题。
+
+### 2.4 effectList
+
+在`completeUnitOfWork`方法中，节点执行完`completeWork`之后，会**将当前节点中保存的effect拼接到effectList中，并且将effectList传递到父节点中**。
+
+```javascript
+if (returnFiber.firstEffect === null) {
+    returnFiber.firstEffect = completedWork.firstEffect;
+}
+if (completedWork.lastEffect !== null) {
+    if (returnFiber.lastEffect !== null) {
+      	// 拼接当前节点上以保存的effect，保存的是子代的effect节点
+        returnFiber.lastEffect.nextEffect = completedWork.firstEffect;
+    }
+    returnFiber.lastEffect = completedWork.lastEffect;
+}
+
+const flags = completedWork.flags;
+
+if (flags > PerformedWork) {
+    if (returnFiber.lastEffect !== null) {
+      	// 如果当前节点也有flag，则将当前节点插入effectList后面
+        returnFiber.lastEffect.nextEffect = completedWork;
+    } else {
+        returnFiber.firstEffect = completedWork;
+    }
+    returnFiber.lastEffect = completedWork;
+}
+```
+
+> 对于的源代码你可以看[这里](https://github.com/facebook/react/blob/cdfde3ae110844baf068706e7ed3fe97ec15f1d7/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1750)，这段代码在v17.0.1中没有，笔者是基于当前的master分析，此时React发版到v17.0.1
+
+从上面的插入逻辑可以看出：
+
+1. effectList中每个节点都是一个**含有`flag`的Fiber节点**。
+2. **除去`Deletion flag`的节点，其他含有`flag`的节点插入`effectList`的顺序和执行`completeWork`方法的顺序相同。谁先执行谁先插入**。这个顺序很重要，涉及到后面副作用和生命周期的执行顺序
+3. **每个Fiber节点通过`firstEffect`和`lastEffect`来保存后代节点组成的`effectList`片段，所以`rootFiber`中保存了完整的effectList。**
+
+下面通过一个简单的例子来说明
+
+<img src="./images/updateList.jpg" alt="updateList" style="zoom:50%;" />
+
+上图中的完整的effectList为：
+
+```javascript
+					firstEffect		nextEffect																													lastEffect
+rootFiber ----------> D ---------> E ----------> B ----------> F ---------> C ---------> A <---------rootFiber
+```
+
+对于`Deletion flag`的节点来说，由于该节点并没有执行`completeUnitOfWork`方法，那么这类节点是怎么加入effectList的呢？
+
+在创建子节点的时候，如果判断有节点需要删除，会执行`deleteChild`方法。
+
+```javascript
+function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
+    if (!shouldTrackSideEffects) {
+        return;
+    }
+    const last = returnFiber.lastEffect;
+    if (last !== null) {
+      	// 将Deletion的节点插入effectList中
+        last.nextEffect = childToDelete;
+        returnFiber.lastEffect = childToDelete;
+    } else {
+        returnFiber.firstEffect = returnFiber.lastEffect = childToDelete;
+    }
+    childToDelete.nextEffect = null;
+    childToDelete.flags = Deletion;
+}
+```
+
+> 源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactChildFiber.new.js#L254)
+
+可以看到，`Deletion flag`的节点就是在执行`deleteChild`方法的时候插入`effectList`中的。
+
+至此，render阶段的工作已经完成了，下面来总结一下
+
+## 3.总结
+
+**render过程中的主要工作**：
+
+1. 在“递”阶段，利用`更新优化`和`diff算法`，根据`current Fiber Tree` 和最新的`ReactElment Tree`来生成`workInProgress Fiber Tree`。
+
+2. 在“归”阶段，提前创建`新增的DOM subtree`和找出需要`增量更新的DOM属性`，保存在Fiber节点中
+3. 在整个render过程中，对需要更新的节点，打上相应的`flag`并且组成`effectList`链表。
+
+render阶段收集出了所有的变化，commit阶段来消费这些变化。
 

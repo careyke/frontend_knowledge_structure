@@ -154,7 +154,7 @@ Fiber节点作为Fiber架构中的最小工作单元，**更新的时候负责�
 // 设置这个属性的时候，组件的更新流程还没有开始
 this.pendingProps = pendingProps;
 
-// 表示对应ReactElement当前的Props
+// 表示对应ReactElement当前的Props（单词好像拼错了，应该是memorizedProps）
 this.memoizedProps = null;
 
 // 表示本次更新中，对应组件的更新操作，是一个链表结构。后面更新流程时会详细说明
