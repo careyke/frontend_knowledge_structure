@@ -18,7 +18,71 @@ React文档中有提到，即使在最前沿的算法中，将前后两棵树完
 2. **不同类型的节点会产生不同的子树**。如果元素由`div`变成了`p`，React会直接销毁`div整个子树`，然后新建`p整个子树`。
 3. **开发者可以通过设置`key prop`来暗示哪些元素在不同的渲染中能保持稳定**。
 
-## 2. Diff算法的具体实现
+
+
+## 2. key的作用
+
+回想一下前面讲到的`update`阶段中创建`workInProgressFiber`节点的步骤：
+
+1. 在`current Fiber Tree`的同层节点中，找到相对应的`currentFiber`
+2. 判断`currentFiber`能否复用
+   - 如果可以复用，就根据`currentFiber`来生成`workInProgressFiber`，复用大部分属性
+   - 如果不能复用，就标记删除老的`Fiber`节点，根据`ReactElement`来新创建`workInProgressFiber`
+
+在这个过程中，最重要的是第一步。
+
+在没有引入`key prop`的时候，寻找对应的currentFiber只能通过当前节点在**数组的索引**来寻找，这种方式对于单一节点或者是更新前后节点位置不变的情况是可行。但是对于**插入节点或者节点位置移动**的情况，这种做法是非常糟糕的。举个例子
+
+```react
+// 之前
+<div>
+	<p>a</p>
+  <span>b</span>
+  <div>c</div>
+</div>
+
+// 之后
+<div>
+  <div>c</div>
+  <p>a</p>
+  <span>b</span>
+</div>
+```
+
+上面例子中，由于没有引入key prop，只能按照索引的方式来找对应的`currentFiber`，结果判断不能复用，会销毁重建对应的Fiber节点和对应的真实DOM。
+
+然而对于开发者来说，他是知道当前只是移动了一个节点的位置，是不需要销毁和重建的。React只是没有正确找到对应的`currentFiber`，所以**开发者需要一种机制来告诉React如果寻找当前节点对应的`currentFiber`，这个机制就是`key prop`。**
+
+同样的例子加上key
+
+```react
+// 之前
+<div>
+	<p key='a'>a</p>
+  <span key='b'>b</span>
+  <div key='c'>c</div>
+</div>
+
+// 之后
+<div>
+  <div key='c'>c</div>
+  <p key='a'>a</p>
+  <span key='b'>b</span>
+</div>
+```
+
+节点可以根据key值精准的找到对应的`currentFiber`，不会产生多余的销毁和重建的过程。
+
+然而**key作为寻找`currentFiber`的唯一标识**，有两点需要注意：
+
+1. 唯一性：同层节点中，key值需要保持唯一。
+2. 稳定性：更新前后，同一节点的key值不能变化。所以不推荐使用数组索引或随机数来作为key值
+
+**key值的作用是在`Diff`的过程中，告诉React如何精准找到与当前节点对应的currentFiber**，避免找到错误的`currentFiber`而导致多余的DOM操作。
+
+
+
+## 3. Diff算法的具体实现
 
 `Diff`过程发生在`update`阶段，所以可以从入口函数`reconcileChildFibers`看起。
 
@@ -63,7 +127,7 @@ function reconcileChildFibers(
 
 ### 2.1 单节点Diff
 
-当个节点的Diff实现起来比较简单，不存在同层节点移动的问题。直接看`reconcileSingleElement`方法的代码
+单个节点的Diff实现起来比较简单，不存在同层节点移动的问题。直接看`reconcileSingleElement`方法的代码
 
 > 对应源代码看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactChildFiber.new.js#L1092)
 
@@ -121,12 +185,12 @@ function reconcileSingleElement(
 1. **`key`值相同**。用来从同层的多个`currentFiber`中找出当前节点对应的`currentFiber`，如果没有找到，则表示没有对应的`currentFiber`，需要新建节点
 2. **`type`**相同。判断类型是否相同
 
-两个条件同时满足的时候，才能复用对应的currentFiber节点的属性。
+两个条件**同时满足**的时候，才能复用对应的currentFiber节点的属性。
 
 **当节点更新前多个子节点，更新之后只有一个子节点时**，也会进入单节点`Diff`。这种情况下有个细节需要关注一下：
 
-1. **当`key`相同，`type`不同的时候**，会执行`deleteRemainingChildren`方法将`child`及其所有兄弟节点全部标记删除。这是因为React认为已经找到了对应的`currentFiber`节点，但是类型不同无法复用，其他节点也不需要考虑，直接删除同层所有节点。
-2. **仅当key不同的时候**，会执行`deleteChild`方式标记删除当前节点。并不会直接将其兄弟节点也删除，因为React判断当前并没有找到对应的`currentFiber`，所以只删除当前不匹配的节点，然后遍历其兄弟节点，寻找对应的`currentFiber`。
+1. **当`key`相同，`type`不同的时候**，会执行`deleteRemainingChildren`方法将`child`及其所有兄弟节点全部标记删除。这是因为**React认为已经找到了对应的`currentFiber`节点，但是类型不同无法复用，其他节点也不需要考虑，直接删除同层所有节点**。
+2. **仅当key不同的时候**，会执行`deleteChild`方式标记删除当前节点。并不会直接将其兄弟节点也删除，因为**React判断当前并没有找到对应的`currentFiber`，所以只删除当前不匹配的节点，然后遍历其兄弟节点，寻找对应的`currentFiber`**。
 
 单节点Diff的流程：
 
@@ -134,11 +198,7 @@ function reconcileSingleElement(
 
 ### 2.2 多节点Diff
 
-多节点`Diff`中由于节点是多对多的关系，所以需要处理的情况多种。
 
-1. 节点更新
-2. 节点新增或删除
-3. 节点移动
 
-在一次更新中，可能会出现上面情况的**一种或多种**。
+
 
