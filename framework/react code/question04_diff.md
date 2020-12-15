@@ -129,3 +129,16 @@ function reconcileSingleElement(
 2. **仅当key不同的时候**，会执行`deleteChild`方式标记删除当前节点。并不会直接将其兄弟节点也删除，因为React判断当前并没有找到对应的`currentFiber`，所以只删除当前不匹配的节点，然后遍历其兄弟节点，寻找对应的`currentFiber`。
 
 单节点Diff的流程：
+
+<img src="./images/singleDiff.jpg" alt="singleDiff" style="zoom:50%;" />
+
+### 2.2 多节点Diff
+
+多节点`Diff`中由于节点是多对多的关系，所以需要处理的情况多种。
+
+1. 节点更新
+2. 节点新增或删除
+3. 节点移动
+
+在一次更新中，可能会出现上面情况的**一种或多种**。
+
