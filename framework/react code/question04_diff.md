@@ -198,7 +198,255 @@ function reconcileSingleElement(
 
 ### 2.2 多节点Diff
 
+多节点的Diff算法实现上存在两个难点：
+
+1. 如何从同层多个`currentFiber`中找到对应的`currentFiber`。
+2. 如何判断哪些节点发生了位置移动。
+
+下面分别来分析这两个难点。
+
+#### 2.2.1 寻找currentFiber
+
+在单节点Diff中，由于更新之后只有一个节点，所以可以直接遍历一次`currentFiber链表`就可以轻松到对应的`currentFiber`。然而这种方式在多节点中是不可取的，因为要为每个节点都遍历一次`currentFiber链表`，显然代价有点大。
+
+对于这种情况，一般的做法是采用**空间换时间**的方式，先遍历一次`currentFiber链表`，生成一个**`{key:currentFiber}`的映射表**，然后在遍历`children`的时候根据`key`值从映射表中寻找对应的`currentFiber`。
+
+> 注意：这里生成映射表的时候，需要使用到currentFiber的key，但是有些节点是没有key的，这是可以使用index属性的值作为key。
 
 
 
+React在上面做法的基础上，又做了进一步的优化。直接看多节点`Diff`的入口方法`reconcileChildrenArray`
+
+> 对应的源码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactChildFiber.new.js#L728)
+
+```javascript
+function reconcileChildrenArray(
+    returnFiber: Fiber,
+    currentFirstChild: Fiber | null,
+    newChildren: Array < * > ,
+    lanes: Lanes,
+): Fiber | null {
+    let resultingFirstChild: Fiber | null = null;
+    let previousNewFiber: Fiber | null = null;
+
+    let oldFiber = currentFirstChild;
+    // 表示已经找到的currentFiber中，最大的index，也就是最右边的currentFiber的index
+    // 用来判断当前节点是否发生移动的关键属性
+    let lastPlacedIndex = 0; 
+    let newIdx = 0;
+    let nextOldFiber = null;
+    // 第一次遍历，处理节点更新的情况
+    for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
+        if (oldFiber.index > newIdx) {
+            nextOldFiber = oldFiber;
+            oldFiber = null;
+        } else {
+            nextOldFiber = oldFiber.sibling;
+        }
+        const newFiber = updateSlot(
+            returnFiber,
+            oldFiber,
+            newChildren[newIdx],
+            lanes,
+        );
+        if (newFiber === null) {
+          	// 当前索引对应的currentFiber不是child对应的currentFiber
+          	// 判断当前有节点发生移动，需要跳出第一次循环，进入节点移动的处理流程
+            if (oldFiber === null) {
+                oldFiber = nextOldFiber;
+            }
+            break;
+        }
+        if (shouldTrackSideEffects) {
+            if (oldFiber && newFiber.alternate === null) {
+                // 表示key相同，但是type不同，无法复用，需要删除旧节点
+                deleteChild(returnFiber, oldFiber);
+            }
+        }
+        lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+        if (previousNewFiber === null) {
+            resultingFirstChild = newFiber;
+        } else {
+            previousNewFiber.sibling = newFiber;
+        }
+        previousNewFiber = newFiber;
+        oldFiber = nextOldFiber;
+    }
+
+    // 第一次遍历之后，newChildren已经遍历完成，剩余的currentFiber需要删除
+    if (newIdx === newChildren.length) {
+        // We've reached the end of the new children. We can delete the rest.
+        deleteRemainingChildren(returnFiber, oldFiber);
+        return resultingFirstChild;
+    }
+
+    // 第一次遍历之后，currentFiber链表遍历完成，剩余的newChildren全部需要新建workInProgressFiber
+    if (oldFiber === null) {
+        for (; newIdx < newChildren.length; newIdx++) {
+            const newFiber = createChild(returnFiber, newChildren[newIdx], lanes);
+            if (newFiber === null) {
+                continue;
+            }
+            lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+            if (previousNewFiber === null) {
+                // TODO: Move out of the loop. This only happens for the first run.
+                resultingFirstChild = newFiber;
+            } else {
+                previousNewFiber.sibling = newFiber;
+            }
+            previousNewFiber = newFiber;
+        }
+        return resultingFirstChild;
+    }
+
+    // 开始处理节点移动的情况
+    // 第一步：建立currentFiber映射表示
+    const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
+
+    // 第二步：开始第二次循环
+    for (; newIdx < newChildren.length; newIdx++) {
+        const newFiber = updateFromMap(
+            existingChildren,
+            returnFiber,
+            newIdx,
+            newChildren[newIdx],
+            lanes,
+        );
+        if (newFiber !== null) {
+            if (shouldTrackSideEffects) {
+                if (newFiber.alternate !== null) {
+                    // 已经参与复用的currentFiber节点需要从map中去除
+                    existingChildren.delete(
+                        newFiber.key === null ? newIdx : newFiber.key,
+                    );
+                }
+            }
+            lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+            if (previousNewFiber === null) {
+                resultingFirstChild = newFiber;
+            } else {
+                previousNewFiber.sibling = newFiber;
+            }
+            previousNewFiber = newFiber;
+        }
+    }
+
+    if (shouldTrackSideEffects) {
+      	// 有没有参与复用的currentFiber要标记删除
+        existingChildren.forEach(child => deleteChild(returnFiber, child));
+    }
+
+    return resultingFirstChild;
+}
+```
+
+React将寻找`currentFiber`的过程分成**两个部分**来处理
+
+1. **节点更新**：这种情况下只需要根据数组中的索引就可以找到对应的`currentFiber`，不需要先遍历一次`currentFiber链表`创建映射表。
+   - 节点数量不变，位置不变，只是属性更新
+   - 在数组最后面追加节点
+   - 在数组最后面删除节点
+
+2. **节点移动**：这种情况下说明根据数组的索引已经找不到对应的currentFiber，所以需要对剩下的节点建立映射表来寻找对应的currentFiber。
+   - 长度不变，节点位置发生调换
+   - 在数组前面或者中间插入节点或者删除节点
+
+React之所以将寻找的过程分成两个部分来处理，出了纯算法层面的优化之外。更重要的一点React团队发现，在日常的开发中，**相对于`节点移动`情况，`节点更新`的情况发生的频率要高得多**。所以分成两个部分来处理，可以将算法优化的收益放到最大。
+
+节点更新过程和节点移动过程这两个部分是如何分割的？
+
+从上面代码中可以看出，在处理节点更新的过程中，**如果某个节点无法通过数组的索引找到对应的currentFiber的时候，更新流程就结束了，这个节点以及后面的节点都会进入节点移动的处理流程中**。
+
+> 这里更新流程中是同时开始遍历`newChildren`和`currentFiber`链表的，这种寻找currentFiber的方式不好描述，就简称为**通过索引寻找**，因为每次遍历过程中取到的currentFiber和newChild在同层的位置是一样的。
+
+#### 2.2.2 判断节点是否发生移动
+
+判断节点是否发生移动的关键点在于确定对比的**参照物**，**React从已经匹配到的所有`currentFiber`中，挑选最右边Fiber的位置索引作为参照物。代码中用变量`lastPlacedIndex`来保存这个位置索引**
+
+由于newChildren的遍历是**从左到右**的，在没有发生位置移动的情况下，当前节点对应的`currentFiber`的`index`应该是要比`lastPlaceIndex`大的，所以**一旦`currentFiber`的`index`小于`lastPlaceIndex`，则表示当前currentFiber发生了移动**。
+
+源代码中判断节点是否移动的方法是`placeChild`。
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactChildFiber.new.js#L324)
+
+```javascript
+function placeChild(
+    newFiber: Fiber,
+    lastPlacedIndex: number,
+    newIndex: number,
+): number {
+    newFiber.index = newIndex;
+    if (!shouldTrackSideEffects) {
+        // Noop.
+        return lastPlacedIndex;
+    }
+    const current = newFiber.alternate;
+    if (current !== null) {
+        const oldIndex = current.index;
+        if (oldIndex < lastPlacedIndex) {
+            // 表示节点发生移动，标记移动flag
+            newFiber.flags = Placement;
+            return lastPlacedIndex;
+        } else {
+            // 表示节点不需要移动，更新lastPlacedIndex的值
+            return oldIndex;
+        }
+    } else {
+        // 没有对应的currentFiber，表示当前节点是一个插入节点
+        newFiber.flags = Placement;
+        return lastPlacedIndex;
+    }
+}
+```
+
+可以看到，代码中使用`oldIndex`表示`currentFiber`的位置索引，通过`oldIndex`和`lastPlacedIndex`之间的对比来判断节点是否移动。
+
+1. `oldIndex < lastPlaceIndex`：表示当前节点对应的`currentFiber`需要**向右移动**。
+2. `oldIndex >= lastPlaceIndex`：表示当前节点的相对位置是正确的，不需要移动。
+
+
+
+下面来看两个例子，结合上面的算法分析一下发生移动的节点个数。
+
+简化一下书写，每个字母表示一个节点，字母的值表示当前节点的key
+
+Demo1：
+
+```javascript
+// 之前
+abcd
+
+// 之后
+bcda
+```
+
+> 这种情况下，发生移动的节点只有一个，就是`a`节点需要向右移动。
+>
+> 这也是最优的移动，只需要移动一个节点就可以达到效果
+
+Demo2
+
+```javascript
+// 之前
+abcd
+
+// 之后
+dabc
+```
+
+> 这种情况下，发生移动的节点有三个，分别是`a、b、c`，这三个节点都需要向右移动
+>
+> 这显然不是最优的移动，最优的移动是将`d`向左移动即可，但是算法无法实现，这和**遍历newChildren的顺序**有关。
+
+所以在日常的开发中，应该**尽量减少将后面的节点移动到前面的操作**。
+
+
+
+## 4. 总结
+
+分析完`Diff`算法的具体实现之后，笔者学习到了一些开发中需要注意的小细节
+
+1. 不应该只是对循环体产生的子节点添加key，**对于一些可能会发生位置变化的节点应该也要加上key**。这种情况React并不会主动提示，但是如果不添加key会带来一些无意义的销毁和重建工作。
+2. 尽量减少将后面的节点移动到前面的操作，这样会导致多个节点发生移动，从而导致多个DOM操作。
+3. 设置`key`值的时候，要注意`key`值的唯一性和稳定性
 
