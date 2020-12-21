@@ -407,7 +407,7 @@ function App(){
 
    <img src="./images/fiber_workflow_5.png" alt="fiber_workflow_5" style="zoom:50%;" />
 
-> 注意：React内部对于单个文本的节点做了优化，不会创建Fiber节点。这里标注出来是为了体现出变化。
+> **注意**：React内部对于单个文本的节点做了优化，不会创建Fiber节点。这里标注出来是为了体现出变化。
 
 至此，Fiber架构的工作流程就介绍完了。
 
