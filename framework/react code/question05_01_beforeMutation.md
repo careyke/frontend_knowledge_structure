@@ -107,3 +107,72 @@ if (finishedWork.flags > PerformedWork) {
 
 ## 2. before mutation阶段
 
+`before mutation阶段`的代码也在`commitRootImpl`方法中
+
+```javascript
+// ...省略处理focus和blur的逻辑
+
+// 全局变量nextEffect中保存effectList
+nextEffect = firstEffect;
+do {
+  	try {
+      	// before mutation阶段的主要方法
+        commitBeforeMutationEffects();
+    } catch (error) {
+        invariant(nextEffect !== null, 'Should be working on an effect.');
+        captureCommitPhaseError(nextEffect, error);
+        nextEffect = nextEffect.nextEffect;
+    }
+} while (nextEffect !== null);
+```
+
+可以看到，`before mutation阶段`主要做的就是遍历effectList链表，对其中的每个`Fiber`执行`commitBeforeMutationEffects`方法
+
+### 2.1 commitBeforeMutationEffects
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L2311)
+
+```javascript
+function commitBeforeMutationEffects() {
+  while (nextEffect !== null) {
+    const current = nextEffect.alternate;
+
+    if (!shouldFireAfterActiveInstanceBlur && focusedInstanceHandle !== null) {
+      // ... 省略 处理blur和focus的逻辑
+    }
+
+    const flags = nextEffect.flags;
+    if ((flags & Snapshot) !== NoFlags) {
+      // 如果当前节点的flag中含有Snapshot
+      // 会执行getSnapshotBeforeUpdate生命周期
+      commitBeforeMutationEffectOnFiber(current, nextEffect);
+    }
+    if ((flags & Passive) !== NoFlags) {
+      // 如果当前节点的flag中含有Passive，说明当前节点对应的组件使用了useEffect
+      // 尝试开启一次异步调度执行本次更新中所有的useEffect
+      if (!rootDoesHavePassiveEffects) {
+        rootDoesHavePassiveEffects = true;
+        // 注册一个任务，调度器异步执行
+        scheduleCallback(NormalSchedulerPriority, () => {
+          flushPassiveEffects();
+          return null;
+        });
+      }
+    }
+    nextEffect = nextEffect.nextEffect;
+  }
+}
+```
+
+上面代码中主要做了三件事：
+
+1. 执行节点添加或者删除之后的`focus`和`blur`的逻辑
+2. 对于更新阶段的ClassComponent，调用`getSnapshotBeforeUpdate`生命周期函数
+3. **调度**本次更新中的所有`useEffect`
+
+我们主要分析第2、3点。
+
+#### 2.1.1 执行`getSnapshotBeforeUpdate`生命周期
+
+#### 2.1.2 调度useEffect
+
