@@ -117,10 +117,10 @@ function commitPlacement(finishedWork: Fiber): void {
     return;
   }
 
-  // Recursively insert all host nodes into the parent.
-  const parentFiber = getHostParentFiber(finishedWork); // 确保parentFilber的stateNode是一个dom节点
+  // 寻找第一个对应真实DOM节点的父级节点，
+  // HostComponent或者HostRoot
+  const parentFiber = getHostParentFiber(finishedWork); 
 
-  // Note: these two variables *must* always be updated together.
   let parent;
   let isContainer;
   const parentStateNode = parentFiber.stateNode;
@@ -130,7 +130,8 @@ function commitPlacement(finishedWork: Fiber): void {
       isContainer = false;
       break;
     case HostRoot: // RootFiber
-      parent = parentStateNode.containerInfo; // 获取挂载节点
+      // rootFiber的stateNode属性就是fiberRootNode
+      parent = parentStateNode.containerInfo;
       isContainer = true;
       break;
     case HostPortal:
@@ -142,7 +143,6 @@ function commitPlacement(finishedWork: Fiber): void {
         parent = parentStateNode.instance;
         isContainer = false;
       }
-    // eslint-disable-next-line-no-fallthrough
     default:
       invariant(
         false,
@@ -150,21 +150,90 @@ function commitPlacement(finishedWork: Fiber): void {
           'in React. Please file an issue.',
       );
   }
-  // 更新节点的文本
+  // 如果父节点是由纯文本子节点变成正常子节点
+	// 需要先清空父节点的textContent属性
   if (parentFiber.flags & ContentReset) {
-    // Reset the text content of the parent before doing any insertions
     resetTextContent(parent);
-    // Clear ContentReset from the effect tag
     parentFiber.flags &= ~ContentReset;
   }
 
+	// 获取插入位置已经存在的真实DOM节点
+	// 当前节点对应的DOM节点可以插入before之前
   const before = getHostSibling(finishedWork);
-  // We only have the top Fiber that was inserted but we need to recurse down its
-  // children to find all the terminal nodes.
+
   if (isContainer) {
+    // 插入React挂载节点中
     insertOrAppendPlacementNodeIntoContainer(finishedWork, before, parent);
   } else {
+    // 插入对应的父DOM节点中
     insertOrAppendPlacementNode(finishedWork, before, parent);
+  }
+}
+```
+
+从上面代码中可以看出，插入`DOM`节点的操作步骤有三步：
+
+1. 获取`父级DOM`节点
+2. 获取插入的位置对应的DOM节点（**后面都称为`before DOM节点`**）
+3. 调用`DOM API`执行插入操作
+
+下面会重点讲解第2、3步
+
+#### 2.1.1 获取插入位置对应的DOM节点
+
+获取插入位置对应的方法是`getHostSibling`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberCommitWork.new.js#L1159)
+
+```javascript
+function getHostSibling(fiber: Fiber): ?Instance {
+  let node: Fiber = fiber;
+  siblings: while (true) {
+    while (node.sibling === null) {
+      // 如果兄弟节点不存在
+      // 1. 向父级方向寻找before DOM节点
+      if (node.return === null || isHostParent(node.return)) {
+        // 如果当前节点不存在兄弟节点，而且父节点对应真实DOM节点
+        // 表示当前父DOM节点不存在子DOM节点，before DOM节点为null
+        // appendChild即可，不需要插入
+        return null;
+      }
+      node = node.return;
+    }
+    
+    // 如果兄弟节点存在
+    // 2. 向右方向寻找before DOM节点
+    node.sibling.return = node.return;
+    node = node.sibling;
+    
+    while (
+      node.tag !== HostComponent &&
+      node.tag !== HostText &&
+      node.tag !== DehydratedFragment
+    ) {
+      
+      if (node.flags & Placement) {
+        // 如果这个节点也是本次更新新插入的节点，
+        // 则需要继续寻找before DOM节点
+        continue siblings;
+      }
+      if (node.child === null || node.tag === HostPortal) {
+        // 如果以这个节点为根节点的subtree中不存在对应的DOM节点
+        // 那么也需要继续向后寻找before DOM节点
+        continue siblings;
+      } else {
+        // 如果兄弟节点没有对应的真实DOM节点
+        // 3. 需要向下寻找before DOM节点
+        node.child.return = node;
+        node = node.child;
+      }
+    }
+    
+    
+    if (!(node.flags & Placement)) {
+      // 如果兄弟节点对应真实DOM节点，而且不是本次更新插入的节点
+      return node.stateNode;
+    }
   }
 }
 ```
