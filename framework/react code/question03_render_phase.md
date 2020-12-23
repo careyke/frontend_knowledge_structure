@@ -484,6 +484,7 @@ case HostComponent: {
 
 ```javascript
 // 创建当前HostComponent Fiber对应的真实DOM
+// 并没有给对应的属性赋值
 const instance = createInstance(
     type,
     newProps,
@@ -498,6 +499,9 @@ appendAllChildren(instance, workInProgress, false, false);
 
 // 将真实DOM节点保存在Fiber中
 workInProgress.stateNode = instance;
+
+// 结合HostComponent的props，给对应的真实DOM节点赋值属性，节点初始化
+// 当HostComponent的子节点是纯文本时，会在这里将文本设置在真实DOM节点中。
 
 // 初始化事件处理，给autoFocus===true的节点打一个update flag，聚焦需要更新UI页面
 if (
