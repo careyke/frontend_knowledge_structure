@@ -169,7 +169,7 @@ function commitBeforeMutationEffects() {
 
 上面代码中主要做了三件事：
 
-1. 执行节点添加或者删除之后的`focus`和`blur`的逻辑
+1. 执行节点添加或者删除之后的`autoFocus`和`blur`的逻辑
 2. 对于更新阶段的ClassComponent，调用`getSnapshotBeforeUpdate`生命周期函数
 3. **调度**本次更新中的所有`useEffect`
 
