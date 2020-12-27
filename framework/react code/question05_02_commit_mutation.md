@@ -400,7 +400,7 @@ function commitHookEffectListUnmount(tag: number, finishedWork: Fiber) {
 
 **和`useEffect`不同的是，`useLayoutEffect`只会为对应的`Fiber`节点增加一个`Update flag`，并没有`Passive flag`。**
 
-增加是时机和`useEffect`是一样的，也是在`useLayoutEffect`函数运行的时候。
+增加`flag`是时机和`useEffect`是一样的，也是在`useLayoutEffect`函数运行的时候。
 
 ```javascript
 function mountLayoutEffect(
@@ -528,6 +528,7 @@ function unmountHostComponents(
     else {
       // 执行节点销毁之前的操作
       commitUnmount(finishedRoot, node, renderPriorityLevel);
+      // 处理子节点的销毁，“递”过程
       if (node.child !== null) {
         node.child.return = node;
         node = node.child;
@@ -537,7 +538,7 @@ function unmountHostComponents(
     if (node === current) {
       return;
     }
-    // 删除兄弟节点
+    // 处理兄弟节点的销毁，“归”过程
     while (node.sibling === null) {
       if (node.return === null || node.return === current) {
         return;
@@ -632,20 +633,20 @@ function commitUnmount(
 }
 ```
 
-`ClassComponent`删除前的操作：
+- `ClassComponent`删除前的操作：
 
-1. 清除`Ref`
-2. 执行`componentWillUnmount`生命周期函数
+  1. 清除`Ref`
 
-`FunctionComponent`删除前的操作：
+  2. 执行`componentWillUnmount`生命周期函数
 
-1. **收集需要执行销毁函数的`useEffect`和`Fiber`节点**，放在全局变量中保存，并且调度所有的`useEffect`
+- `FunctionComponent`删除前的操作：
 
-2. **执行`useLayoutEffect`的销毁函数**
+  1. **收集需要执行销毁函数的`useEffect`和`Fiber`节点**，放在全局变量中保存，并且调度`useEffect`
 
-`HostComponent`删除前的操作：
+  2. **执行`useLayoutEffect`的销毁函数**
 
-1. 清除`Ref`
+- `HostComponent`删除前的操作：
+  1. 清除`Ref`
 
 
 
@@ -655,7 +656,7 @@ function commitUnmount(
 
 
 
-> `FunctionComponent`之所以需要清空`Ref`，是因为`FunctionComponent`通过`Ref`获取到的值都是`null`，因为对应的`Fiber`节点中`stateNode`属性值为`null`。
+> **`FunctionComponent`之所以不需要清空`Ref`，是因为`FunctionComponent`通过`Ref`获取到的值都是`null`，因为对应的`Fiber`节点中`stateNode`属性值为`null`。**
 
 ## 2. 总结
 
@@ -666,7 +667,9 @@ function commitUnmount(
 3. 执行`componentWillUnmount`生命周期
 4. 对于**销毁**的节点，收集**需要销毁的`useEffect`和`Fiber`节点**，调度执行`useEffect`。
 
-> 在前面beforeMutation阶段的时候已经调度了一次useEffect，这里会重复调度吗？
+
+
+> **问题：**在前面beforeMutation阶段的时候已经调度了一次useEffect，这里会重复调度吗？
 >
 > 不会的，其中有一个全局的开关变量`rootDoesHavePassiveEffects`在控制
 
