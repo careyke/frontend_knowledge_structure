@@ -391,7 +391,7 @@ pref(mergeSort);
 | 冒泡排序 | O(n^2)     | O(n^2)         | O(n)           | O(1)       | 稳定   |
 | 选择排序 | O(n^2)     | O(n^2)         | O(n^2)         | O(1)       | 不稳定 |
 | 插入排序 | O(n^2)     | O(n^2)         | O(n)           | O(1)       | 稳定   |
-| 快速排序 | O(nlogn)   | O(n^2          | O(nlogn)       | O(logn)    | 不稳定 |
+| 快速排序 | O(nlogn)   | O(n^2)         | O(nlogn)       | O(logn)    | 不稳定 |
 | 归并排序 | O(nlogn)   | O(nlogn)       | O(nlogn)       | O(nlogn)   | 稳定   |
 
 1. 冒泡排序和快速排序需要**替换运算**，其他方式可以不要
