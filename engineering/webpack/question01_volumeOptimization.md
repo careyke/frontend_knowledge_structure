@@ -15,7 +15,7 @@ plugins:[
 ]
 ```
 
-<img src="/Users/aiwmf/Private/projects/frontend_knowledge_structure/engineering/webpack/images/analyze.jpg" alt="analyze" />
+<img src="./images/analyze.jpg" alt="analyze" />
 
 ## 2. 体积优化的方案
 

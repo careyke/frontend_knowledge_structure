@@ -567,7 +567,7 @@ updateHostComponent = function (
 
 **`updatePayload`的数据结构是一个数组，偶数索引表示变化的属性名`propKey`，基数索引表示变化的属性值`propValue`**
 
-<img src="/Users/herman/private/projects/frontend_knowledge_structure/framework/react code/images/updatePayload.jpg" alt="updatePayload" style="zoom:100%;" />
+<img src="./images/updatePayload.jpg" alt="updatePayload" style="zoom:100%;" />
 
 #### 2.3.3 总结
 
