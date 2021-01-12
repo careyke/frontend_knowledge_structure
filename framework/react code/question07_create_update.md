@@ -26,3 +26,72 @@
 
 ## 2. 创建Update对象
 
+下面我们以`this.setState`的执行过程为例来分析创建`Update`对象的过程。
+
+我们在定义`ClassComponent`的时候，通常都要继承`React.Component`或者`React.PureComponent`，`setState`方法就是在父类中定义的方法。
+
+```javascript
+function Component(props, context, updater) {
+  this.props = props;
+  this.context = context;
+  this.refs = emptyObject;
+  this.updater = updater || ReactNoopUpdateQueue;
+}
+Component.prototype.setState = function(partialState, callback) {
+  this.updater.enqueueSetState(this, partialState, callback, 'setState');
+};
+Component.prototype.forceUpdate = function(callback) {
+  this.updater.enqueueForceUpdate(this, callback, 'forceUpdate');
+};
+```
+
+> 对应的源代码看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react/src/ReactBaseClasses.js#L20)
+
+我们可以看到，`Component`实例中保存了一个**更新器`updater`**，更新的创建过程是在`updater`中完成的。
+
+`Component`中并没有给`updater`赋值，`ReactNoopUpdateQueue`可以理解为一个空值。真正给`updater`赋值发生在`beginWork`中，组件初始化的时候。
+
+```javascript
+function adoptClassInstance(workInProgress: Fiber, instance: any): void {
+  // 更新器赋值
+  instance.updater = classComponentUpdater;
+  workInProgress.stateNode = instance;
+  // 组件实例和fiber之间建立引用关系，方便更新的时候获取对应的fiber节点
+  setInstance(instance, workInProgress);
+}
+```
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberClassComponent.new.js#L563)
+
+### 2.1 enqueueSetState
+
+`this.setState`方法内部调用的是`enqueueSetState`，对应的逻辑都是在这个方法完成的。
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberClassComponent.new.js#L195)
+
+```javascript
+enqueueSetState(inst, payload, callback) {
+  	// 通过实例和fiber之间的索引关系来获取对应的fiber
+    const fiber = getInstance(inst);
+    const eventTime = requestEventTime();
+  	// 获取本次更新的优先级
+    const lane = requestUpdateLane(fiber);
+
+  	// 创建Update
+    const update = createUpdate(eventTime, lane);
+    update.payload = payload;
+    if (callback !== undefined && callback !== null) {
+        update.callback = callback;
+    }
+
+  	// 将当前更新加入Update链表
+    enqueueUpdate(fiber, update);
+  	// 调度更新入口，发起一次调度
+    scheduleUpdateOnFiber(fiber, lane, eventTime);
+},
+```
+
+
+
+### 2.2 Update的数据结构
+
