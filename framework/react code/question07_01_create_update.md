@@ -2,6 +2,16 @@
 
 在前面的文章中，我们分别分析了`Scheduler`、`Reconciler`和`Renderer`各自的工作内容。接下来的几篇文章中，我们将详细的介绍整个`React`应用`update`时的详细过程。
 
+**整个update的流程大致可以分成三个阶段**：
+
+1. 创建update
+2. 调度update
+3. 执行update
+
+这边文章中我们主要分析`创建update`阶段
+
+
+
 ## 1. 状态变化
 
 `React`应用中，产生更新的前提条件就是发生状态变化，`React`提供了几种发生状态变化的`API`：
@@ -131,7 +141,7 @@ export function createUpdate(eventTime: number, lane: Lane): Update<*> {
 
 ### 2.3 updateQueue的数据结构（*）
 
-在组件初始化的时候，会调用`initializeUpdateQueue`方法来初始化`updateQueue`，从这个方法中可以大致看出`updateQueue`的基本结构
+**在组件初始化的时候，会调用`initializeUpdateQueue`方法来初始化`updateQueue`**，从这个方法中可以大致看出`updateQueue`的基本结构
 
 ```javascript
 export function initializeUpdateQueue<State>(fiber: Fiber): void {
@@ -161,4 +171,56 @@ export function initializeUpdateQueue<State>(fiber: Fiber): void {
   > 后面分析执行过程的时候会详细讲解
 
 - effects：用来收集本次执行的`Update`中，存在`callback`的`Update`，是一个数组。后面`commit阶段`需要使用
+
+
+
+### 2.4 单向环状链表
+
+`Update`创建完成之后，会调用`enqueueUpdate`方法保存到`Fiber节点`上
+
+```javascript
+export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
+  const updateQueue = fiber.updateQueue;
+  if (updateQueue === null) {
+    return;
+  }
+
+  const sharedQueue: SharedQueue<State> = (updateQueue: any).shared;
+  const pending = sharedQueue.pending;
+  if (pending === null) {
+    update.next = update;
+  } else {
+    update.next = pending.next;
+    pending.next = update;
+  }
+  sharedQueue.pending = update;
+}
+```
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactUpdateQueue.new.js#L198)
+
+上面代码可以看出，本次更新产生的`Update`会以**单向环状链表**的形式保存在`sharedQueue.pending`中，其中**`sharedQueue.pending`表示的是最后一个加入的`Update`。**
+
+> 什么情况下会一次更新产生多个`Update`？
+>
+> 这里其实涉及到的是React内部**批量更新**的实现，后面有专门的章节来介绍。
+>
+> 这里介绍一种常见会产生多个`Update`的更新
+>
+> ```
+> onClick=()=>{
+> 	this.setState({a:1});
+> 	this.setState({b:2});
+> }
+> ```
+
+
+
+## 3. 调度更新
+
+在创建完`Update`对象，并保存在`currentFiber`中之后，会调用`scheduleUpdateOnFiber`方法来发起一次更新调度。
+
+**`scheduleUpdateOnFiber`方法是`调度update`节点的入口方法**，不管是哪种方式导致的状态变化，在完成`创建update阶段`之后，都会调用这个方法进入`调度update阶段`
+
+下一节笔者将会来分析`调度update阶段`
 
