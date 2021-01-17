@@ -1,6 +1,6 @@
 # 结合源码解析Scheduler的实现
 
-前面在讲`Fiber`架构的时候提到，`React`在最新的`ConcurrentMode`中加入了**时间切片**和**优先级调度**的功能，用来进一步提高交互的流畅度。这两个功能的实现主要都是依赖于`Scheduler`模块。
+前面在讲`Fiber`架构的时候提到，`React`在最新的`ConcurrentMode`中加入了**时间切片**和**优先级调度**的功能，用来进一步提高交互的流畅度。这两个功能的实现都会依赖于`Scheduler`模块。
 
 **`Scheduler`模块的主要功能就是模拟`requestIdleCallback`在当前帧的空余时间来调度任务，顺便加入了优先级的概念。**
 
