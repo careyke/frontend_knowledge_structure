@@ -163,11 +163,13 @@ export function processUpdateQueue<State>(
       newBaseState = newState;
     }
 
+    // 更新updateQueue和Fiber
     queue.baseState = ((newBaseState: any): State);
     queue.firstBaseUpdate = newFirstBaseUpdate;
     queue.lastBaseUpdate = newLastBaseUpdate;
 
     markSkippedUpdateLanes(newLanes);
+    // 更新lanes，将未执行Update的lane保存起立
     workInProgress.lanes = newLanes;
     workInProgress.memoizedState = newState;
   }
@@ -410,4 +412,127 @@ A1 - B2 - C1 - D2
 }
 // 最终情况下，baseState和state值是一样的
 ```
+
+
+
+## 2. 更新`root.pendingLanes`和`root.expiredLanes`
+
+在完成本次`update`之后，需要将本次`update`对应的`renderLanes`从`root.pendingLanes`中去除，否则会导致重复调度的情况。
+
+React使用了一个比较巧妙（比较绕）的思路来解决这个问题：
+
+上一节我们讲过，每个`Fiber`节点中包含两个和优先级相关的属性，分别是`lanes`和`childLanes`，lanes保存当前节点中`未执行Update`的`lane`，`childLanes`保存`subtree`中`未执行Update`的`lane`。**所以`workInProgress rootFiber`节点的`lanes和childLanes`中包含的就是整个React应用所有未执行`Update`的`lane`**。
+
+所以可以直接从`workInProgress rootFiber`节点中获取最新的`pendingLanes`，对应的代码在`commitRootImpl`方法中。
+
+```javascript
+// commitRootImpl中的相关片段
+let remainingLanes = mergeLanes(finishedWork.lanes, finishedWork.childLanes);
+markRootFinished(root, remainingLanes);
+
+
+// 方法
+export function markRootFinished(root: FiberRoot, remainingLanes: Lanes) {
+  const noLongerPendingLanes = root.pendingLanes & ~remainingLanes;
+
+  // 处理pendingLanes
+  root.pendingLanes = remainingLanes;
+
+  root.suspendedLanes = 0;
+  root.pingedLanes = 0;
+
+  // 处理expiredLanes
+  root.expiredLanes &= remainingLanes;
+  root.mutableReadLanes &= remainingLanes;
+
+  root.entangledLanes &= remainingLanes;
+
+  const entanglements = root.entanglements;
+  const eventTimes = root.eventTimes;
+  const expirationTimes = root.expirationTimes;
+
+  // 清除已执行lane相关的状态
+  let lanes = noLongerPendingLanes;
+  while (lanes > 0) {
+    const index = pickArbitraryLaneIndex(lanes);
+    const lane = 1 << index;
+
+    entanglements[index] = NoLanes;
+    eventTimes[index] = NoTimestamp;
+    expirationTimes[index] = NoTimestamp;
+
+    lanes &= ~lane;
+  }
+}
+```
+
+
+
+### 2.1 `fiber.lanes和fiber.childLanes`的更新流程
+
+下面我们结合整个`update`流程来分析一下`fiber.lanes`和`fiber.childLanes`的更新流程，看React如何更新的闭环。
+
+**第一步**：**初始化`fiber.lanes和fiber.childLanes`**。这个操作发生在`markUpdateLaneFromFiberToRoot`方法中。这个方法上一节我们详细的讲过，这里不再赘述。
+
+
+
+第二步：**在`beginWork阶段`更新`fiber.lanes`**。这个操作分成两个步骤
+
+1. 执行`render`函数之前清空`fiber.lanes`。对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L3233)
+
+   ```javascript
+   workInProgress.lanes = NoLanes;
+   ```
+
+   > 其实感觉这一步有点多余
+
+2. 执行完`Update`之后，更新`fiber.lanes`。上面代码中有
+
+
+
+第三步：在`completeWork阶段`更新`fiber.childLanes`。对应的方法是`resetChildLanes`
+
+```javascript
+function resetChildLanes(completedWork: Fiber) {
+  if (
+    (completedWork.tag === LegacyHiddenComponent ||
+      completedWork.tag === OffscreenComponent) &&
+    completedWork.memoizedState !== null &&
+    !includesSomeLane(subtreeRenderLanes, (OffscreenLane: Lane)) &&
+    (completedWork.mode & ConcurrentMode) !== NoLanes
+  ) {
+    return;
+  }
+
+  let newChildLanes = NoLanes;
+
+  if (enableProfilerTimer && (completedWork.mode & ProfileMode) !== NoMode) {
+    // ...省略
+  } else {
+    let child = completedWork.child;
+    // 遍历子节点
+    while (child !== null) {
+      newChildLanes = mergeLanes(
+        newChildLanes,
+        mergeLanes(child.lanes, child.childLanes),
+      );
+      child = child.sibling;
+    }
+  }
+
+  completedWork.childLanes = newChildLanes;
+}
+```
+
+这个过程和构造`effectList`的过程有点类似，都是在`completeWork`阶段将子节点的信息收集在父节点中。
+
+
+
+这就是`fiber.lanes`和`fiber.childLanes`更新的整个流程。**React内部会循环的`调度update、执行update`直到`root.pendingLanes`为0为止。**
+
+
+
+## 3. 总结
+
+至此，整个`update`流程就已经分析完了。其中最难也是最精髓的部分应该是`调度update`这个阶段，其中**`lane模型`**和**优先级调度**的设计需要反复去看。
 
