@@ -536,3 +536,6 @@ function resetChildLanes(completedWork: Fiber) {
 
 至此，整个`update`流程就已经分析完了。其中最难也是最精髓的部分应该是`调度update`这个阶段，其中**`lane模型`**和**优先级调度**的设计需要反复去看。
 
+总结一下整个update的流程:
+
+<img src="./images/update.png?" alt="update" style="zoom:50%;" />
