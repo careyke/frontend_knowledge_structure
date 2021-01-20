@@ -539,3 +539,38 @@ function resetChildLanes(completedWork: Fiber) {
 总结一下整个update的流程:
 
 <img src="./images/update.png?" alt="update" style="zoom:50%;" />
+
+
+
+## 4. 问题分析
+
+### 4.1 分析一下ClassComponent中修改生命周期的原因
+
+用过`React16`之前版本的同学应该知道，在`Fiber`架构出来之后，React官方修改了`ClassComponent`的生命周期函数。
+
+去掉了三个生命周期：
+
+- componentWillMount
+- componentWillRecieveProps
+- componentWillUpdate
+
+新增了两个生命周期：
+
+- static getDerivedStateFromProps
+- getSnapshotBeforeUpdate
+
+React给出的解释是三个`will_`生命周期经常被滥用，比如在其中执行`this.state`逻辑、操作`DOM`。在异步渲染中这些问题会被进一步放大，可能会产生`bug`，所以才会去掉。
+
+这里我们来分析一下，**为什么在异步渲染中这些问题会放大**。
+
+前面几节我们分析过，在优先级调度中，`update`是可以被打断的。当一个`低优update`正在执行的时候，突然产生了一个`高优update`，那么这个`低优update`会被中断执行，顺带着之前生成的`workInProgressFiber`片段会被丢弃。等到`高优update`执行完成之后，重新执行`低优update`，之前生成过的`workInProgressFiber`又需要重新生成一遍。
+
+也就是说，**在异步渲染中，组件的`will_`生命周期都是在`render阶段`执行，可能会被执行多次，如果其中做了什么不规范的操作，也就会被执行多次**。
+
+
+
+那么替换的这两个生命周期可以避免吗？答案是可以
+
+1. `getDerivedStateFromProps`是一个**静态**的生命周期，可以理解为一个纯函数，其中并不能获取到组件实例（this），所以即便是会执行多次，也并不会影响组件实例。
+2. `getSnapshotBeforeUpdate`的**调用发生在`commit阶段`**，一次更新只会执行一次。
+
