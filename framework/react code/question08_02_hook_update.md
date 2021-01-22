@@ -92,5 +92,306 @@ export type Hook = {|
 
 
 
-这个依靠调用顺序来保证一一对应的机制明显是不够可靠的，所以在用法上`Hook方法`有一些限制，不能使用在条件语句中，不能使用在useEffect中等。总结起来就是：**在`FunctionComponent`函数体执行的时候，所有的`Hook方法`都必须要执行，一旦有某个方法不执行，就会报错。**
+这个依靠调用顺序来保证一一对应的机制明显是不够可靠的，所以在用法上`Hook方法`有一些限制，不能使用在条件语句中，不能使用在`useEffect`中等。总结起来就是：**在`FunctionComponent`函数体执行的时候，所有的`Hook方法`都必须要执行，一旦有某个方法不执行，更新就会出错。**
+
+
+
+## 3. Hooks的更新流程
+
+在`beginWork`中，`FunctionComponnet`会调用`renderWithHooks`方法来执行对应的渲染函数，**当执行到钩子函数的时候会创建或者更新对应的`Hook`对象。**
+
+所以`renderWithHooks`方法就是`Hooks`更新流程的入口函数
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberHooks.new.js#L327)
+
+```javascript
+export function renderWithHooks<Props, SecondArg>(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  Component: (p: Props, arg: SecondArg) => any,
+  props: Props,
+  secondArg: SecondArg,
+  nextRenderLanes: Lanes,
+): any {
+  // 全局变量保存renderLanes
+  renderLanes = nextRenderLanes;
+  // 保存最新的workInProgressFiber
+  currentlyRenderingFiber = workInProgress;
+
+  // 先清空状态
+  workInProgress.memoizedState = null;
+  workInProgress.updateQueue = null;
+  workInProgress.lanes = NoLanes;
+
+  if (__DEV__) {
+  } else {
+    // 根据组件所处的阶段来决定使用对应的HookDispatcher
+    ReactCurrentDispatcher.current =
+      current === null || current.memoizedState === null
+        ? HooksDispatcherOnMount
+        : HooksDispatcherOnUpdate;
+  }
+
+  let children = Component(props, secondArg);
+
+  // 判断是否在组件render过程中有调用setState，如果有的话就优化处理
+  if (didScheduleRenderPhaseUpdateDuringThisPass) {
+    let numberOfReRenders: number = 0;
+    do {
+      didScheduleRenderPhaseUpdateDuringThisPass = false;
+      
+      numberOfReRenders += 1;
+
+      // Start over from the beginning of the list
+      currentHook = null;
+      workInProgressHook = null;
+
+      workInProgress.updateQueue = null;
+
+      // 切换处理器，优化处理
+      ReactCurrentDispatcher.current = __DEV__
+        ? HooksDispatcherOnRerenderInDEV
+        : HooksDispatcherOnRerender;
+
+      children = Component(props, secondArg);
+    } while (didScheduleRenderPhaseUpdateDuringThisPass);
+  }
+
+  // render函数执行完成之后立马切换HookDispatcher
+  // 对应不规范的时候报错
+  ReactCurrentDispatcher.current = ContextOnlyDispatcher;
+
+  // 判断是否提前return，报错
+  const didRenderTooFewHooks =
+    currentHook !== null && currentHook.next !== null;
+
+  renderLanes = NoLanes;
+  currentlyRenderingFiber = (null: any); // 执行完成之后清空全局变量
+
+  // 清空全局变量
+  currentHook = null;
+  workInProgressHook = null;
+
+  didScheduleRenderPhaseUpdate = false;
+
+  invariant(
+    !didRenderTooFewHooks,
+    'Rendered fewer hooks than expected. This may be caused by an accidental ' +
+      'early return statement.',
+  );
+  
+  return children;
+}
+```
+
+上面方法中有一个重要的全局变量`ReactCurrentDispatcher`，**这个变量用来保存当前时期对应的`HookDispatcher`，执行Hook函数的时候会调用`HookDispatcher`中对应的处理函数。**
+
+`HookDispatcher`的结构，列举两个常用的`HookDispatcher`
+
+```javascript
+const HooksDispatcherOnMount: Dispatcher = {
+  readContext,
+
+  useCallback: mountCallback,
+  useContext: readContext,
+  useEffect: mountEffect,
+  useImperativeHandle: mountImperativeHandle,
+  useLayoutEffect: mountLayoutEffect,
+  useMemo: mountMemo,
+  useReducer: mountReducer,
+  useRef: mountRef,
+  useState: mountState,
+  // ... 省略部分
+};
+
+const HooksDispatcherOnUpdate: Dispatcher = {
+  readContext,
+
+  useCallback: updateCallback,
+  useContext: readContext,
+  useEffect: updateEffect,
+  useImperativeHandle: updateImperativeHandle,
+  useLayoutEffect: updateLayoutEffect,
+  useMemo: updateMemo,
+  useReducer: updateReducer,
+  useRef: updateRef,
+  useState: updateState,
+  // ... 省略部分
+};
+```
+
+`renderWithHooks`方法中最重要的一个工作是**根据不同的时期，给`ReactCurrentDispatcher`赋值对应的`HookDispatcher`**。
+
+`React Hooks`中一共存在4个不同的`HookDispatcher`，分别代表**4种不用的情况**。
+
+1. HooksDispatcherOnMount：组件`mount`时使用，创建`Hook`对象
+2. HooksDispatcherOnUpdate：组件`update`时使用，更新`Hook`对象
+3. HooksDispatcherOnRerender：组件存在 **渲染时更新** 的时候使用，优化处理
+4. ContextOnlyDispatcher：组件`render函数`执行完成之后使用，提供不规范使用的报错
+
+下面我们以`useReducer`为例，来分别介绍这四种情况。
+
+> 之所以使用`useReducer`而不是`useState`，是因为`useState`本质上是一个简化版的`useReducer`。后续会对比这两个钩子
+
+
+
+### 3.1 创建Hook对象
+
+在组件`mount`阶段，调用`useReducer`钩子会执行`mountReducer`方法
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberHooks.new.js#L609)
+
+```javascript
+function mountReducer<S, I, A>(
+  reducer: (S, A) => S,
+  initialArg: I,
+  init?: I => S,
+): [S, Dispatch<A>] {
+  // 创建一个Hook对象
+  const hook = mountWorkInProgressHook();
+  let initialState;
+  if (init !== undefined) {
+    initialState = init(initialArg);
+  } else {
+    initialState = ((initialArg: any): S);
+  }
+  hook.memoizedState = hook.baseState = initialState;
+  const queue = (hook.queue = {
+    pending: null,
+    dispatch: null,
+    lastRenderedReducer: reducer,
+    lastRenderedState: (initialState: any),
+  });
+
+	// 创建setState函数，绑定fiber节点
+  const dispatch: Dispatch<A> = (queue.dispatch = (dispatchAction.bind(
+    null,
+    currentlyRenderingFiber,
+    queue,
+  ): any));
+  return [hook.memoizedState, dispatch];
+}
+```
+
+上面代码中，主要的功能是
+
+1. 创建一个`Hook`对象
+2. 返回`Hook`对象中的`state`以及一个修改`state`的方法，`FunctionComponent`使用临时变量保存之后就可以使用
+
+看一下`mountWorkInProgressHook`方法
+
+```javascript
+function mountWorkInProgressHook(): Hook {
+  const hook: Hook = {
+    memoizedState: null,
+    baseState: null,
+    baseQueue: null,
+    queue: null,
+    next: null,
+  };
+
+  if (workInProgressHook === null) {
+    currentlyRenderingFiber.memoizedState = workInProgressHook = hook;
+  } else {
+    workInProgressHook = workInProgressHook.next = hook;
+  }
+  return workInProgressHook;
+}
+```
+
+这里主要是想介绍一个全局变量`workInProgressHook`，这个变量用来**保存`workInProgressFiber`中挂载的`Hook`对象**，对应的还有一个`currentHook`来**保存`currentFiber`中挂载的`Hook`对象**。
+
+这两个变化在遍历`Hooks链表`的时候会使用上，在`render函数`执行完成之后会清空。
+
+
+
+### 3.2 更新Hook对象
+
+`FunctionComponent`的更新过程和`ClassComponent`的基本流程都是一样的，公用一套更新机制
+
+1. 创建update
+2. 调度update
+3. 执行update
+
+其中**调度`update`是完全一致的，创建`update`和执行`update`中的实现细节会有所不同**，下面我们分析一下不同的地方。
+
+
+
+#### 3.2.1 创建update
+
+前面讲过，执行Hook函数时会返回一个修改状态的方法，实际上会调用`dispatchAction`方法
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberHooks.new.js#L1708)
+
+```javascript
+function dispatchAction<S, A>(
+  fiber: Fiber,
+  queue: UpdateQueue<S, A>,
+  action: A,
+) {
+  const eventTime = requestEventTime();
+  const lane = requestUpdateLane(fiber);
+
+  const update: Update<S, A> = {
+    lane,
+    action,
+    eagerReducer: null,
+    eagerState: null,
+    next: (null: any),
+  };
+
+  // 单向环状链表
+  const pending = queue.pending;
+  if (pending === null) {
+    update.next = update;
+  } else {
+    update.next = pending.next;
+    pending.next = update;
+  }
+  queue.pending = update;
+
+  const alternate = fiber.alternate;
+  if (
+    fiber === currentlyRenderingFiber ||
+    (alternate !== null && alternate === currentlyRenderingFiber)
+  ) {
+    // render过程中有更新操作
+    didScheduleRenderPhaseUpdateDuringThisPass = didScheduleRenderPhaseUpdate = true;
+  } else {
+    if (
+      fiber.lanes === NoLanes &&
+      (alternate === null || alternate.lanes === NoLanes)
+    ) {
+      // 尝试优化本次update
+      const lastRenderedReducer = queue.lastRenderedReducer;
+      if (lastRenderedReducer !== null) {
+        try {
+          const currentState: S = (queue.lastRenderedState: any);
+          const eagerState = lastRenderedReducer(currentState, action);
+          update.eagerReducer = lastRenderedReducer;
+          update.eagerState = eagerState;
+          if (is(eagerState, currentState)) {
+            return;
+          }
+        } catch (error) {
+        } finally {
+        }
+      }
+    }
+    // 进入调度update
+    scheduleUpdateOnFiber(fiber, lane, eventTime);
+  }
+}
+```
+
+上面代码中可以看到，除了和`ClassComponent`一样会`创建Update`和调用`调度update`方法之外，其中包含两个优化的操作：
+
+1. **优化`render`过程产生的更新**
+2. **优化不必要的更新**
+
+这两个优化都涉及到执行`update`阶段，等分析完执行`update`之后再来详细分析这两个优化的操作
+
+
+
+#### 3.2.2 执行update
 
