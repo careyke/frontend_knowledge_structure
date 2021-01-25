@@ -226,7 +226,7 @@ const HooksDispatcherOnUpdate: Dispatcher = {
 
 1. HooksDispatcherOnMount：组件`mount`时使用，创建`Hook`对象
 2. HooksDispatcherOnUpdate：组件`update`时使用，更新`Hook`对象
-3. HooksDispatcherOnRerender：组件存在 **渲染时更新** 的时候使用，优化处理
+3. HooksDispatcherOnRerender：组件存在 **渲染时更新** 的时候使用（re-render），优化处理
 4. ContextOnlyDispatcher：组件`render函数`执行完成之后使用，提供不规范使用的报错
 
 下面我们以`useReducer`为例，来分别介绍这四种情况。
@@ -617,7 +617,7 @@ workInProgress.lanes = NoLanes;
 
 
 
-### 3.3 优化update-in-render
+### 3.3 优化update-in-render(rerender阶段)
 
 在分析`dispatchAction`时，我们提到过其中涉及两种优化操作，这里我们来分析其中的一种 —— `update-in-render`。
 
@@ -814,6 +814,38 @@ if (update.eagerReducer === reducer) {
     newState = reducer(newState, action);
 }
 ```
+
+
+
+### 3.5 不规范使用Hook报错
+
+上面我们提到，在`Hook`函数必须要在r`ender函数`执行的期间来执行，否则就会导致状态对应错误。React为了防止这种使用不规范的错误，运行时抛出了相应的错误提示。
+
+在`renderWithHooks`函数中，当`render函数`执行完成之后，会**切换`HookDispatcher`**
+
+```javascript
+ReactCurrentDispatcher.current = ContextOnlyDispatcher;
+```
+
+若出现`异步调用useReducer`的情况，会调用`ContextOnlyDispatcher`中对应的方法`throwInvalidHookError`
+
+```javascript
+function throwInvalidHookError() {
+  invariant(
+    false,
+    'Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for' +
+      ' one of the following reasons:\n' +
+      '1. You might have mismatching versions of React and the renderer (such as React DOM)\n' +
+      '2. You might be breaking the Rules of Hooks\n' +
+      '3. You might have more than one copy of React in the same app\n' +
+      'See https://reactjs.org/link/invalid-hook-call for tips about how to debug and fix this problem.',
+  );
+}
+```
+
+抛出错误！其他的Hook函数也是相似的逻辑。
+
+> `render函数`指的就是`FunctionComponent`函数本身，和ClassComponent中的render方法相似，故采用了同样的名称
 
 
 
