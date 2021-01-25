@@ -2,7 +2,7 @@
 
 在日常开发`React`组件的时候，我们常常会碰到一些特殊的值，有以下特点：
 
-1. 需要长久保存
+1. 持久化保存
 2. 值可能会随着state的变化而变化
 3. 它的修改不需要触发组件更新
 
@@ -68,4 +68,187 @@ function Test() {
 1. useCallback
 2. useMemo
 3. useRef
+
+
+
+## 1. useCallback
+
+`useCallback`对应的`Hook对象`用来保存**函数类型**的无副作用状态，而且提供了状态变化的依赖项。**当依赖项变化的时候，对应的状态才会发生变化。**
+
+> 可以类比`Vue`中的计算属性
+
+### 1.1 mount阶段
+
+对应的函数是`mountCallback`
+
+```javascript
+function mountCallback<T>(callback: T, deps: Array<mixed> | void | null): T {
+  const hook = mountWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  hook.memoizedState = [callback, nextDeps];
+  return callback;
+}
+```
+
+可以看到，`useCallback`对应`Hook`的`memoizeState`中保存了函数和依赖项。
+
+### 1.2 update阶段
+
+对应的函数是`updateCallback`
+
+```javascript
+function updateCallback<T>(callback: T, deps: Array<mixed> | void | null): T {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  const prevState = hook.memoizedState;
+  if (prevState !== null) {
+    if (nextDeps !== null) {
+      const prevDeps: Array<mixed> | null = prevState[1];
+      // 对比依赖项是否发生变化
+      if (areHookInputsEqual(nextDeps, prevDeps)) {
+        // 没有变化，直接返回之前的值
+        return prevState[0];
+      }
+    }
+  }
+  hook.memoizedState = [callback, nextDeps];
+  return callback;
+}
+```
+
+看一下比较依赖项的方法`areHookInputsEqual`
+
+```javascript
+function areHookInputsEqual(
+  nextDeps: Array<mixed>,
+  prevDeps: Array<mixed> | null,
+) {
+  if (prevDeps === null) {
+    return false;
+  }
+  for (let i = 0; i < prevDeps.length && i < nextDeps.length; i++) {
+    if (is(nextDeps[i], prevDeps[i])) { //object.is
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+```
+
+整体实现上还是比较简单的。
+
+
+
+### 1.3 闭包陷阱
+
+`useCallback`在使用中常常会遇到一个问题，就是在**函数中获取不到最新的state值**，也就是常说的闭包陷阱。
+
+举个例子：
+
+```react
+const Test=()=>{
+  const [num, setNum] = useState(0);
+  
+  const handleAdd=()=>{
+    setNum(prev => prev+1);
+  }
+  
+  const handlePrint=useCallback(()=>{
+    console.log(num);
+  },[])
+  
+  return (
+  	<div>
+    	<button onClick={handleAdd}>加1</button>
+      <button onClick={handlePrint}>输出</button>
+    </div>
+  );
+}
+```
+
+这里不管点击几次“加1”，再点击“输出”按钮，控制台打印的始终是0。
+
+因为`useCallback`传入的函数内部使用的外面函数的临时变量，形成了闭包，导致外面函数第一次执行时的执行上下文没有被销毁，`handlePrint`每次调用的时候取到`num`的值仍然是第一次的值。
+
+要解决这个问题，可以**将内部使用的`state`放在依赖项**中，这样每次`state`变化的时候，会使用最新的函数。
+
+```react
+const Test=()=>{
+  const [num, setNum] = useState(0);
+  
+  const handleAdd=()=>{
+    setNum(prev => prev+1);
+  }
+  
+  const handlePrint=useCallback(()=>{
+    console.log(num);
+  },[num]) // 加入依赖
+  
+  return (
+  	<div>
+    	<button onClick={handleAdd}>加1</button>
+      <button onClick={handlePrint}>输出</button>
+    </div>
+  );
+}
+```
+
+
+
+## 2. useMemo
+
+`useMemo`对应的Hook用来保存**所有类型**的无副作用状态，状态值由一个创建函数返回。和`useCallback`一样，调用`useMemo`的时候也可以提供状态变化的**依赖项**。
+
+### 2.1 mount阶段
+
+对应的函数是`mountMemo` 
+
+```javascript
+function mountMemo<T>(
+  nextCreate: () => T,
+  deps: Array<mixed> | void | null,
+): T {
+  const hook = mountWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  const nextValue = nextCreate();
+  hook.memoizedState = [nextValue, nextDeps];
+  return nextValue;
+}
+```
+
+`useMemo`对应`Hook`的`memoizedState`中保存执行创建函数的返回值以及对应的依赖项
+
+### 2.2 update阶段
+
+对应的函数是`updateMemo`
+
+```javascript
+function updateMemo<T>(
+  nextCreate: () => T,
+  deps: Array<mixed> | void | null,
+): T {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  const prevState = hook.memoizedState;
+  if (prevState !== null) {
+    if (nextDeps !== null) {
+      const prevDeps: Array<mixed> | null = prevState[1];
+      // 对比依赖项
+      if (areHookInputsEqual(nextDeps, prevDeps)) {
+        return prevState[0];
+      }
+    }
+  }
+  const nextValue = nextCreate();
+  hook.memoizedState = [nextValue, nextDeps];
+  return nextValue;
+}
+```
+
+基本和`useCallback`的逻辑是一样的。
+
+
+
+## 3. useRef
 
