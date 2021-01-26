@@ -252,3 +252,37 @@ function updateMemo<T>(
 
 ## 3. useRef
 
+`useRef`更像是`ClassComponent`中的`this`，其**对应`Hook`中保存的状态除非手动修改，否则不会发生变化**。
+
+### 3.1 mount阶段 
+
+```javascript
+function mountRef<T>(initialValue: T): {|current: T|} {
+  const hook = mountWorkInProgressHook();
+  const ref = {current: initialValue};
+  hook.memoizedState = ref;
+  return ref;
+}
+```
+
+### 3.2 update阶段
+
+```javascript
+function updateRef<T>(initialValue: T): {|current: T|} {
+  const hook = updateWorkInProgressHook();
+  return hook.memoizedState; // 返回原来的值
+}
+```
+
+实现上非常简单
+
+
+
+## 4. 总结
+
+虽然`useCallback、useMemo和useRef`都是用来存储无副作用的状态，但是其中的区别还是很明显的。
+
+**`useCallback`和`useMemo`通常用来保存由`state`计算所得的状态，类比Vue中的计算属性。**
+
+**`useRef`可以用来保存任何状态，但是需要手动修改。**
+
