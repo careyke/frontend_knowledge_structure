@@ -429,7 +429,41 @@ function performConcurrentWorkOnRoot(root) {
 
 
 
-## 3. Scheduler与React
+## 3. 修改优先级
+
+在实际的使用场景中，通常**需要根据给不同的操作设置不同的优先级上下文**。比如在React事件中就需要使用`UserBlockingPriority`优先级来执行回调函数，所以Scheduler中提供了一个修改优先级的方法。
+
+```javascript
+function unstable_runWithPriority(priorityLevel, eventHandler) {
+  switch (priorityLevel) {
+    case ImmediatePriority:
+    case UserBlockingPriority:
+    case NormalPriority:
+    case LowPriority:
+    case IdlePriority:
+      break;
+    default:
+      priorityLevel = NormalPriority;
+  }
+
+  var previousPriorityLevel = currentPriorityLevel;
+  // 全局优先级变量
+  currentPriorityLevel = priorityLevel;
+
+  try {
+    return eventHandler();
+  } finally {
+    // 回调函数执行完成之后 还原优先级
+    currentPriorityLevel = previousPriorityLevel;
+  }
+}
+```
+
+这个方法在`React`中多处会使用到，创建`Update`的时候需要根据当前优先级上下文来确定`Update`的优先级（`lane`）。后面会详细介绍
+
+
+
+## 4. Scheduler与React
 
 在`React FIber`架构加入了`Scheduler`，在`ConcurrentMode`中完全开启了`Scheduler`的功能，实现了**时间切片**和**优先级调度**的特性。`Scheduler`在`React`中扮演的是一个大脑的角色，每一次更新都需要先经过`Scheduler`，由`Scheduler`来统一调度执行，调度的过程中会优先执行高优先级的更新任务，达到最好的用户体验。
 
