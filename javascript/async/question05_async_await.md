@@ -147,7 +147,7 @@ foo();
 这种情况下才能保证每个异步任务都能执行。但是这种方式太繁琐，代码冗余难以维护。还有另外一种方法就是在**每个异步任务后面加一个catch方法，将错误捕获住，但是还得要能判断当前任务是成功还是失败。**
 
 ```js
-function awiatWrap(value){
+function awaitWrap(value){
   return Promise.resolve(value).then((data)=>{
     return [undefined, data];
   }).catch((err)=>{
@@ -156,9 +156,9 @@ function awiatWrap(value){
 }
 
 async function foo(){
-  var [err,dataA] = awiatWrap(Promise.resolve(1));
-  var [err,dataB] = awiatWrap(Promise.reject('error'));
-  var [err,dataC] = awiatWrap(Promise.reject('err'));
+  var [err,dataA] = await awaitWrap(Promise.resolve(1));
+  var [err,dataB] = await awaitWrap(Promise.reject('error'));
+  var [err,dataC] = await awaitWrap(Promise.reject('err'));
 }
 foo();
 ```
