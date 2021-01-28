@@ -222,6 +222,8 @@ function App() {
 产生的原因是：**当`deps`没有发生修改的时候，`React`只更新了`updateQueue`，并没有更新对应`Hook`中的`memoizedState`，会导致两边状态不对应。正常情况下并没有问题，因为两边的`deps`至少是相同的，但是`rerender`阶段的介入，可能会导致两边的`deps`不对应，从而出现例子中的异常**。
 
 > （?）这里的逻辑应该不是故意为之吧，打算去提一个`issue`看看
+>
+> 已经提了一个[issue](https://github.com/facebook/react/issues/20675)，官方也接收了这个bug，还得到了大佬`Dan`的回复!
 
 
 
@@ -350,4 +352,16 @@ function commitBeforeMutationEffects() {
 ```
 
 以上代码表明**`useEffect`对应的`Effect`是异步执行的。**
+
+
+
+## 2.4 updateQueue总结
+
+到目前为止我们已经介绍完了三种常用updateQueue的结构。下面来总结一下
+
+| Fiber类型         | updateQueue结构                                            |
+| ----------------- | ---------------------------------------------------------- |
+| HostComponent     | Array。偶数索引表示更新属性的key，奇数索引表示更新属性的值 |
+| ClassComponent    | Object。用来存储对应组件产生的`Update`                     |
+| FunctionComponent | Linked List。用来保存对应组件产生的`Effect`                |
 
