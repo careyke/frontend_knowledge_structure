@@ -163,6 +163,8 @@ ReactDOM.unstable_createRoot(document.getElementById('root')).render(<App />);
 
 可以看出当第一个节点更新完成之后中断更新，会导致页面出现**不完全更新**。基于这个原因，所以React团队决定重写整个架构。
 
+> 笔者使用React v15.7验证过，真的是**交替执行**的。demo可以看[这里](https://codesandbox.io/s/stackreact-wfkwf?file=/src/App.js)
+
 
 
 ## 3. Fiber架构
