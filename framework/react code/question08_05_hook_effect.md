@@ -158,6 +158,10 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
       if (areHookInputsEqual(nextDeps, prevDeps)) {
         // 非激活状态Effect
         pushEffect(hookFlags, create, destroy, nextDeps);
+        
+        // 应该要改成下面，需要effect在Hook和updateQueue中保持一致
+        // hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
+        
         return;
       }
     }
@@ -224,6 +228,12 @@ function App() {
 > （?）这里的逻辑应该不是故意为之吧，打算去提一个`issue`看看
 >
 > 已经提了一个[issue](https://github.com/facebook/react/issues/20675)，官方也接收了这个bug，还得到了大佬`Dan`的回复!
+>
+> 官方的修复代码：
+>
+> ```
+> hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
+> ```
 
 
 
