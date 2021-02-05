@@ -32,7 +32,7 @@ plugins:[
 
 ### 2.1 tree shaking
 
-Tree shaking是webpack内部针对生产环境做的一种体积优化。==会在编译的时候，对代码进行静态分析，标记一些无用的死代码，然后再压缩代码的时候，会去除掉这些死代码。==
+Tree shaking是webpack内部针对生产环境做的一种体积优化。**会在编译的时候，对代码进行静态分析，标记一些无用的死代码，然后再压缩代码的时候，会去除掉这些死代码。**
 
 **tree shaking的生效条件**：
 
@@ -97,11 +97,11 @@ new PurgecssPlugin({
 
 **一旦模块很多的时候，会创建很多的函数作用域和闭包，会导致包的体积增加，也会加大内存的消耗。**
 
-webpack3中提出了scope hoisting的概念，==静态分析模块之间的引用顺序，将所有模块的代码按照代码引用顺序放在一个函数作用域中，然后适当的重命名一些变量来防止命名冲突==。可以有效的减少函数作用域和闭包，缩小包的体积和内部的消耗
+webpack3中提出了scope hoisting的概念，**静态分析模块之间的引用顺序，将所有模块的代码按照代码引用顺序放在一个函数作用域中，然后适当的重命名一些变量来防止命名冲突**。可以有效的减少函数作用域和闭包，缩小包的体积和内部的消耗
 
 scope hoisting实际上就是将多个模块合并成一个模块，一般对于一些只被一个模块引用的模块可以使用。
 
-==Scope hoisting的特点：==
+Scope hoisting的特点：
 
 1. production中默认会使用，也可以使用`ModuleConcatenationPlugin`插件来实现
 2. 也只能使用ES Module的语法，CommonJS的语法不支持，因为CommonJS是动态引入的
@@ -245,7 +245,7 @@ html文件：
 
 #### 2.3.2 使用SplitChunksPlugin来提取页面公共资源
 
-这个插件是一个webpack4内置的插件，==不仅可以用来分离公共基础包，还可以将多个chunk中多次使用的片段代码打成一个公共包==。
+这个插件是一个webpack4内置的插件，**不仅可以用来分离公共基础包，还可以将多个chunk中多次使用的片段代码打成一个公共包**。
 
 ##### 2.3.2.1 提取公共基础包
 
@@ -475,7 +475,7 @@ var Cat = /*#__PURE__*/function () {
 
 可以看出，每一个使用class的模块中，都会定义`_classCallCheck`、`_defineProperties`和`_createClass`等方法，这样**会造成包体积的增大，和代码的冗余**。
 
-==babel中提供`@babel/plugin-transform-runtime`插件来解决这个问题。`@babel/plugin-transform-runtime`是一个可以重复使用的babel注入的帮助函数库，用来避免帮助函数的重复定义，减少包的体积。==
+**babel中提供`@babel/plugin-transform-runtime`插件来解决这个问题。`@babel/plugin-transform-runtime`是一个可以重复使用的babel注入的帮助函数库，用来避免帮助函数的重复定义，减少包的体积。**
 
 注意：`@babel/plugin-transform-runtime`需要依赖`@babel/runtime`
 
@@ -613,7 +613,11 @@ babel中有一个`@babel/polyfill`模块，专门解决浏览器之间的差异�
 
 但是实际上随着浏览器的发展，现在很多的浏览器已经支持了很多的特性，polyfill中真正能用的上的就很少了，如果一股脑的直接把整个polyfill模块都加入到页面上，会导致bundle的体积增大。
 
-**babel中在`@babel/preset-env`中提供了一个`useBuiltIns`参数，设置值为 `usage` 时，就只会包含代码需要的 polyfill。**（==是根据当前代码中是否使用来判断是否需要某个属性的polyfill，而不是判断浏览器是否支持==）
+**babel中在`@babel/preset-env`中提供了一个`useBuiltIns`参数，设置值为 `usage` 时，就只会包含代码需要的 polyfill。**
+
+> 是根据当前代码中是否使用来判断是否需要某个属性的polyfill，而不是判断浏览器是否支持
+
+
 
 有一点需要注意：配置此参数的值为 `usage` ，必须要同时设置 `corejs` (如果不设置，会给出警告，默认使用的是"corejs": 2) 。这里建议使用 `core-js@3`，因为core-js@2不会再添加新特性，新特性都会加在core-js@3中
 
@@ -644,7 +648,7 @@ new Promise((resolve, reject)=>{
 
 **如果代码中使用到了Promise这个特性，就会将这个特性对应的polyfill引入进去，但是实际上很多浏览器是一家支持了Promise的，所以在很多的情况下，也会造成无意义的引入。**
 
-==动态的polyfill指的就是根据当前的浏览器UA动态请求需要的polyfill特性。==
+**动态的polyfill指的就是根据当前的浏览器UA动态请求需要的polyfill特性。**
 
 Polyfill.io官方提供的服务
 

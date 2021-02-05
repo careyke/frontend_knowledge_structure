@@ -22,11 +22,11 @@ Promise内部状态可以调用resolve和reject方法来改变：
 
 ![](./images/promise01.jpg)
 
-Promise状态转换是==不可逆==的，一旦由pending状态变成了其他状态，就不能再切换了。
+Promise状态转换是**不可逆**的，一旦由pending状态变成了其他状态，就不能再切换了。
 
 
 
-**Promise内部还保存了当前状态对应的一个值，这个值是用来当做参数传递给对应的回调函数的，叫做==决议值==（你不知道的JS）**。这个值通常是异步任务成功的返回值或者失败抛出的异常对象。
+**Promise内部还保存了当前状态对应的一个值，这个值是用来当做参数传递给对应的回调函数的，叫做 `决议值`（你不知道的JS）**。这个值通常是异步任务成功的返回值或者失败抛出的异常对象。
 
 这个值通常是通过resolve或者reject方法存储在Promise实例对象中，而后传给回调函数使用。
 
@@ -45,8 +45,8 @@ p.then((data)=>{
 
 Promise中回调函数的特点：
 
-1. ==异步调用== —— 通过then方法注册的回调函数是异步执行的，存在在微任务队列中。**设计成微任务既可以保证不阻塞主程序，又可以确保函数调用的实时性（这个tick一定会执行完）**。
-2. ==返回值穿透== —— **then中回调函数的返回值会存储在then方法内部创建的Promise实例中当做决议值，会被下一个then中的回调函数使用**。
+1. 异步调用—— 通过then方法注册的回调函数是异步执行的，存在在微任务队列中。**设计成微任务既可以保证不阻塞主程序，又可以确保函数调用的实时性（这个tick一定会执行完）**。
+2. 返回值穿透 —— **then中回调函数的返回值会存储在then方法内部创建的Promise实例中当做决议值，会被下一个then中的回调函数使用**。
 
 ```js
 var p = new Promise(function(resolve, reject){
@@ -84,12 +84,12 @@ readFile('1.json').then((data)=>{
 })
 ```
 
-==Promise能够链式调用的原因==是：
+Promise能够链式调用的原因是：
 
 1. then方法返回一个Promise实例，也就是说then方法内部会创建一个新的Promise实例
 2. then方法中的回调函数有**返回值穿透**的特点
 
-==then内部创建的Promise实例的状态变化规则==：
+then内部创建的Promise实例的状态变化规则：
 
 1. 当**前一个Promise是fulfilled的时候**，执行then中的成功回调函数
 
@@ -105,7 +105,7 @@ readFile('1.json').then((data)=>{
 
 **Promise内部执行抛错的时候，在外面是无法捕获这个错误的。**
 
-**（==猜测==）因为异常在Promise内部就已经被捕获了，从而将Promise的状态切换成rejected，然后异常对象存放在 promise 中，调用失败回调函数将异常对象暴露给使用者。**
+**（`猜测`）因为异常在Promise内部就已经被捕获了，从而将Promise的状态切换成rejected，然后异常对象存放在 promise 中，调用失败回调函数将异常对象暴露给使用者。**
 
 ```js
 var p = new Promise(function(resolve,reject){
@@ -125,7 +125,7 @@ try{
 }
 ```
 
-**Promise内部的异常是有==感染性==和==冒泡性==的**，当这个异常没有被捕获的时候，它会导致链式调用中后续的Promise都变成rejected状态，而且异常对象会一直向后传递，直到被失败回调函数捕获住。
+**Promise内部的异常是有 `感染性` 和 `冒泡性` 的**，当这个异常没有被捕获的时候，它会导致链式调用中后续的Promise都变成rejected状态，而且异常对象会一直向后传递，直到被失败回调函数捕获住。
 
 Promise提供了两种方式来捕获内部的异常（实际是一种）：
 
@@ -157,7 +157,7 @@ promise
 
 ### 1.5 处理resolve([promise])
 
-==在Promise p1的执行函数中调用resolve方法的时候，当传入的参数是一个Promise对象 p2 的时候，此时p1的状态由p2的状态决定，p2是什么状态p1就是什么状态，p2的决议值是什么p1的决议值就是什么。==（所有都成功，才能真正成功）
+**在Promise p1的执行函数中调用resolve方法的时候，当传入的参数是一个Promise对象 p2 的时候，此时p1的状态由p2的状态决定，p2是什么状态p1就是什么状态，p2的决议值是什么p1的决议值就是什么。**（所有都成功，才能真正成功）
 
 ```js
 var p = new Promise(function(resolve,reject){
@@ -174,7 +174,7 @@ p.then((data)=>{
 })
 ```
 
-==then(...)方法中回调函数的返回值是Promise对象 p1 的时候，和resolve([promise])的处理方式是一样的。then内部创建的promise对象p2的状态和决议值取决于 p1。==
+**then(...)方法中回调函数的返回值是Promise对象 p1 的时候，和resolve([promise])的处理方式是一样的。then内部创建的promise对象p2的状态和决议值取决于 p1。**
 
 ```js
 var p = new Promise(function(resolve,reject){
@@ -191,7 +191,7 @@ p.then(()=>{
 })
 ```
 
-==但是在Promise执行函数中，无论给reject(...)方法传什么参数，失败回调函数中得到的就是什么参数。哪怕传入的是Promise对象，得到的也是一个Promise对象。==（一个失败直接失败）
+**但是在Promise执行函数中，无论给reject(...)方法传什么参数，失败回调函数中得到的就是什么参数。哪怕传入的是Promise对象，得到的也是一个Promise对象。**（一个失败直接失败）
 
 ```js
 var p = new Promise(function(resolve,reject){
@@ -352,7 +352,7 @@ MyPromise.prototype.catch = function(onReject){
 }
 ```
 
-==finally方法的特点==：ES2018增加
+**finally方法的特点**：ES2018增加
 
 1. 无论前面Promise的最终状态是fulfilled还是rejected，都会执行finally中的回调函数，**finally中的回调函数不接受参数**
 2. **finally方法不会影响前面promise中的决议值传递到后面then中注册的回调函数中，除非finally内部报错，会替换掉之前的异常**
@@ -448,7 +448,7 @@ MyPromise.resolve = function(value){
 
 **Promise.reject(...)**
 
-1. 返回一个状态为 ==rejected== 的Promise对象
+1. 返回一个状态为 `rejected` 的Promise对象
 2. 无论传进去什么参数，都会直接作为Promise对象的决议值。不做多余的处理
 
 ```js
@@ -538,7 +538,7 @@ MyPromise.allSettled = function(promiseArr){
 }
 ```
 
-**Promise.any()**：==和all()方法恰好相反==。一个成功就成功，所有失败即失败。处于提案状态
+**Promise.any()**：**和all()方法恰好相反**。一个成功就成功，所有失败即失败。处于提案状态
 
 1. 参数和all()方法一致
 

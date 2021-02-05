@@ -212,7 +212,7 @@ __webpack_require__.e = function requireEnsure(chunkId) {
 
 **按照正常的思维逻辑来说，应该要在jsonp返回的代码中执行resolve方法，将模块的导出值传给then中注册的回调函数。但是实际上返回的js代码中只执行了一个push方法，所以要看看这个push方法是不是被重新定义**
 
-果然在webpack的模块系统代码的最后面，==重写了这个push方法==：
+果然在webpack的模块系统代码的最后面，**重写了这个push方法**：
 
 ```js
 var jsonpArray = window["webpackJsonp"] = window["webpackJsonp"] || [];

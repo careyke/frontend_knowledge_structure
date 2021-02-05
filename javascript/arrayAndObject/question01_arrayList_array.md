@@ -142,7 +142,7 @@ Array.prototype.map.call(arrLike,v=>v); // [1, empty × 2, 2] 稀疏数组
 Array.prototype.filter.call(arrLike,v=>1); // [1,2] 出现不期望的过滤
 ```
 
-==总结：==
+总结：
 
 - 当**类数组对象的索引稀疏**的时候，类似于`{0:1,4:3,length:5}`，将类数组对象作为参数的方法返回的是密集数组，使用undefined填补空位；将类数组对象作为 this 的方法返回的是稀疏数组。
 - 当**类数组对象的索引密集**的时候，返回的都是密集数组

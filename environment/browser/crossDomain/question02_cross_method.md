@@ -181,7 +181,7 @@ CORS分成简单请求和非简单请求
 
 CORS请求中，如果需要携带Cookie，除了响应头中携带`Access-Control-Allow-Credentials：true`字段之外，还需要请求头中也设定`withCredentials:true`。如此才可以携带Cookie
 
-如果需要发Cookie到后端，则`Access-Control-Allow-Origin`字段不能为`*` ，必须是明确的地址。==此外Cookie是遵循同源策略的，请求哪个源就只能携带该源下的Cookie，而不能携带其他源的Cookie。==
+如果需要发Cookie到后端，则`Access-Control-Allow-Origin`字段不能为`*` ，必须是明确的地址。**此外Cookie是遵循同源策略的，请求哪个源就只能携带该源下的Cookie，而不能携带其他源的Cookie。**
 
 
 
@@ -216,7 +216,8 @@ CORS请求中，如果需要携带Cookie，除了响应头中携带`Access-Contr
 
 预检请求通过之后，浏览器会发送一个主请求，携带需要发到后端的数据。
 
-==主请求和简单请求是一样的。==
+> 主请求和简单请求是一样的
+>
 
 
 

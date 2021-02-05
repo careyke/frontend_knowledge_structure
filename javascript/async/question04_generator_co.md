@@ -213,7 +213,7 @@ g.next(); //{value: 'c',done:true}
 
 从上面代码可以看出，对于yield*语句来说：
 
-==Generator函数中的return语句并不是一个状态，也不是暂停函数的标志，就是yield*语句的返回值==
+**Generator函数中的return语句并不是一个状态，也不是暂停函数的标志，就是yield*语句的返回值**
 
 ### 1.6 Generator函数与协程
 
@@ -223,7 +223,8 @@ g.next(); //{value: 'c',done:true}
 
 在JS中，**一个线程可以有多个协程。同一时间只能执行其中一个协程**。每个协程都有自己的执行上下文。
 
-==Generator函数就是ES6对于协程的实现，可以将Generator函数理解成一个协程。使用yield关键字来让出线程控制权，使用next方法来重新获取线程控制权。==
+> Generator函数就是ES6对于协程的实现，可以将Generator函数理解成一个协程。使用yield关键字来让出线程控制权，使用next方法来重新获取线程控制权。
+>
 
 ```js
 function B(){
@@ -243,7 +244,7 @@ g.next();
 //A协程结束
 ```
 
-==可以将JS主程序理解成一个协程，这里Generator函数A是另一个协程。两个协程之间通过yield和next()来不断切换对于线程的控制权。==
+**可以将JS主程序理解成一个协程，这里Generator函数A是另一个协程。两个协程之间通过yield和next()来不断切换对于线程的控制权。**
 
 **协程 VS 多线程**
 
