@@ -364,6 +364,9 @@ runWithPriority(
 `dispatchDiscreteEvent`和`dispatchUserBlockingUpdate`这两个方法设置的**优先级上下文**都是一样的，其中不同的地方在与React内部对于离散事件增加了很多额外的处理。
 
 > 感觉没有必要展开来说
+>
+> 1. 增加了对于是否处于事件内部的处理
+> 2. 在React执行上下文中增加了离散事件对应的上下文的值
 
 
 
@@ -778,9 +781,9 @@ function createSyntheticEvent(Interface: EventInterfaceType) {
 
 1. 阻止原生事件冒泡：直接使用原生事件对象的`stopPropagation`方法即可。
 
-2. 阻止`React`事件冒泡：需要在合成事件对象中实现一个`stopPropagation`方法，当该方法被调用的时候，会在SyntheticEvent中记录一个状态判断是否需要阻止后面的回调函数执行。
+2. 阻止`React`事件冒泡：需要在合成事件对象中实现一个`stopPropagation`方法，当该方法被调用的时候，会在`SyntheticEvent`中记录一个状态判断是否需要阻止后面的回调函数执行。
 
-> 这里是同一批方法共用一个合成事件对象的另一个原因
+> **这里是同一批方法共用一个合成事件对象的另一个原因，方便判断**
 
 
 
