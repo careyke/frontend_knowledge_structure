@@ -263,7 +263,11 @@ function bailoutOnAlreadyFinishedWork(
 }
 ```
 
-优化的效果：**进入优化的节点，不需要调用render方法生成ReactElement，然后再生成对应的Fiber节点。而是直接复用`current Fiber Tree`中的节点。**
+优化的效果：**进入优化的节点，不需要调用`render`方法生成`ReactElement`，然后再生成对应的`Fiber`节点。而是直接复用`current Fiber Tree`中的节点。**
+
+> `FunctionComponent`除外，因为`FunctionComponent`可能会先执行render函数，然后来判断是否需要优化
+
+
 
 节点复用也分成两种情况：
 
@@ -278,10 +282,14 @@ function bailoutOnAlreadyFinishedWork(
 
 ##### 2.2.2.2 优化的前提条件：
 
-1. `oldProps === newProps`，即更新前后的props不变，默认情况下并**没有做对象的浅对比**，调用render新生成的Fiber节点都不满足该条件。
-2. `!includesSomeLane(renderLanes, updateLanes)=== true` ，即表示当前节点的优先级不够，不参与本次更新，后面再细讲。
+1. `oldProps === newProps`，即更新前后的`props`不变，默认情况下并**没有做对象的浅对比**，调用`render`新生成的`Fiber节点`都不满足该条件。
+2. `!includesSomeLane(renderLanes, updateLanes)=== true` ，即表示**当前节点的优先级不够**，不参与本次更新，后面再细讲。
 
 当这两个条件同时满足的时候，会进入优化流程。但是**这两个条件都不是优化的必要条件，不同类型的节点有不同的逻辑判断是否进入优化流程**。
+
+> 对于`ClassComponent`来说，这两个条件都不是优化的必要条件，可以由开发者调用`shouldComponentUpdate`来判断是否优化。
+>
+> 对于其他类型的节点来说，第一个条件是**必要**条件。
 
 比如FunctionComponent，需要`didReceiveUpdate === false`
 
