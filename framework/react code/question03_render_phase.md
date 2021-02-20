@@ -185,7 +185,7 @@ function beginWork(
     } else if (!includesSomeLane(renderLanes, updateLanes)) {
       didReceiveUpdate = false;
       // ... 省略
-      // 调用该方法，克隆currentFiber节点，复制其中的属性
+      // 调用该方法，复用currentFiber的子节点
       return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
     } else {
       // 代码简化
@@ -228,17 +228,17 @@ function beginWork(
 可以将beginWork的工作分成**两个部分**：
 
 1. 组件`mount`阶段：直接创建新的子Fiber节点，没有优化流程
-2. 组件`update`阶段：判断是否匹配优化路径，如果不满足则需要新创建子Fiber节点；如果匹配优化路径，则进入优化流程**复用对应的`currentFiber`**。
+2. 组件`update`阶段：判断是否匹配优化路径，如果不满足则需要新创建子`Fiber`节点；如果匹配优化路径，则进入优化流程**复用对应的`currentFiber`**。
 
 
 
 #### 2.2.2 更新优化（*）—— 复用currentFiber
 
-前面讲Fiber架构的时候提到过，render阶段的主要工作是根据`current Fiber Tree`和新生成的`ReactElement Tree`来生成`workInProgress Fiber Tree`。但是如果每次更新都重新运行所有组件的render方法，生成新的ReactElement，然后生成新的Fiber节点，**对于没有任何修改的节点这是很冗余的操作**。React内部对这种情况做了相应的优化
+前面讲Fiber架构的时候提到过，render阶段的主要工作是根据`current Fiber Tree`和新生成的`ReactElement Tree`来生成`workInProgress Fiber Tree`。但是如果每次更新都重新运行所有组件的`render`方法，生成新的`ReactElement`，然后生成新的`Fiber`节点，**对于没有任何修改的节点这是很冗余的操作**。React内部对这种情况做了相应的优化
 
 ##### 2.2.2.1 优化效果
 
-在创建子Fiber节点过程中可以优化的节点，都会调用`bailoutOnAlreadyFinishedWork`方法
+在创建子Fiber节点过程中满足优化条件的节点，都会调用`bailoutOnAlreadyFinishedWork`方法，**复用**之前的子节点。
 
 ```javascript
 function bailoutOnAlreadyFinishedWork(
@@ -263,7 +263,7 @@ function bailoutOnAlreadyFinishedWork(
 }
 ```
 
-优化的效果：**进入优化的节点，不需要调用`render`方法生成`ReactElement`，然后再生成对应的`Fiber`节点。而是直接复用`current Fiber Tree`中的节点。**
+优化的效果：**进入优化的节点，不需要调用`render`方法生成`ReactElement`，然后再生成对应的子`Fiber`节点。而是直接复用`current Fiber Tree`中的节点。**
 
 > `FunctionComponent`除外，因为`FunctionComponent`可能会先执行render函数，然后来判断是否需要优化
 
@@ -271,8 +271,15 @@ function bailoutOnAlreadyFinishedWork(
 
 节点复用也分成两种情况：
 
-1. **复用整个`currentFiber`对象**：当节点的后代节点也没有更新的时候，后代节点会直接复用对应的整个`currentFiber`对象。
-2. **复用`currentFiber`中的属性**：也就是**克隆**`currentFiber`节点，克隆出来的节点也是新的节点。
+1. **复用`currentFiber`下的所有子树（subtree）**：当节点的**后代节点本次都不需要更新**的时候，所有的后代节点会直接复用对应`current Fiber Tree`中的节点，后代节点不需要执行`beginWork`。
+
+2. **复用`currentFiber`的子节点（一层）**：当节点的**后代节点本次需要更新**的时候，只能复用`currentFiber`的子节点这一层。子节点仍然需要执行`beginWork`的逻辑。
+
+   > 第二种情况下中的复用指的是**克隆**，并不是直接拿对应的currentFiber来用，而是克隆其中的属性。
+   >
+   > 对应的方法看[cloneChildFibers](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactChildFiber.new.js#L1344)
+
+
 
 > 这里需要说明的一点是：**由于在commit阶段中，都会执行`workInProgress = null`这个操作，所以每次更新的时候，都会从rootFiber开始遍历生成新的`workInProgress Fiber Tree`，在遍历的过程中插入优化的环节**。
 >
@@ -280,18 +287,33 @@ function bailoutOnAlreadyFinishedWork(
 
 
 
-##### 2.2.2.2 优化的前提条件：
+##### 2.2.2.2 优化路径
 
-1. `oldProps === newProps`，即更新前后的`props`不变，默认情况下并**没有做对象的浅对比**，调用`render`新生成的`Fiber节点`都不满足该条件。
-2. `!includesSomeLane(renderLanes, updateLanes)=== true` ，即表示**当前节点的优先级不够**，不参与本次更新，后面再细讲。
+回到前面的`beginWork`函数的源码中，我们可以看到整个优化的路径有两条
 
-当这两个条件同时满足的时候，会进入优化流程。但是**这两个条件都不是优化的必要条件，不同类型的节点有不同的逻辑判断是否进入优化流程**。
+1. 创建前优化
+2. 创建后优化
 
-> 对于`ClassComponent`来说，这两个条件都不是优化的必要条件，可以由开发者调用`shouldComponentUpdate`来判断是否优化。
->
-> 对于其他类型的节点来说，第一个条件是**必要**条件。
+> 这里是笔者自己总结的称呼，这里的创建是指**进入创建子节点的流程**
 
-比如FunctionComponent，需要`didReceiveUpdate === false`
+
+
+###### 2.2.2.2.1 创建前优化
+
+在进入创建子节点的流程之前，如果**同时满足**以下条件，会直接进入优化处理。
+
+1. `oldProps === newProps` — 即更新前后的`props`不变，默认情况下并**没有做对象的浅对比**，所以调用`render`新生成的`Fiber节点`都不满足该条件。
+2. `!includesSomeLane(renderLanes, updateLanes)=== true`  — 即表示**当前节点的优先级不够**，不参与本次更新。后面优先级调度的章节再细讲。
+
+
+
+###### 2.2.2.2.2 创建后优化
+
+当**创建前优化没有命中**的时候，会进入创建子节点的流程中。在这个过程中，**不同类型的节点会有不同的优化策略**。
+
+这里我们以`FunctionComponent`和`ClassComponent`为例来分析。
+
+**FunctionComponent**：
 
 ```javascript
 function updateFunctionComponent(
@@ -301,9 +323,24 @@ function updateFunctionComponent(
   nextProps: any,
   renderLanes,
 ) {
-  // ...省略
+	// ... 省略
+  let nextChildren;
+  // 依赖的context如果发生变化，也会修改didReceiveUpdate的值
+  prepareToReadContext(workInProgress, renderLanes);
+  if (__DEV__) {
+  } else {
+    nextChildren = renderWithHooks(
+      current,
+      workInProgress,
+      Component,
+      nextProps,
+      context,
+      renderLanes,
+    );
+  }
   // 对于处于update节点的节点，current不会为null
   if (current !== null && !didReceiveUpdate) {
+    // 满足优化条件
     bailoutHooks(current, workInProgress, renderLanes);
     return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
   }
@@ -311,7 +348,23 @@ function updateFunctionComponent(
 }
 ```
 
-比如ClassComponent，需要`shouldUpdate===false`，`shouldComponentUpdate`生命周期的返回值可以影响这个变量
+上面代码中可以看到，`FunctionComponent`中命中创建后优化的条件是：**`didReceiveUpdate === false`，也就是 `oldProps === newProps`**
+
+整个流程串起来理解就是：
+
+**当前节点的`前后props`并没有发生变化，但是满足当前的更新优先级**，所以无法命中创建前优化，需要进入创建子节点的流程。在调用`render`方法生成子`ReactElement`的时候，如果节点的**内部状态**没有发生修改，此时会进入**创建后优化**。
+
+> 在执行`render`函数的时候，如果内部有状态变化，会修改`didReceiveUpdate`的值。后面Hooks章节有提到
+
+
+
+**ClassComponent：**
+
+和`FunctionComponent`类似，如果创建过程中发现节点的内部状态并没有发生变化，也会进入**创建后优化**。
+
+和`FunctionComponent`不同的是，`ClassComponent`中多了一个`shouldComponentUpdate`生命周期函数，**可以由开发者来指定是否更新**。如果不需要更新，就会命中创建后优化。
+
+> 判断是否需要更新的代码可以看[updateClassInstance](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberClassComponent.new.js#L1031)
 
 ```javascript
 function finishClassComponent(
@@ -336,6 +389,8 @@ function finishClassComponent(
 	// ... 省略
 }
 ```
+
+
 
 #### 2.2.3 创建子fiber节点
 
@@ -376,7 +431,7 @@ export function reconcileChildren(
 
 其实`mountChildFibers`和`reconcileChildFibers`两个方法的逻辑基本是一样的，唯一不同的是`shouldTrackSideEffects`的取值不同。
 
-优化的关键代码：（这里只分析单一子节点的情况，多子节点也是实现相对麻烦，但是结果是一样的）
+优化的关键代码：（这里只分析单一子节点的情况，多子节点的实现相对麻烦，但是结果是一样的）
 
 ```javascript
 function placeSingleChild(newFiber: Fiber): Fiber {
@@ -388,9 +443,9 @@ function placeSingleChild(newFiber: Fiber): Fiber {
 ```
 
 1. 如果当前节点是mount阶段的时候，`shouldTrackSideEffects===false`，其子节点都不会加上`Placement flags`。
-2. 如果当前节点是update阶段，`shouldTrackSideEffects===true，并且子节点是新增的节点，就在当前子节点上加上`Placement flags`。
+2. 如果当前节点是update阶段，`shouldTrackSideEffects===true`，并且子节点是新增的节点，就在当前子节点上加上`Placement flags`。
 
-如此就达到了优化的效果，对于新增的subtree，在commit阶段只进行一次DOM操作。
+如此就达到了优化的效果，对于新增的`subtree`，在commit阶段只进行一次DOM操作。
 
 #### 2.2.4 总结
 
