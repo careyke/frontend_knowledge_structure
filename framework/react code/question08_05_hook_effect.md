@@ -23,7 +23,7 @@ export type Effect = {|
 **解释一下各个属性的含义：**
 
 1. tag：**表示当前`Effect`的状态和类型**，有三个值
-   - HasEffect：表示当前`Effect`在本次更新之后需要执行，处于激活态
+   - HasEffect：表示当前`Effect`在本次更新之后需要执行，处于**激活态**
    - Layout：表示是`useLayoutEffect`产生的`Effect`
    - Passive：表示是`useEffect`产生的`Effect`
 
@@ -147,7 +147,8 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
   const nextDeps = deps === undefined ? null : deps;
   let destroy = undefined;
 
-	// rerender阶段 currentHook有可以不存在
+	// rerender阶段 currentHook有可能不存在
+	// mount阶段的时候就进入rerender
   if (currentHook !== null) {
     // 考虑到rerender阶段的情况，所以需要从currentHook中获取
     const prevEffect = currentHook.memoizedState;
@@ -170,7 +171,7 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
   currentlyRenderingFiber.flags |= fiberFlags;
 	// 激活态Effect
   hook.memoizedState = pushEffect(
-    HookHasEffect | hookFlags,
+    HookHasEffect | hookFlags, // 需要执行的Effect的tag
     create,
     destroy,
     nextDeps,
@@ -187,7 +188,7 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
 
 #### 2.2.1 rerender阶段的兼容处理（*）
 
-在`rerender`阶段中执行`useEffect`的时候，调用的方法也是`updateEffect`。**在`rerender`阶段中，由于`useEffect`之前执行过一次，对应的`Effect`很可能已经发生改变，尤其是`deps`。所以再次执行的是需要使用`currentHook`中保存的`Effect`来对比。**
+在`rerender`阶段中执行`useEffect`的时候，调用的方法也是`updateEffect`。**在`rerender`阶段中，由于`useEffect`之前执行过一次，`workInProgress Fiber`中对应的`Effect`很可能已经发生改变，尤其是`deps`。所以再次执行的是需要使用`currentHook`中保存的`Effect`来对比。**
 
 上面代码中有注释出来关键的代码。
 
