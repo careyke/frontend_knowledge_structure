@@ -257,6 +257,8 @@ function updateSuspenseComponent(current, workInProgress, renderLanes) {
 
 ### 2.2 mount阶段 : unsuspended -> suspended
 
+#### 2.2.1 尝试渲染primaryChildren
+
 第一个执行`updateSuspenseComponent`方法时，`Suspense`默认处于`unsuspended`状态，会渲染`primaryChildren`，执行的方法是`mountSuspensePrimaryChildren`
 
 > 对应的源代码可以看[这里](https://github.com/careyke/react/blob/120fc3afe1ff33a10134e175090f4c6240b6cb4b/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L1920)
@@ -307,7 +309,7 @@ function updateOffscreenComponent(
     nextProps.mode === 'hidden' ||
     nextProps.mode === 'unstable-defer-without-hiding'
   ) {
-    // ...省略  Suspense运行的过程中并不会走到这个分支
+    // ...省略  Suspense运行的过程中并不会走到这个分支，暂时可以不关注
   } else {
     let subtreeRenderLanes;
     if (prevState !== null) {
@@ -327,6 +329,57 @@ function updateOffscreenComponent(
 ```
 
 可以看到，在`updateOffscreenComponent`方法中只是做了一些变量和优先级的处理，然后就会调用`reconcileChildren`继续渲染子节点，也就是我们说的`primaryChildren`。
+
+也就是说渲染的时候会首先尝试渲染`primaryChildren`，然后在渲染`primaryChildren`的过程中，如果某个节点数据请求没有回来，`promise`处于`pending`状态，则会抛出错误。
+
+> `Suspense`内部，网络请求不需要在`useEffect`或者`componentDidMount`阶段来发起，渲染阶段就可以发起，提前了网络请求发起的时机。
+>
+> 可以看看官网的例子
+
+
+
+#### 2.2.2 捕获promise错误
+
+在`renderRootConcurrent`和`renderRootSync`方法中都使用了`try...catch`用来捕获`render`阶段发生的异常。
+
+这里以`renderRootConcurrent`为例来解析
+
+```js
+do {
+    try {
+        workLoopConcurrent();
+        break;
+    } catch (thrownValue) {
+        handleError(root, thrownValue);
+    }
+} while (true);
+```
+
+捕获到错误之后会执行`handleError`方法
+
+```js
+function handleError(root, thrownValue): void {
+  do {
+    let erroredWork = workInProgress; // 获取抛出错误的那个workInProgress fiber节点
+    try {
+      // ...省略
+      throwException(
+        root,
+        erroredWork.return,
+        erroredWork,
+        thrownValue,
+        workInProgressRootRenderLanes,
+      );
+      completeUnitOfWork(erroredWork);
+    } catch (yetAnotherThrownValue) {
+      // ...省略
+    }
+    return;
+  } while (true);
+}
+```
+
+看一下`throwException`方法
 
 
 
