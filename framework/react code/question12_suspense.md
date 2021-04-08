@@ -363,6 +363,7 @@ function handleError(root, thrownValue): void {
     let erroredWork = workInProgress; // 获取抛出错误的那个workInProgress fiber节点
     try {
       // ...省略
+  		
       throwException(
         root,
         erroredWork.return,
@@ -379,7 +380,256 @@ function handleError(root, thrownValue): void {
 }
 ```
 
-看一下`throwException`方法
+这个方法中主要做了两个操作：
+
+1. 调用`throwException`方法来处理错误
+2. 调用`completeUnitOfWork`表示当前节点已经是叶子节点，需要进入`“归”`过程。因为当前节点对应的组件在执行的时候抛出错误，所以不会产生子节点。
+
+
+
+##### 2.2.2.1 throwException-处理错误
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/2fe415284a961fcb6c1ed0a65b43e55f4aec3f72/packages/react-reconciler/src/ReactFiberThrow.new.js#L186)
+
+```js
+function throwException(
+  root: FiberRoot,
+  returnFiber: Fiber,
+  sourceFiber: Fiber,
+  value: mixed,
+  rootRenderLanes: Lanes,
+) {
+  sourceFiber.flags |= Incomplete; // 表示当前节点并没有正常完成
+  sourceFiber.firstEffect = sourceFiber.lastEffect = null;
+
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof value.then === 'function'
+  ) {
+    // 错误对象是一个promise对象
+    const wakeable: Wakeable = (value: any);
+
+    if ((sourceFiber.mode & BlockingMode) === NoMode) {
+      // legacy模式
+      const currentSource = sourceFiber.alternate;
+      if (currentSource) {
+        sourceFiber.updateQueue = currentSource.updateQueue;
+        sourceFiber.memoizedState = currentSource.memoizedState;
+        sourceFiber.lanes = currentSource.lanes;
+      } else {
+        sourceFiber.updateQueue = null;
+        sourceFiber.memoizedState = null;
+      }
+    }
+
+    const hasInvisibleParentBoundary = hasSuspenseContext(
+      suspenseStackCursor.current,
+      (InvisibleParentSuspenseContext: SuspenseContext),
+    );
+
+    let workInProgress = returnFiber;
+    // 向上寻找最近的Suspense节点
+    do {
+      if (
+        workInProgress.tag === SuspenseComponent &&
+        shouldCaptureSuspense(workInProgress, hasInvisibleParentBoundary)
+      ) {
+        // suspenseFiber节点的updateQueue用来保存后代节点中抛出的promise error
+        const wakeables: Set<Wakeable> = (workInProgress.updateQueue: any);
+        if (wakeables === null) {
+          const updateQueue = (new Set(): any);
+          updateQueue.add(wakeable);
+          workInProgress.updateQueue = updateQueue;
+        } else {
+          wakeables.add(wakeable);
+        }
+
+        if ((workInProgress.mode & BlockingMode) === NoMode) {
+          /**
+           * legacy模式下
+           * 直接在这里给Suspense Fiber加上DidCapture flag
+           */
+          workInProgress.flags |= DidCapture;
+          sourceFiber.flags |= ForceUpdateForLegacySuspense;
+          /**
+           * legacy模式下，sourceFiber去掉Incomplete和生命周期相关的flag 
+           * 也就是抛出异常的时候不触发生命周期
+           */
+          sourceFiber.flags &= ~(LifecycleEffectMask | Incomplete);
+
+          if (sourceFiber.tag === ClassComponent) {
+            const currentSourceFiber = sourceFiber.alternate;
+            if (currentSourceFiber === null) {
+              sourceFiber.tag = IncompleteClassComponent;
+            } else {
+              const update = createUpdate(NoTimestamp, SyncLane);
+              update.tag = ForceUpdate;
+              enqueueUpdate(sourceFiber, update);
+            }
+          }
+          sourceFiber.lanes = mergeLanes(sourceFiber.lanes, SyncLane);
+          return;
+        }
+				// 非legacy模式下的处理
+       
+        // 对promise完成之后触发的更新进行优化处理
+        attachPingListener(root, wakeable, rootRenderLanes);
+
+        workInProgress.flags |= ShouldCapture; // 非legacy模式下 增加的是ShouldCapture flag
+        workInProgress.lanes = rootRenderLanes;
+
+        return;
+      }
+      workInProgress = workInProgress.return;
+    } while (workInProgress !== null);
+  }
+
+  // ...省略 其他类型的error的处理
+}
+```
+
+这个方法是React用来处理应用内部抛出的错误，包括非`promise`类型的错误。
+
+这里我们主要关注的是对于`promise`类型错误的处理，主要做了以下几个事情：
+
+1. **向上寻找最近的`Suspense Fiber`节点**
+2. 将`promise`对象保存在对应的`Suspense Fiber`节点中，保存在`updateQueue`中，这里`updateQueue`是一个**`Set`**数据结构
+3. 给`Suspense Fiber`增加`flag`。其中`legacy`模式下增加的是`DidCapture flag`，`非legacy`模式增加的是`ShouldCapture flag`
+4. 在`非legacy`模式下，通过`then`方法给当前`promise`增加回调函数，用来**对`promise`完成之后触发的更新进行优化处理**。（后面专门来讲`Suspense`中做的优化）
+
+这里有一个细节需要注意一下，在寻找错误处理边界的时候，除了判断节点的类型之外还执行了`shouldCaptureSuspense`方法
+
+```js
+export function shouldCaptureSuspense(
+  workInProgress: Fiber,
+  hasInvisibleParent: boolean,
+): boolean {
+  const nextState: SuspenseState | null = workInProgress.memoizedState;
+  if (nextState !== null) {
+    // ...省略
+    return false;
+  }
+  const props = workInProgress.memoizedProps;
+  
+  if (props.fallback === undefined) {
+    return false;
+  }
+  // 常规的边界，需要捕获
+  if (props.unstable_avoidThisFallback !== true) {
+    return true;
+  }
+  
+  if (hasInvisibleParent) {
+    return false;
+  }
+  
+  return true;
+}
+```
+
+这个方法主要是用来**判断当前`Suspense`是否符合捕获当前`promise`的条件**。这里感觉有一些`Suspense`实验性功能相关的代码，暂时不需要去了解。
+
+这里我们主要来分析一下第一个判断条件，这个条件乍一看在update阶段有很大的几率能够满足，但是实际上调试的时候，都会直接跳过。这是为什么呢？
+
+这里我们需要回头看一下`updateSuspenseComponent`中的处理逻辑，针对不同的阶段，有一个通用的处理逻辑：
+
+1. **当Suspense的状态是`unsuspended`时，会执行`suspenseWorkInProgress.memoizedState = null`**
+2. **当Suspense的状态是`suspended`时，会执行`suspenseWorkInProgress.memoizedState = SUSPENDED_MARKER`**
+
+这里实际上就是**在`suspenseWorkInProgress`中增加一个标记用来判断本次更新中`Suspense`处于什么状态**。
+
+而且**每次应用更新的时候，执行到`Suspense`节点时默认的状态都是`unsuspended`，所以会清空`memoizedState`**，上面所说的第一个条件会一直不满足。
+
+
+
+##### 2.2.2.2 completeUnitOfWork-进入“归”阶段
+
+至此React内部收集到了`promise`错误并找到了对应的`Suspense`边界，而且还做了一些特殊的标记，接下来就需要想办法**向上回溯到`Suspense`组件然后重新执行`beginWork`来渲染`fallbackChildren`**。
+
+这个向上回溯的过程和`render`阶段的`"归"过程`是一致的，所以调用`completeUnitOfWork`
+
+```js
+function completeUnitOfWork(unitOfWork: Fiber): void {
+  let completedWork = unitOfWork;
+  do {
+    const current = completedWork.alternate;
+    const returnFiber = completedWork.return;
+
+    if ((completedWork.flags & Incomplete) === NoFlags) {
+      // ...省略 这里的处理过程在前面讲“归”过程的时候介绍过
+    } else {
+      // 当前节点没有完成时
+      
+      const next = unwindWork(completedWork, subtreeRenderLanes);
+      if (next !== null) {
+        // 带有ShouldCapture的Suspense组件会走到这里
+        // 触发重新执行beginWork
+        next.flags &= HostEffectMask;
+        workInProgress = next;
+        return;
+      }
+
+      if (returnFiber !== null) {
+        // 给父节点标记未完成
+        returnFiber.firstEffect = returnFiber.lastEffect = null;
+        returnFiber.flags |= Incomplete;
+      }
+    }
+
+    const siblingFiber = completedWork.sibling;
+    if (siblingFiber !== null) {
+      // 有兄弟节点，继续执行兄弟节点的beginWork
+      workInProgress = siblingFiber;
+      return;
+    }
+    // 否则，执行父节点的completeWork
+    completedWork = returnFiber;
+    workInProgress = completedWork;
+  } while (completedWork !== null);
+
+  if (workInProgressRootExitStatus === RootIncomplete) {
+    workInProgressRootExitStatus = RootCompleted;
+  }
+}
+```
+
+在`unwindWork`这个方法中，我们需要关注的是对于`Suspense`类型节点的处理，其他类型的节点几乎都是返回`null`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/2fe415284a961fcb6c1ed0a65b43e55f4aec3f72/packages/react-reconciler/src/ReactFiberUnwindWork.new.js#L47)
+
+```js
+function unwindWork(workInProgress: Fiber, renderLanes: Lanes) {
+  switch (workInProgress.tag) {
+    // ...省略
+    case SuspenseComponent: {
+      popSuspenseContext(workInProgress);
+      const flags = workInProgress.flags;
+      if (flags & ShouldCapture) {
+        // 对于需要捕获promise的Suspense
+        // 去掉ShouldCapture 加上DidCapture
+        workInProgress.flags = (flags & ~ShouldCapture) | DidCapture;
+        return workInProgress;
+      }
+      return null;
+    }
+    // ...省略
+    default:
+      return null;
+  }
+}
+```
+
+对于捕获`promise`的`Suspense`节点，会返回`suspenseWorkInProgress`，从而会重新执行这个节点的`beginWork`阶段。
+
+在`completeUnitOfWork`中做了**两个重要的操作**：
+
+1. **对于捕获`promise`错误的`Suspense`节点，重新开始执行其`beginWork`阶段，使其渲染`fallbackChildren`**
+2. 抛出`promise`错误的节点不会影响其他子树执行`beginWork`，所以其他子树中也可以在`beginWork`阶段**并发**发出网络请求，并不需要等到上层组件请求完成之后再来请求，可以解决传统React应用中的**请求“瀑布”**问题。
+
+
+
+#### 2.2.3 渲染fallbackChildren
 
 
 
