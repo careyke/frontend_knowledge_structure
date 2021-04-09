@@ -87,6 +87,7 @@ function updateSuspenseComponent(current, workInProgress, renderLanes) {
   const nextProps = workInProgress.pendingProps;
   let suspenseContext: SuspenseContext = suspenseStackCursor.current;
   let showFallback = false;
+  // 判断是否渲染fallbackChildren
   const didSuspend = (workInProgress.flags & DidCapture) !== NoFlags;
 
   if (
@@ -330,7 +331,7 @@ function updateOffscreenComponent(
 
 可以看到，在`updateOffscreenComponent`方法中只是做了一些变量和优先级的处理，然后就会调用`reconcileChildren`继续渲染子节点，也就是我们说的`primaryChildren`。
 
-也就是说渲染的时候会首先尝试渲染`primaryChildren`，然后在渲染`primaryChildren`的过程中，如果某个节点数据请求没有回来，`promise`处于`pending`状态，则会抛出错误。
+也就是说**渲染的时候会首先尝试渲染`primaryChildren`，然后在渲染`primaryChildren`的过程中，如果某个节点数据请求没有回来，`promise`处于`pending`状态，则会抛出错误**。
 
 > `Suspense`内部，网络请求不需要在`useEffect`或者`componentDidMount`阶段来发起，渲染阶段就可以发起，提前了网络请求发起的时机。
 >
@@ -625,13 +626,715 @@ function unwindWork(workInProgress: Fiber, renderLanes: Lanes) {
 在`completeUnitOfWork`中做了**两个重要的操作**：
 
 1. **对于捕获`promise`错误的`Suspense`节点，重新开始执行其`beginWork`阶段，使其渲染`fallbackChildren`**
-2. 抛出`promise`错误的节点不会影响其他子树执行`beginWork`，所以其他子树中也可以在`beginWork`阶段**并发**发出网络请求，并不需要等到上层组件请求完成之后再来请求，可以解决传统React应用中的**请求“瀑布”**问题。
+2. 抛出`promise`错误的节点不会影响其他子树执行`beginWork`，所以其他子树中也可以在`beginWork`阶段**并发**发出网络请求，并不需要等到上层组件请求完成之后再来请求，可以解决传统React应用中的**请求“瀑布”（waterfall）**问题。
 
 
 
 #### 2.2.3 渲染fallbackChildren
 
+在Suspense捕获到后代组件抛出的promise错误的时候，会重新执行`beginWork`阶段。再回过头看`updateSuspenseComponent`方法
 
+1. 判断是否渲染`fallbackChildren`
+
+   ```js
+   let showFallback = false;
+   // 判断是否渲染fallbackChildren
+   const didSuspend = (workInProgress.flags & DidCapture) !== NoFlags;
+   
+   if (
+       didSuspend ||
+       shouldRemainOnFallback(
+           suspenseContext,
+           current,
+           workInProgress,
+           renderLanes,
+       )
+   ) {
+       showFallback = true;
+       workInProgress.flags &= ~DidCapture; // DidCapture在这里被消耗掉了
+   } else {
+       // ...省略
+   }
+   ```
+
+   此时`workInProgress`中包含了`DidCapture flag`，所以需要渲染`fallbackChildren`。
+
+   这里有一个细节需要**注意一下**：
+
+   当`showFallback`为`true`的时候，会消耗掉`DidCapture flag`，所以每次React应用更新的时候，第一次执行`updateSuspenseComponent`方法时`suspenseWorkInProgress`是没有`DidCapture flag`的，所以会尝试渲染primaryChildren，然后在渲染子节点的过程中，如果抛出`promise`错误，会给`suspenseWorkInProgress`加上`DidCapture flag`，所以再次执行`updateSuspenseComponent`时会渲染`fallbackChildren`。
+
+   > 这里之所以将流程介绍这么详细，其实就像想说明一点：**`suspenseFiber`自身没有办法判断本次更新需要渲染哪个children，需要由后代节点来判断，所以每次更新的时候会尝试执行`primaryChildren`，然后如果判断是`suspended`状态，会重新执行`beginWork`来重新渲染`fallbackChildren`节点**
+
+
+
+2. mount阶段渲染fallbackChildren
+
+   ```js
+   if (showFallback) {
+       const fallbackFragment = mountSuspenseFallbackChildren(
+           workInProgress,
+           nextPrimaryChildren,
+           nextFallbackChildren,
+           renderLanes,
+       );
+       const primaryChildFragment: Fiber = (workInProgress.child: any);
+     	// suspended状态时，suspenseFiber和primaryChildFragmentFiber都会加上标记
+       primaryChildFragment.memoizedState = mountSuspenseOffscreenState(
+           renderLanes,
+       );
+       workInProgress.memoizedState = SUSPENDED_MARKER;
+       return fallbackFragment;
+   }
+   ```
+
+   我们先看一下`mountSuspenseFallbackChildren`方法，主要是生成`fallbackChildFragment`
+
+   > 对应的源代码可以看[这里](https://github.com/careyke/react/blob/032ddcd7acb9f53c8ab3f547025d6f49984cbe6a/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L1944)
+
+   ```js
+   function mountSuspenseFallbackChildren(
+     workInProgress,
+     primaryChildren,
+     fallbackChildren,
+     renderLanes,
+   ) {
+     const mode = workInProgress.mode;
+     const progressedPrimaryFragment: Fiber | null = workInProgress.child;
+   
+     const primaryChildProps: OffscreenProps = {
+       mode: 'hidden',
+       children: primaryChildren,
+     };
+   
+     let primaryChildFragment;
+     let fallbackChildFragment;
+     if ((mode & BlockingMode) === NoMode && progressedPrimaryFragment !== null) {
+       // legacy模式
+       // 重用了之前Offscreen fiber
+       primaryChildFragment = progressedPrimaryFragment;
+       primaryChildFragment.childLanes = NoLanes;
+       primaryChildFragment.pendingProps = primaryChildProps;
+   
+       fallbackChildFragment = createFiberFromFragment(
+         fallbackChildren,
+         mode,
+         renderLanes,
+         null,
+       );
+     } else {
+       // 非legacy模式
+       // 重新创建Offscreen fiber，并没有重用之前的
+       primaryChildFragment = createFiberFromOffscreen(
+         primaryChildProps,
+         mode,
+         NoLanes,
+         null,
+       );
+       // fallbackChildren 被包裹在一个Fragment中
+       fallbackChildFragment = createFiberFromFragment(
+         fallbackChildren,
+         mode,
+         renderLanes,
+         null,
+       );
+     }
+   
+     primaryChildFragment.return = workInProgress;
+     fallbackChildFragment.return = workInProgress;
+     primaryChildFragment.sibling = fallbackChildFragment;
+     // 这里渲染fallbackChildren的时候，仍然会存在离屏节点
+     workInProgress.child = primaryChildFragment;
+     return fallbackChildFragment;
+   }
+   ```
+
+   这个方法中有几个细节需要注意一下：
+
+   1. `fallbackChildren`被包裹在`Fragment`节点中
+   2. `legacy`模式下，之前创建的`primaryChildren`对应的`fiber`节点并不会销毁；但是在`非legacy`模式下会**销毁**，重新创建一个`Offscreen`节点
+
+   
+
+   再生成了`fallbackChildFragment`之后，`suspenseFiber`本次执行`beginWork`返回的节点是`fallbackChildFragment`，**因为`Offscreen fiber`是`suspenseFiber`的第一个子节点，而这里返回的是第二个节点，所以本次更新`render`阶段不会执行`Offscreen fiber`的`beginWork`**，也就是说mount阶段并不会渲染出`primaryChildren`对应的真实节点。
+
+   
+
+   这里一个细节需要注意：**当`Suspense`处于`suspended`状态的时候，除了给`suspenseWorkInProgress`加上`memoizedState`标记之外，还会在`OffScreenFiber`也加上`memoizedState`标记**
+
+
+
+#### 2.2.4 completeWork
+
+`beginWork`阶段执行完成之后，进入`completeWork`阶段
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/032ddcd7acb9f53c8ab3f547025d6f49984cbe6a/packages/react-reconciler/src/ReactFiberCompleteWork.new.js#L819)
+
+```js
+function completeWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes,
+): Fiber | null {
+  const newProps = workInProgress.pendingProps;
+
+  switch (workInProgress.tag) {
+    // ...省略其他case
+    case SuspenseComponent: {
+      popSuspenseContext(workInProgress);
+      const nextState: null | SuspenseState = workInProgress.memoizedState;
+
+      if ((workInProgress.flags & DidCapture) !== NoFlags) {
+        // legacy模式下，触发Suspense重新执行beginWork会这里
+        workInProgress.lanes = renderLanes;
+        return workInProgress;
+      }
+
+      const nextDidTimeout = nextState !== null; // 本次更新中当前Suspense的是否是suspended状态
+      let prevDidTimeout = false; // 上次更新中当前Suspense的是否是suspended状态
+      if (current === null) {
+        if (workInProgress.memoizedProps.fallback !== undefined) {
+          popHydrationState(workInProgress);
+        }
+      } else {
+        const prevState: null | SuspenseState = current.memoizedState;
+        prevDidTimeout = prevState !== null;
+      }
+
+      if (nextDidTimeout && !prevDidTimeout) {
+        if ((workInProgress.mode & BlockingMode) !== NoMode) {
+          // 非legacy模式
+          const hasInvisibleChildContext =
+            current === null &&
+            workInProgress.memoizedProps.unstable_avoidThisFallback !== true;
+          if (
+            hasInvisibleChildContext ||
+            hasSuspenseContext(
+              suspenseStackCursor.current,
+              (InvisibleParentSuspenseContext: SuspenseContext),
+            )
+          ) {
+            /**
+             * 1. 第一次渲染
+             * 2. 在hidden状态的Offsreen节点内部渲染，也就是在invisibleSuspenseContext中
+             */
+            renderDidSuspend();
+          } else {
+            /**
+             * 在update阶段，Suspense由unsuspended变成suspended状态
+             * 为了防止loading闪烁，配合pingSuspendedRoot做了一些优化
+             */
+            renderDidSuspendDelayIfPossible();
+          }
+        }
+      }
+      if (supportsMutation) {
+        // 这个地方并不能直接修改成 (nextDidTimeout !== prevDidTimeout)
+        // 因为有可能出现前后状态都是suspended，但是promise不一致的场景
+        // 如果修改的话，这种场景会导致新的promise没有绑定then来更新状态，导致更新出错
+        if (nextDidTimeout || prevDidTimeout) {
+          workInProgress.flags |= Update;
+        }
+      }
+      return null;
+    }
+  }
+}
+```
+
+前面在捕获`promise`那段有讲过，`legacy`模式下节点不会走`unwindWork`来触发重新执行`beginWork`，而且直接在执行`completeWork`时返回`suspenseWorkInProgress`来触发重新执行。（上面代码中有提供注释）
+
+这里我们现在需要关注的是会给`suspenseWorkInProgress`加上一个`Update flag`，会在`commit-mutation`阶段来处理
+
+
+
+#### 2.2.5 commit阶段-给promise注册回调函数
+
+commit阶段的执行流程这里就不多讲，可以看看前面的文章。这里我们主要来关注一下对于`Suspense`节点的处理
+
+看一下`commitWork`方法
+
+```js
+function commitWork(current: Fiber | null, finishedWork: Fiber): void {
+  switch (finishedWork.tag) {
+    // ...省略
+    case SuspenseComponent: {
+      commitSuspenseComponent(finishedWork);
+      attachSuspenseRetryListeners(finishedWork);
+      return;
+    }
+    // ...省略
+  }
+}
+```
+
+针对Suspense节点，这里会执行两个方法。这里我们先来分析一下`attachSuspenseRetryListeners`。`commitSuspenseComponent`后面再来分析
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/032ddcd7acb9f53c8ab3f547025d6f49984cbe6a/packages/react-reconciler/src/ReactFiberCommitWork.new.js#L1805)
+
+```js
+function attachSuspenseRetryListeners(finishedWork: Fiber) {
+  const wakeables: Set<Wakeable> | null = (finishedWork.updateQueue: any);
+  if (wakeables !== null) {
+    // updateQueue不为空，所以当Suspense处于unsuspended状态的时候，updateQueue为null，不会执行
+    finishedWork.updateQueue = null; // 清空updateQueue
+    let retryCache = finishedWork.stateNode;
+    if (retryCache === null) {
+      retryCache = finishedWork.stateNode = new PossiblyWeakSet();
+    }
+    /**
+     * 收集未完成的promise
+     * 保存在Suspense fiber的stateNode中
+     */
+    wakeables.forEach(wakeable => {
+      // Memoize using the boundary fiber to prevent redundant listeners.
+      let retry = resolveRetryWakeable.bind(null, finishedWork, wakeable);
+      if (!retryCache.has(wakeable)) {
+        retryCache.add(wakeable);
+        wakeable.then(retry, retry);
+      }
+    });
+  }
+}
+
+export function resolveRetryWakeable(boundaryFiber: Fiber, wakeable: Wakeable) {
+  let retryLane = NoLane; // Default
+  let retryCache: WeakSet<Wakeable> | Set<Wakeable> | null;
+  if (enableSuspenseServerRenderer) {
+    switch (boundaryFiber.tag) {
+      case SuspenseComponent:
+        retryCache = boundaryFiber.stateNode;
+        const suspenseState: null | SuspenseState = boundaryFiber.memoizedState;
+        if (suspenseState !== null) {
+          retryLane = suspenseState.retryLane;
+        }
+        break;
+      case SuspenseListComponent:
+        retryCache = boundaryFiber.stateNode;
+        break;
+    }
+  } else {
+    retryCache = boundaryFiber.stateNode;
+  }
+
+  if (retryCache !== null) {
+    retryCache.delete(wakeable);
+  }
+  retryTimedOutBoundary(boundaryFiber, retryLane);
+}
+
+function retryTimedOutBoundary(boundaryFiber: Fiber, retryLane: Lane) {
+  if (retryLane === NoLane) {
+    // 获取本次更新的轨道lane
+    retryLane = requestRetryLane(boundaryFiber);
+  }
+  const eventTime = requestEventTime();
+  const root = markUpdateLaneFromFiberToRoot(boundaryFiber, retryLane);
+  if (root !== null) {
+    // 触发一次重新渲染
+    markRootUpdated(root, retryLane, eventTime);
+    ensureRootIsScheduled(root, eventTime);
+    schedulePendingInteractions(root, retryLane);
+  }
+}
+```
+
+可以看到这个方法中会给捕获的`promise`注册回调函数，以便在请求完成之后触发一次更新。
+
+这里有一个点注意一下：**`RetryLane`对应的优先级比较低，低于默认更新的优先级**
+
+```js
+const RetryLanes: Lanes = /*                            */ 0b0000011110000000000000000000000;
+```
+
+
+
+### 2.3 update阶段 : suspended -> unsuspended
+
+当promise完成之后，会触发一个更新，渲染对应的`primaryChildren`。
+
+**整个渲染流程大体上和mount阶段是一样的，最大的差别是`Suspense`后代组件没有`promise`错误抛出，不需要重新执行`beginWork`阶段**
+
+我们主要看一下`updateSuspenseComponent`方法中`update`阶段如何渲染`primaryChildren`
+
+```js
+// update阶段
+const prevState: null | SuspenseState = current.memoizedState;
+if (prevState !== null) {
+    // 当前的状态是suspended
+    if (showFallback) {
+        // ...省略
+    } else {
+      	// 渲染primaryChildren
+        const nextPrimaryChildren = nextProps.children;
+        const primaryChildFragment = updateSuspensePrimaryChildren(
+            current,
+            workInProgress,
+            nextPrimaryChildren,
+            renderLanes,
+        );
+      	// 清空标记
+        workInProgress.memoizedState = null;
+        return primaryChildFragment;
+    }
+}
+```
+
+update阶段渲染`primaryChildren`时，会执行`updateSuspensePrimaryChildren`方法
+
+```js
+function updateSuspensePrimaryChildren(
+  current,
+  workInProgress,
+  primaryChildren,
+  renderLanes,
+) {
+  const currentPrimaryChildFragment: Fiber = (current.child: any);
+  const currentFallbackChildFragment: Fiber | null =
+    currentPrimaryChildFragment.sibling;
+
+  // 复用原来的Offscreen fiber
+  const primaryChildFragment = createWorkInProgressOffscreenFiber(
+    currentPrimaryChildFragment,
+    {
+      mode: 'visible',
+      children: primaryChildren,
+    },
+  );
+  if ((workInProgress.mode & BlockingMode) === NoMode) {
+    primaryChildFragment.lanes = renderLanes;
+  }
+  primaryChildFragment.return = workInProgress;
+  // 删除fallback节点
+  primaryChildFragment.sibling = null;
+  if (currentFallbackChildFragment !== null) {
+    currentFallbackChildFragment.nextEffect = null;
+    currentFallbackChildFragment.flags = Deletion;
+    workInProgress.firstEffect = workInProgress.lastEffect = currentFallbackChildFragment;
+  }
+
+  workInProgress.child = primaryChildFragment;
+  return primaryChildFragment;
+}
+```
+
+这个方法中有两个关键点：
+
+1. 会**复用**之前的`Offscreen fiber`节点
+2. 会**删除**`fallbackChildFragment`节点
+
+然后会调用`updateOffscreenComponent`来渲染`Offscreen`的子节点，也就是`primaryChildren`。这个方法前面有分析过，这里有一个点想提一下
+
+```js
+if (prevState !== null) {
+    subtreeRenderLanes = mergeLanes(prevState.baseLanes, renderLanes);
+    // 运行到这里说明不需要隐藏，需要清空判断变量
+    workInProgress.memoizedState = null;
+}
+```
+
+这里会清空`Offscreen fiber`中的`memoizedState`。
+
+也就是说**在`unsuspended`状态的时候，`suspenseFiber`和`offscreenFiber`中关于`suspended`状态的标记都会去掉。**
+
+
+
+其他的流程和`mount`阶段一样，执行完commit阶段之后就会将primaryChildren渲染出来
+
+
+
+### 2.4 update阶段 : unsuspended -> suspended
+
+当数据请求条件发生变化，需要重新发起请求的时候，本次更新中`Suspense`又能捕获到子代节点的`promise`错误，所以节点的状态会从`unsuspended`变成`suspended`。
+
+这个流程和`mount`阶段的流程大致上是一样的，但是其中有一个很大的不同点：**在update阶段，当状态由`unsuspended`变成`suspended`时，并不会销毁`primaryChildren`对应的DOM节点，而是隐藏。对应的`fiber`子树也不会销毁**
+
+
+
+#### 2.4.1 不销毁primaryChildren对应的Fiber节点
+
+这个阶段在`updateSuspenseComponent`中的处理逻辑
+
+```js
+// update阶段
+const prevState: null | SuspenseState = current.memoizedState;
+if (prevState !== null) {
+    // 当前的状态是suspended
+    // ...省略
+} else {
+    // 当前的状态是unsuspended
+    if (showFallback) {
+        const nextFallbackChildren = nextProps.fallback;
+        const nextPrimaryChildren = nextProps.children;
+        const fallbackChildFragment = updateSuspenseFallbackChildren(
+            current,
+            workInProgress,
+            nextPrimaryChildren,
+            nextFallbackChildren,
+            renderLanes,
+        );
+        const primaryChildFragment: Fiber = (workInProgress.child: any);
+        const prevOffscreenState: OffscreenState | null = (current.child: any)
+            .memoizedState;
+        primaryChildFragment.memoizedState =
+            prevOffscreenState === null ?
+            mountSuspenseOffscreenState(renderLanes) :
+            updateSuspenseOffscreenState(prevOffscreenState, renderLanes);
+        primaryChildFragment.childLanes = getRemainingWorkInPrimaryTree(
+            current,
+            renderLanes,
+        );
+        workInProgress.memoizedState = SUSPENDED_MARKER;
+        return fallbackChildFragment;
+    } else {
+        // ...省略
+    }
+}
+```
+
+`update`阶段生成`fallbackChildFragment`调用的方法是`updateSuspenseFallbackChildren`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/032ddcd7acb9f53c8ab3f547025d6f49984cbe6a/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L2053)
+
+```js
+function updateSuspenseFallbackChildren(
+  current,
+  workInProgress,
+  primaryChildren,
+  fallbackChildren,
+  renderLanes,
+) {
+  const mode = workInProgress.mode;
+  const currentPrimaryChildFragment: Fiber = (current.child: any);
+  const currentFallbackChildFragment: Fiber | null =
+    currentPrimaryChildFragment.sibling;
+
+  const primaryChildProps: OffscreenProps = {
+    mode: 'hidden',
+    children: primaryChildren,
+  };
+
+  let primaryChildFragment;
+  if (
+    (mode & BlockingMode) === NoMode &&
+    workInProgress.child !== currentPrimaryChildFragment //满足，workInProgress.child是新生成的
+  ) {
+    // legacy
+    const progressedPrimaryFragment: Fiber = (workInProgress.child: any);
+    primaryChildFragment = progressedPrimaryFragment;
+    primaryChildFragment.childLanes = NoLanes;
+    primaryChildFragment.pendingProps = primaryChildProps;
+
+    const progressedLastEffect = primaryChildFragment.lastEffect;
+    if (progressedLastEffect !== null) {
+      workInProgress.firstEffect = primaryChildFragment.firstEffect;
+      workInProgress.lastEffect = progressedLastEffect;
+      progressedLastEffect.nextEffect = null;
+    } else {
+      workInProgress.firstEffect = workInProgress.lastEffect = null;
+    }
+  } else {
+    // update阶段，重用了之前的Offscreen Fiber节点
+    primaryChildFragment = createWorkInProgressOffscreenFiber(
+      currentPrimaryChildFragment,
+      primaryChildProps,
+    );
+  }
+  let fallbackChildFragment;
+  if (currentFallbackChildFragment !== null) {
+    fallbackChildFragment = createWorkInProgress(
+      currentFallbackChildFragment,
+      fallbackChildren,
+    );
+  } else {
+    fallbackChildFragment = createFiberFromFragment(
+      fallbackChildren,
+      mode,
+      renderLanes,
+      null,
+    );
+    // 重新创建
+    fallbackChildFragment.flags |= Placement;
+  }
+
+  fallbackChildFragment.return = workInProgress;
+  primaryChildFragment.return = workInProgress;
+  primaryChildFragment.sibling = fallbackChildFragment;
+  workInProgress.child = primaryChildFragment;
+
+  return fallbackChildFragment;
+}
+```
+
+这个方法中并没有销毁`primaryChildren`对应的`Fiber`节点，也就意味着对应的真实`DOM`节点也不会被销毁掉。
+
+但是`suspended`状态下并不会展示`primaryChildren`，所以就只有一个可能，**这些`DOM`节点被隐藏了**。
+
+
+
+#### 2.4.2 隐藏primaryChildren对应的真实DOM
+
+在前面分析过，在`completeWork`中会给`SuspenseFiber`增加一个`Update flag`。在`commit`阶段会对该节点进行更新
+
+```js
+function commitWork(current: Fiber | null, finishedWork: Fiber): void {
+  switch (finishedWork.tag) {
+    // ...省略
+    case SuspenseComponent: {
+      commitSuspenseComponent(finishedWork);
+      attachSuspenseRetryListeners(finishedWork);
+      return;
+    }
+    // ...省略
+  }
+}
+```
+
+`attachSuspenseRetryListeners`方法我们之前讲过是用来给`promise`注册回调函数更新应用的。
+
+`commitSuspenseComponent`方法就是用来隐藏`primaryChildren`对应的真实`DOM`。
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/032ddcd7acb9f53c8ab3f547025d6f49984cbe6a/packages/react-reconciler/src/ReactFiberCommitWork.new.js#L1728)
+
+```js
+function commitSuspenseComponent(finishedWork: Fiber) {
+  const newState: SuspenseState | null = finishedWork.memoizedState;
+  if (newState !== null) {
+    markCommitTimeOfFallback(); // 记录上一次展示fallbackChildren的时间，loading节流
+    if (supportsMutation) {
+      const primaryChildParent: Fiber = (finishedWork.child: any);
+      /**
+       * 在update阶段，当Suspense状态变化的时候（变成suspended），并不会销毁Offscreen Fiber的子节点
+       * 而是在这里手动隐藏或者重现真实子元素
+       */
+      hideOrUnhideAllChildren(primaryChildParent, true);
+    }
+  }
+}
+
+function hideOrUnhideAllChildren(finishedWork, isHidden) {
+  if (supportsMutation) {
+    let node: Fiber = finishedWork;
+    while (true) {
+      if (node.tag === HostComponent) {
+        const instance = node.stateNode;
+        if (isHidden) {
+          hideInstance(instance);
+        } else {
+          unhideInstance(node.stateNode, node.memoizedProps);
+        }
+      } else if (node.tag === HostText) {
+        const instance = node.stateNode;
+        if (isHidden) {
+          hideTextInstance(instance);
+        } else {
+          unhideTextInstance(instance, node.memoizedProps);
+        }
+      } else if (
+        (node.tag === OffscreenComponent ||
+          node.tag === LegacyHiddenComponent) &&
+        (node.memoizedState: OffscreenState) !== null &&
+        node !== finishedWork
+      ) {
+      } else if (node.child !== null) {
+        node.child.return = node;
+        node = node.child;
+        continue;
+      }
+
+      if (node === finishedWork) {
+        return;
+      }
+      while (node.sibling === null) {
+        if (node.return === null || node.return === finishedWork) {
+          return;
+        }
+        node = node.return;
+      }
+      node.sibling.return = node.return;
+      node = node.sibling;
+    }
+  }
+}
+```
+
+隐藏的逻辑一目了然~。
+
+上面方法中只在suspended状态的时候隐藏DOM节点，但是在何时重现呢？
+
+
+
+#### 2.4.3 重现隐藏的DOM节点
+
+在`update`阶段，当状态由`suspended`转化成`unsuspended`时，在`completeWork`中，对于`OffscreenFiber`有这么一段处理
+
+```js
+function completeWork(
+  current: Fiber | null,
+  workInProgress: Fiber,
+  renderLanes: Lanes,
+): Fiber | null {
+  const newProps = workInProgress.pendingProps;
+
+  switch (workInProgress.tag) {
+    // ...省略其他case
+    case OffscreenComponent:
+    case LegacyHiddenComponent: {
+      popRenderLanes(workInProgress);
+      if (current !== null) {
+        const nextState: OffscreenState | null = workInProgress.memoizedState;
+        const prevState: OffscreenState | null = current.memoizedState;
+
+        const prevIsHidden = prevState !== null;
+        const nextIsHidden = nextState !== null;
+        if (
+          prevIsHidden !== nextIsHidden &&
+          newProps.mode !== 'unstable-defer-without-hiding'
+        ) {
+          workInProgress.flags |= Update; // Offscreen中的内容显示出来
+        }
+      }
+      return null;
+    }
+  }
+}
+```
+
+当`Suspense`状态由`suspended`转化成`unsuspended`时，会给`OffscreenFiber`添加`Update flag`
+
+> **注意：当`Suspense`状态由`unsuspended`转化成`suspended`时，并不会执行`Offscreen Fiber`的`completeWork`方法，在`beginWork`阶段规避掉了**
+
+然后在`commit`阶段来处理`Update flag`
+
+```js
+function commitWork(current: Fiber | null, finishedWork: Fiber): void {
+  switch (finishedWork.tag) {
+    // ...省略
+    case OffscreenComponent:
+    case LegacyHiddenComponent: {
+      /**
+       * 这里重新显示之前隐藏的DOM节点
+       */
+      const newState: OffscreenState | null = finishedWork.memoizedState;
+      const isHidden = newState !== null;
+      hideOrUnhideAllChildren(finishedWork, isHidden);
+      return;
+    }
+    // ...省略
+  }
+}
+```
+
+显示`OffscreenFiber`下面的子节点。
+
+
+
+### 2.5 总结（*）
+
+至此整个Suspense组件的渲染流程就已经分析完了，其中有一些重要的点需要总结一下：
+
+1. **`Suspense`组件本身是没有办法直接判断当前处于什么状态的，默认是`unsuspended`，所以应用每次更新的时候，`Suspense`都会先尝试渲染`primaryChildren`，当渲染过程抛出`promise`错误的时候，才会回退到渲染`fallbackChildren`**。
+2. **当本次渲染Suspense是suspended状态时，`Suspense`子树中节点的`beginWork`阶段会执行多次**。但是在Concurrent模式下，有时间切片，所以性能上可以接受。
+3. **`primaryChildren`对应的真实DOM节点被渲染出来之后，`Suspense`再次变成`suspended`时，对应的DOM节点不会销毁而是隐藏**
 
 
 
