@@ -1333,12 +1333,276 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
 至此整个Suspense组件的渲染流程就已经分析完了，其中有一些重要的点需要总结一下：
 
 1. **`Suspense`组件本身是没有办法直接判断当前处于什么状态的，默认是`unsuspended`，所以应用每次更新的时候，`Suspense`都会先尝试渲染`primaryChildren`，当渲染过程抛出`promise`错误的时候，才会回退到渲染`fallbackChildren`**。
-2. **当本次渲染Suspense是suspended状态时，`Suspense`子树中节点的`beginWork`阶段会执行多次**。但是在Concurrent模式下，有时间切片，所以性能上可以接受。
+2. **当本次渲染Suspense是suspended状态时，`Suspense`子树中节点的`beginWork和completeWork`阶段会执行多次**。但是在`Concurrent`模式下，有时间切片，所以性能上可以接受。
 3. **`primaryChildren`对应的真实DOM节点被渲染出来之后，`Suspense`再次变成`suspended`时，对应的DOM节点不会销毁而是隐藏**
 
 
 
 ## 3. Suspense组件的优化处理
 
+在分析Suspense组件的优化处理之前，我们先来考虑**两个场景**：
 
+1. 前面的分析中我们可以知道，`Suspense`渲染`fallbackChildren`是在`render`阶段来处理。如果**在`render`阶段还没有结束的时候，`promise`就已经完成**，那么是否可以考虑重新执行render阶段，直接渲染`primaryChildren`呢？这样做可以有效减少更新的次数。
+2. 在实际的应用中，有很多的请求响应会比较快，如果页面出现很多**一闪而过的loading状态**，对于用户来说是不好的体验。所以是否可以给`loading`状态做一个**节流**处理，**延时展示loading状态，对应响应比较快的请求，可以优化掉其中的`loading`状态**。
+
+`Suspense`组件中对于这两个场景做了一些优化处理，提高应用的性能和用户体验。
+
+
+
+### 3.1 render阶段promise完成 - 重新执行render阶段
+
+前面我们在分析捕获`promise`错误的时候，提到了在`非legacy`模式下，会给`promise`注册回调函数。
+
+也就是说，在`非legacy`模式中，promise会调用两次`then`注册两个回调函数，其中**在`render`阶段注册的回调函数就是用来优化这种场景的**。
+
+> **为什么只能在非legacy模式下优化呢？**
+>
+> 因为在legacy模式下，render阶段是同步执行的，所以就算是注册了回调函数也无法在render阶段执行。反之在`concurrent`模式下，因为有时间切片的缘故，所以回调函数是可以在render执行的。
+
+下面我们来分析一下优化的具体实现
+
+在`attachPingListener`方法中，会给promise注册`pingSuspendedRoot`回调函数，我们直接来看看这个方法
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/032ddcd7acb9f53c8ab3f547025d6f49984cbe6a/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L2948)
+
+```js
+export function pingSuspendedRoot(
+  root: FiberRoot,
+  wakeable: Wakeable,
+  pingedLanes: Lanes,
+) {
+  const pingCache = root.pingCache;
+  if (pingCache !== null) {
+    pingCache.delete(wakeable);
+  }
+
+  const eventTime = requestEventTime();
+  markRootPinged(root, pingedLanes, eventTime);
+
+  if (
+    workInProgressRoot === root &&
+    isSubsetOfLanes(workInProgressRootRenderLanes, pingedLanes)
+  ) {
+    // render阶段触发
+    // workInProgressRootRenderLanes在render阶段执行完成之后会重置
+    if (
+      workInProgressRootExitStatus === RootSuspendedWithDelay ||
+      (workInProgressRootExitStatus === RootSuspended &&
+        includesOnlyRetries(workInProgressRootRenderLanes) &&
+        now() - globalMostRecentFallbackTime < FALLBACK_THROTTLE_MS)
+    ) {
+      // 重新执行render阶段
+      prepareFreshStack(root, NoLanes);
+    } else {
+      workInProgressRootPingedLanes = mergeLanes(
+        workInProgressRootPingedLanes,
+        pingedLanes,
+      );
+    }
+  }
+  ensureRootIsScheduled(root, eventTime);
+  schedulePendingInteractions(root, pingedLanes);
+}
+```
+
+上面代码中我们可以看到，**重新执行render阶段**的条件是比较苛刻的
+
+1. **必须在`render`阶段调用这个回调函数**。因为`workInProgressRootRenderLanes`在`render`阶段的末尾会重置为0。
+
+2. `workInProgressRootExitStatus === RootSuspendedWithDelay ` 或者 
+
+   `(`
+
+   `workInProgressRootExitStatus === RootSuspended `
+
+   `&& includesOnlyRetries(workInProgressRootRenderLanes) `
+
+   `&& now() - globalMostRecentFallbackTime < FALLBACK_THROTTLE_MS`
+
+   `)`
+
+判断条件中列出了两种满足条件的场景，`workInProgressRootExitStatus`分别是`RootSuspendedWithDelay`和`RootSuspended`。
+
+那么这两个值是在何时赋值的呢？我们先来看看`Suspense`组件的`completeWork`方法，其中有这么一段代码
+
+```js
+if (nextDidTimeout && !prevDidTimeout) {
+  	// 本次状态是suspended 上次是unsuspended
+    if ((workInProgress.mode & BlockingMode) !== NoMode) {
+        // 非legacy模式
+        const hasInvisibleChildContext =
+            current === null &&
+            workInProgress.memoizedProps.unstable_avoidThisFallback !== true;
+        if (
+            hasInvisibleChildContext ||
+          	// 在beginWork阶段会push InvisibleParentSuspenseContext
+            hasSuspenseContext(
+                suspenseStackCursor.current,
+                (InvisibleParentSuspenseContext: SuspenseContext), 
+            )
+        ) {
+            /**
+             * 1. 第一次渲染
+             * 2. 上层有Suspense组件当前处于suspended状态
+             */
+            renderDidSuspend();
+        } else {
+            /**
+             * 在update阶段，Suspense由unsuspended变成suspended状态
+             */
+            renderDidSuspendDelayIfPossible();
+        }
+    }
+}
+```
+
+本次渲染中，**当`Suspense`由`unsuspended`变成`suspended`状态的时**（前提条件）：
+
+1. **当前`Suspense`第一次渲染** 或者 **上层的`Suspense`组件处于`suspended -> unsuspended `状态**，这种情况下会设置`workInProgressRootExitStatus = RootSuspended`
+2. **在`update`阶段，当`Suspense`组件由`unsuspended`变成`suspended`状态时**，会设置`workInProgressRootExitStatus = RootSuspendedWithDelay`
+
+
+
+所以**满足优化条件的两种场景**分别是：
+
+1. 场景一：
+
+   - `workInProgressRootExitStatus === RootSuspendedWithDelay `表示本次更新是在update阶段，Suspense组件由unsuspeded变成suspended状态
+   - 对应的`promise`请求在`render`阶段就完成
+
+   > 对应的demo可以看[这里](https://github.com/careyke/hello-react-code/blob/master/src/suspense/SuspenseOptimizationRootSuspendedWithDelay.tsx)
+
+2. 场景二：
+
+   - `workInProgressRootExitStatus = RootSuspended`：本次更新中存在Suspense变成suspended状态，去除场景一的情况
+   - **本次更新是promise完成触发的更新**，对应的是`includesOnlyRetries(workInProgressRootRenderLanes)`
+   - 对应的`promise`请求在`render`阶段就完成
+   - **当前`loading`状态在节流时间间隔内，可以被优化掉**。这里不在设置在节流时间间隔内，则表示`render`阶段的时间太长，无法接受重新执行一遍之后再进入`commit`阶段
+
+   > 对应的demo可以看[这里](https://github.com/careyke/hello-react-code/blob/master/src/suspense/SuspenseOptimizationRootSuspended.tsx)
+
+
+
+### 3.2 延时展示loading状态 - loading节流
+
+loading节流主要是为了避免短时间内快速展示多个loading状态，如果其中有些promise响应速度很快，会导致出现一闪而过的`loading`状态，体验会比较差。
+
+相较于前面的优化发生在render阶段，**loading节流发生在render阶段结束之后，commit阶段开始之前。**
+
+在`concurrent`模式中，render执行完成之后，会根据`workInProgressRootExitStatus`的状态来以不同的方式进入commit阶段。
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/032ddcd7acb9f53c8ab3f547025d6f49984cbe6a/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L891)
+
+```js
+function finishConcurrentRender(root, exitStatus, lanes) {
+  switch (exitStatus) {
+    // ...省略
+    case RootSuspended: {
+      markRootSuspended(root, lanes);
+
+      if (includesOnlyRetries(lanes)) {
+        /**
+         * loading节流显示
+         */
+        const msUntilTimeout =
+          globalMostRecentFallbackTime + FALLBACK_THROTTLE_MS - now();
+        // Don't bother with a very short suspense time.
+        if (msUntilTimeout > 10) {
+          // 相邻两次loading的时间间隔太短，交互优化，loading节流
+          const nextLanes = getNextLanes(root, NoLanes);
+          if (nextLanes !== NoLanes) {
+            // There's additional work on this root.
+            break;
+          }
+          const suspendedLanes = root.suspendedLanes;
+          if (!isSubsetOfLanes(suspendedLanes, lanes)) {
+            const eventTime = requestEventTime();
+            markRootPinged(root, suspendedLanes, eventTime);
+            break;
+          }
+					// 延时处理
+          root.timeoutHandle = scheduleTimeout(
+            commitRoot.bind(null, root),
+            msUntilTimeout,
+          );
+          break;
+        }
+      }
+      // The work expired. Commit immediately.
+      commitRoot(root);
+      break;
+    }
+    case RootSuspendedWithDelay: {
+      // ... 也是节流处理
+    }
+    // ...省略
+  }
+}
+```
+
+这里我们主要来分析一下`RootSuspended`状态的节流处理。
+
+优化的前提条件：**本次更新只是promise完成之后触发的更新**。
+
+> `retryLanes`对应的优先级比较低，如果本次更新中有高优的更新，那么就无法延迟执行`commit`阶段，会降低用户的体验。
+
+
+
+`globalMostRecentFallbackTime`表示当前应用中的是最近一次渲染`fallbackChildren`的时间，在`commitSuspenseComponent`方法中会记录这个时间。
+
+如果在节流时间间隔内触发loading状态，会延时执行`commit`阶段。
+
+
+
+**如果在延时时间内，promise已经完成触发了更新，会清除之前延时的`commitRoot`，从而可以优化掉`loading`状态，直接渲染`primaryChildren`。**
+
+对应的逻辑在`prepareFreshStack`方法中
+
+```js
+function prepareFreshStack(root: FiberRoot, lanes: Lanes) {
+  root.finishedWork = null;
+  root.finishedLanes = NoLanes;
+
+  const timeoutHandle = root.timeoutHandle;
+  if (timeoutHandle !== noTimeout) {
+    /**
+     * 下一次渲染开始的时候，先清空之前暂存的延时commitRoot
+     */
+    root.timeoutHandle = noTimeout;
+    cancelTimeout(timeoutHandle);
+  }
+	// 这个方法之前的文章讲过，暂时省略...
+}
+```
+
+
+
+> loading节流的demo可以看[这里](https://github.com/careyke/hello-react-code/blob/master/src/suspense/SuspenseLoadingThrottle.tsx)
+
+
+
+### 3.3 总结
+
+这两种优化方案都**只能用在`concurrent`模式**中，都可以解决**一闪而过的loading**
+
+1. 第一种方案是在render阶段来解决
+2. 第二种方案是在render阶段结束之后，commit阶段开始之前来解决
+
+这里有一个点需要注意一下：
+
+在第一种方案中，promise在`commit`阶段注册的回调函数会触发一次新的更新，但是对于页面来说并没有什么影响。
+
+
+
+## 4. Suspense如何解决race condition
+
+> 假设现在有两个请求，分别是promiseA、promiseB，开始使用的是promiseA，点击按钮之后使用promiseB。
+>
+> 我们在promiseA没有返回之前点击按钮。promiseB先返回，promiseA后返回
+
+传统的模式下之所以会出现`race condition`的问题，是因为一般都是**开发者在请求回来之后手动触发一次更新**，所以最后回来的请求对应的数据会渲染在页面上，导致数据错误。
+
+
+
+然后在Suspense中，并不会出现这个问题，因为开发者不需要主动触发更新，而且组件和当前使用的`promise`有一个**绑定**的关系。按钮点击之后，此时组件中使用的是promiseB，promiseA完成之后只会触发一次更新，但是并不能影响组件的数据。
 
