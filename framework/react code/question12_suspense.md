@@ -28,6 +28,10 @@
 
 
 
+> Suspense出了以上两个优点之外，还可以去除掉传统模式中的React请求导致的大量**样板代码**
+
+
+
 ## 2. Suspense组件的渲染流程
 
 尝试过使用`Suspense`的小伙伴应该知道，在官方给出的例子中，使用Suspense之前需要修改一下和发起请求相关的代码。类似于下面
@@ -1554,7 +1558,7 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 
 
 
-**如果在延时时间内，promise已经完成触发了更新，会清除之前延时的`commitRoot`，从而可以优化掉`loading`状态，直接渲染`primaryChildren`。**
+**如果在延时时间内，promise已经完成，触发了更新，会清除之前延时的`commitRoot`，从而可以优化掉`loading`状态，直接渲染`primaryChildren`。**
 
 对应的逻辑在`prepareFreshStack`方法中
 
