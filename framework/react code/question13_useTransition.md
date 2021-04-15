@@ -222,9 +222,80 @@ function updateTransition(): [(() => void) => void, boolean] {
 >
 > 上面图对应的React版本比较老，在当前版本中React将其中的`timeout`处理去掉了。
 >
-> 目前官方文档中对于`useTransition`的描述和例子对应的都是比较老的React版本，当前版本对这些功能的实现细节有了比较大的更新。
+> 目前官方文档中对于`useTransition`的描述和例子对应的都是比较老的React版本，当前版本对useTransition的功能有了一些更新
 
 
 
 ### 2.2 优化的源码实现
 
+上面我们说到`useTransition`配合`Suspense`可以将`Receded`阶段优化成`Pending`阶段。但是我们在分析useTransition源码的时候，其本质的功能就是通过降低更新的优先级延迟更新。如果没有特殊处理的话，并不能达到期望的优化效果。
+
+那么源码中是如何实现的呢？
+
+实现的关键是在`finishConcurrentRender`方法中
+
+```js
+function finishConcurrentRender(root, exitStatus, lanes) {
+  switch (exitStatus) {
+    // ...省略
+    case RootSuspendedWithDelay: {
+      markRootSuspended(root, lanes);
+
+      if (includesOnlyTransitions(lanes)) {
+        // 本次更新试一次过渡更新
+        // 本次更新取消，不进入commit阶段
+        break;
+      }
+
+      if (!shouldForceFlushFallbacksInDEV()) {
+        // loading throttle处理
+        const mostRecentEventTime = getMostRecentEventTime(root, lanes);
+        const eventTimeMs = mostRecentEventTime;
+        const timeElapsedMs = now() - eventTimeMs;
+        const msUntilTimeout = jnd(timeElapsedMs) - timeElapsedMs;
+
+        // Don't bother with a very short suspense time.
+        if (msUntilTimeout > 10) {
+          // Instead of committing the fallback immediately, wait for more data
+          // to arrive.
+          root.timeoutHandle = scheduleTimeout(
+            commitRoot.bind(null, root),
+            msUntilTimeout,
+          );
+          break;
+        }
+      }
+
+      commitRoot(root);
+      break;
+    }
+    // ...省略
+  }
+}
+```
+
+上一篇文章中我们分析Suspense的时候有提到：**在`update`阶段，当`Suspense`由`unsuspended`状态切换成`suspended`状态的时候，会给`workInProgressRootExitStatus`赋值`RootSuspendedWithDelay`。如果当前更新被`startTransition`包裹时，就会命中`includesOnlyTransitions(lanes)`，会抛弃掉当前更新，等`promise`完成之后再出发新的更新。**
+
+如此就实现了期望中的优化，等数据加载完成之后再进去下一个页面。
+
+这里有几个点需要**注意**一下：
+
+1. 优化的过程可能发生在`Suspense`组件`update`阶段
+
+2. 当命中`useTransition`优化的时候，会抛弃掉当前`render`阶段创建的`workInProgress tree`，下次更新时会从新创建
+
+3. 当命中`useTransition`优化的时候，不会走commit阶段，也就是promise不能在commit阶段注册回调函数。前面分析Suspense时讲过，在`Concurrent`模式中，`promise`会在是`render`阶段注册一个回调函数，在当前优化命中的情况下，promise完成之后就是调用在这个回调函数来触发更新的。
+
+   > 这种情况在分析Suspense时没有提到，这里补充一下
+
+
+
+至此我们就分析完了`useTransition`的实现原理和对`Suspense`的优化实现。
+
+
+
+## 3. 版本迭代
+
+这里笔者还是想再强调一下，当前分析的React版本和官方文档中例子对应的React版本是有较大的差别的。其中对于`useTransition`的功能和实现就发生了比较大的变化。
+
+在旧版中，useTransition有一个timeout的概念，当过渡期超过一段时间之后，如果promise还是没有完成，就会进入Receded阶段。
