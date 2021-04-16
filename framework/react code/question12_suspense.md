@@ -1502,7 +1502,7 @@ function finishConcurrentRender(root, exitStatus, lanes) {
   switch (exitStatus) {
     // ...省略
     case RootSuspended: {
-      markRootSuspended(root, lanes);
+      markRootSuspended(root, lanes);// 这个方法里面会去除掉lanes中每个lane的过期时间
 
       if (includesOnlyRetries(lanes)) {
         /**
@@ -1578,8 +1578,6 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes) {
 	// 这个方法之前的文章讲过，暂时省略...
 }
 ```
-
-
 
 > loading节流的demo可以看[这里](https://github.com/careyke/hello-react-code/blob/master/src/suspense/SuspenseLoadingThrottle.tsx)
 
