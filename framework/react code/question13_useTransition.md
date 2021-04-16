@@ -282,7 +282,7 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 
 1. 优化的过程可能发生在`Suspense`组件`update`阶段
 
-2. 当命中`useTransition`优化的时候，会抛弃掉当前`render`阶段创建的`workInProgress tree`，下次更新时会从新创建
+2. 当命中`useTransition`优化的时候，会抛弃掉当前`render`阶段创建的`workInProgress tree`，下次更新时会重新创建
 
 3. 当命中`useTransition`优化的时候，不会走commit阶段，也就是promise不能在commit阶段注册回调函数。前面分析Suspense时讲过，在`Concurrent`模式中，`promise`会在是`render`阶段注册一个回调函数，在当前优化命中的情况下，promise完成之后就是调用在这个回调函数来触发更新的。
 
@@ -298,4 +298,137 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 
 这里笔者还是想再强调一下，当前分析的React版本和官方文档中例子对应的React版本是有较大的差别的。其中对于`useTransition`的功能和实现就发生了比较大的变化。
 
-在旧版中，useTransition有一个timeout的概念，当过渡期超过一段时间之后，如果promise还是没有完成，就会进入Receded阶段。
+### 3.1 旧版 useTransition
+
+在旧版中，`useTransition`有一个**`timeout`**的概念，给当前过渡阶段设置了一个最大时间
+
+> 这个的旧版指的是当前官方文档中例子对应的React版本，对应的实验版本号是`0.0.0-experimental-5faf377df`
+
+- 没有过期时，`Suspense`对应的`promise`完成时就会退出过渡阶段
+- 当超出过期时间时，不管`promise`有没有完成，都会退出过渡阶段。这时可能会回退到`Receded`阶段
+
+> 旧版本的demo可以看[这里](https://codesandbox.io/s/old-usetransition-3sdul?file=/src/App.js)，可以调整`timeoutMs`的数值来验证
+
+> 官方文章中有一个功能是”使用 `<Suspense>` 包裹惰性功能“，这个功能实际上利用的就是旧版的`useTransition`有`timeout`这个特性
+
+
+
+### 3.2 新版 useTransition
+
+在新版中，`useTransition`中删除了`timeout`的概念，所以**必须要等到`Suspense`对应的`promise`完成之后才会退出过渡阶段。**
+
+
+
+这里我们看两个useTransition优化多Suspense嵌套的例子
+
+1. switchTab，对应的demo看[这里](https://codesandbox.io/s/usetransition-switchtab-7xgxi?file=/src/App.js)
+
+   ```js
+   const User = ({ resource }) => {
+     const user = resource.user.read();
+     return <h1>{user}</h1>;
+   };
+   const Age = ({ resource }) => {
+     const user = resource.age.read();
+     return <div>{user}</div>;
+   };
+   
+   const Home = () => {
+     return <h1>Home Page</h1>;
+   };
+   const Detail = ({ resource }) => {
+     return (
+       <div>
+         <User resource={resource}></User>
+         <Suspense fallback={<div>Loading age ...</div>}>
+           <Age resource={resource} />
+         </Suspense>
+       </div>
+     );
+   };
+   
+   const SwitchTab = () => {
+     const [resource, setResource] = useState(() => fetchData());
+     const [startTransition, isPending] = React.unstable_useTransition();
+     const [tabId, setTabId] = useState(0);
+   
+     const handleClick = () => {
+       startTransition(() => {
+         setResource(fetchDataSecond());
+         setTabId(1);
+       });
+     };
+   
+     return (
+       <div>
+         <button onClick={handleClick} disabled={isPending}>
+           {isPending ? "loading..." : "switch"}
+         </button>
+         <Suspense fallback={<div>Loading app ...</div>}>
+           {tabId === 0 ? <Home /> : <Detail resource={resource} />}
+         </Suspense>
+       </div>
+     );
+   };
+   ```
+
+   这里点击按钮的时候，**等待user数据加载完成之后才会切换到下一个页面，但是并不会等待`age`数据也加载完成**。
+
+   因为`age`对应的`Suspense`组件是新创建的，处于`mount`状态，所以达不到`useTransition`优化的条件。
+
+
+
+2. switchApi，对应的demo可以看[这里](https://codesandbox.io/s/usetransition-switchapi-ficp5?file=/src/wrapPromise.js:0-497)
+
+   ```js
+   const User = ({ resource }) => {
+     const user = resource.user.read();
+     return <h1>{user}</h1>;
+   };
+   const Age = ({ resource }) => {
+     const user = resource.age.read();
+     return <div>{user}</div>;
+   };
+   
+   const SwitchTab = () => {
+     const [resource, setResource] = useState(() => fetchData());
+     const [startTransition, isPending] = React.unstable_useTransition();
+   
+     const handleClick = () => {
+       startTransition(() => {
+         setResource(fetchDataSecond());
+       });
+     };
+   
+     return (
+       <div>
+         <button onClick={handleClick} disabled={isPending}>
+           {isPending ? "loading..." : "switch"}
+         </button>
+         <Suspense fallback={<div>Loading user ...</div>}>
+           <User resource={resource}></User>
+           <Suspense fallback={<div>Loading age ...</div>}>
+             <Age resource={resource} />
+           </Suspense>
+         </Suspense>
+       </div>
+     );
+   };
+   ```
+
+   这个例子中，点击按钮之后会**等待`Suspense`子树中所有的`promise`完成之后才会退出过渡阶段**
+
+   按照前面`useTransition`优化的流程分析下来可知，其中一个`promise`完成之后仍然会命中`useTransition`优化。
+
+
+
+在多个Suspense嵌套时，useTransition优化之后，有些场景下过渡的时间长，有些场景下过渡的时间短。当我们了解useTransition优化Suspense的原理之后，就可以准确判断过渡的时间长短，可能更好的使用`Suspense`和`useTransition`
+
+
+
+## 4. 总结
+
+1. useTransition本身的功能就是降低更新的优先级，达到延迟更新的目的
+2. useTransition之所以能够优化Suspense组件，是因为`Suspense`组件内部对于`useTransition`做了一些特殊处理
+3. 目前useTransition仍然是一个实验功能，可能在以后的版本中仍会发生较大修改
+
