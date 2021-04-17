@@ -149,3 +149,9 @@ export default function App() {
 - `useTransition`着重表现的是一个更新延迟的过渡阶段，并期望开发者在过渡阶段能做点什么。所以很适合配合Suspense来一起使用
 - `useDeferredValue`着重表现的是延迟更新一个值。至于何时开始延迟，何时结束延迟开发者不需要关心
 
+
+
+> 注意：
+>
+> 和`useTransition`一样，当前官方文档中`useDeferredValue`的API对应的React版本也是比较老的版本
+
