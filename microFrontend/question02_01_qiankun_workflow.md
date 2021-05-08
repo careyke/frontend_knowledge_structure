@@ -361,7 +361,7 @@ export default function importHTML(url, opts = {}) {
 
 这里我们主要看一下这个方法的返回值，是一个`promise`对象，该`promise`执行完成的决议值有以下**属性**：
 
-- template: `html`文件解析出来的字符串，默认是`head`和`body`标签里面的内容。
+- template: `html`文件解析出来的字符串，默认是`head`和`body`标签里面的内容（不包含`head`和`body`标签）。
 - assetPublicPath：当前子应用**静态资源文件夹**的路径
 - getExternalScripts：获取子应用`html`文件中引入的`js`文件的**文本内容**，包括行内`script`。
 - getExternalStyleSheets：获取子应用`html`文件中引入的`css`文件的**文本内容**，包括行内`style`
@@ -392,6 +392,8 @@ function getEmbedHTML(template, styles, opts = {}) {
 可以看到，这个方法中**将外部引入的样式文件转换成了使用`<style>`标签的内联样式**。
 
 > TODO：这样做的好处是什么？
+>
+> 这样做可以减少一起请求
 
 
 
@@ -406,7 +408,7 @@ function getEmbedHTML(template, styles, opts = {}) {
 1. 构建时很多优化无法进行，比如按需加载，css独立打包等
 2. 单一文件巨大，加载耗时长，资源并行加载的特性也无法使用
 3. 子应用需要修改打包配置，接入成本大
-4. 主应用需要和子应用强约定挂载的`DOM`节点标志
+4. 主应用需要和子应用**强约定**挂载的`DOM`节点标志
 
 
 
@@ -535,6 +537,7 @@ export async function loadApp<T extends ObjectType>(
         unmountSandbox,
         async () => execHooksChain(toArray(afterUnmount), app, global),
         async () => {
+          // 移除子应用模板
           render({ element: null, loading: false, container: remountContainer }, 'unmounted');
           offGlobalStateChange(appInstanceId);
           // for gc
@@ -578,13 +581,95 @@ export async function loadApp<T extends ObjectType>(
 
 
 
-上面代码中关于`CSS沙箱`和`JS沙箱`的内容这里并没有分析，后续会单独写文章来分析这两块的实现原理。
+### 4.1 子应用的渲染流程
+
+子应该的渲染流程宏观上可以分成三个阶段：
+
+1. 子应用模板的挂载
+2. 子应用内容的渲染和销毁
+3. 子应用模板的销毁
+
+> 模板：指的是子应用`html`文件中解析出来的模板节点
+>
+> 内容：指的是子应用渲染出来挂载在模板中的内容
+
+
+
+#### 4.1.1 子应用模板的挂载
+
+子应用模板的挂载调用的方法是`render`，这个方法由`getRender`方法返回。
+
+上面代码中可以看出，`render`方法在子应用的`single-spa-mount`阶段会被调用。
+
+> `single-spa-moun`t 表示的是single-spa中定义的子应用的mount阶段
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/35c354cf137adc1eb159caee7d0bb042ec42edda/src/loader.ts#L166)
+
+```typescript
+function getRender(appName: string, appContent: string, legacyRender?: HTMLContentRender) {
+  const render: ElementRender = ({ element, loading, container }, phase) => {
+    // ...省略 老版本兼容代码
+    const containerElement = getContainer(container!);
+
+    if (phase !== 'unmounted') {
+      const errorMsg = (() => {
+        switch (phase) {
+          case 'loading':
+          case 'mounting':
+            return `[qiankun] Target container with ${container} not existed while ${appName} ${phase}!`;
+
+          case 'mounted':
+            return `[qiankun] Target container with ${container} not existed after ${appName} ${phase}!`;
+
+          default:
+            return `[qiankun] Target container with ${container} not existed while ${appName} rendering!`;
+        }
+      })();
+      assertElementExist(containerElement, errorMsg);
+    }
+
+    if (containerElement && !containerElement.contains(element)) {
+      while (containerElement!.firstChild) {
+        rawRemoveChild.call(containerElement, containerElement!.firstChild);
+      }
+
+      if (element) {
+        // 插入模板节点
+        rawAppendChild.call(containerElement, element);
+      }
+    }
+
+    return undefined;
+  };
+
+  return render;
+}
+```
+
+代码逻辑比较清晰，无需额外分析。
+
+
+
+#### 4.1.2 子应用内容的挂载和销毁
+
+子应该内容的挂载和销毁分别发生在子应用的`mount`和`unmount`生命周期中，具体的销毁逻辑由子应用自己来实现。
+
+比如在React应用中：
+
+- mount: 调用`ReactDOM.render()`来渲染内容
+- unmount：调用`ReactDOM.unmountComponentAtNode()` 来销毁内容
+
+
+
+#### 4.1.3 子应用模板的销毁
+
+上面生命周期的代码中可以看出，子应用模板的销毁调用的方法仍是`render`，发生在`single-spa-unmount`阶段中。
 
 
 
 ## 5. 总结
 
-至此，对于`qiankun`中单实例场景的基本流程就分析完了，整体流程来说还是比较简单明了的。这篇文章主要是用来了解`qiankun`的基本流程，后续笔者会详细分析内部重要模块的实现细节。
+至此，对于`qiankun`中单实例场景的基本流程就分析完了，整体流程来说还是比较简单明了的。这篇文章主要是用来了解`qiankun`的基本流程，后续笔者会详细分析内部重要模块的实现细节。包括**CSS沙箱**和**JS沙箱**的实现
 
 
 
