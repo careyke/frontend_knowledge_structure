@@ -138,7 +138,7 @@ function createElement(
 
 这种用法在React应用中是很常见的，`ReactDOM.createPortal`就是应用在这种场景中的API。
 
-> 这种场景中，大部分可以通过修改节点的渲染位置来解决，也就是将节点渲染到内部子树中。但是在某些情况下是**不可调和**的，某些节点就无法渲染在内部子树中。
+> 这种场景中，大部分可以通过修改节点的渲染位置来解决，也就是将节点渲染到内部子树中。但是在某些情况下是**不可调和**的，某些节点就无法渲染在内部子树中。（笔者曾经碰到过）
 
 
 
@@ -148,7 +148,7 @@ function createElement(
 
 作用域沙箱，顾名思义就是**限制子应用中样式的作用范围，让它只作用在子应用的节点中**。
 
-**对于一个选择器，如果需要显示它的作用范围，可以使用组合选择器的方式**。在当前选择器A前面加一个选择器B，使得选择器A只作用在选择器B内部的节点。
+**对于一个选择器，如果需要限制它的作用范围，可以使用组合选择器的方式**。在当前选择器A前面加一个选择器B，使得选择器A只作用在选择器B内部的节点。
 
 `qiankun`中的作用域沙箱就是使用这个原理来实现的。**给子应用中所有的样式选择器都加上一个前缀选择器**。
 
@@ -187,9 +187,384 @@ function createElement(
 }
 ```
 
-可以看到这里会遍历每个`style`文本，然后给内部的选择器添加前缀选择器。
+上面方法中可以看出，**每个子应用的包裹`DOM`节点会添加一个自定义属性`data-qiankun`，而且属性值是唯一的，由此可以构造一个唯一的属性选择器来当做对应子应用的前缀选择器**。
 
 
 
-#### 3.3.1 重写子应用样式选择器
+对于子应用选择器的处理都发生在`css.ts`文件中，主要分成两个部分：
+
+1. 构造前缀选择器
+2. 重写所有选择器
+
+
+
+#### 3.3.1 构造前缀选择器
+
+对应的方法是`css.ts`文件中的`process`方法
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/bf03b50799b180f0f5b3e02c747d1fcdf5583348/src/sandbox/patchers/css.ts#L188)
+
+```typescript
+export const QiankunCSSRewriteAttr = 'data-qiankun';
+export const process = (
+  appWrapper: HTMLElement,
+  stylesheetElement: HTMLStyleElement | HTMLLinkElement,
+  appName: string,
+): void => {
+  // 单例模式
+  if (!processor) {
+    processor = new ScopedCSS();
+  }
+
+  // 不支持link外部引入样式
+  if (stylesheetElement.tagName === 'LINK') {
+    console.warn('Feature: sandbox.experimentalStyleIsolation is not support for link element yet.');
+  }
+
+  const mountDOM = appWrapper;
+  if (!mountDOM) {
+    return;
+  }
+
+  const tag = (mountDOM.tagName || '').toLowerCase();
+
+  if (tag && stylesheetElement.tagName === 'STYLE') {
+    // 构造前缀选择器
+    const prefix = `${tag}[${QiankunCSSRewriteAttr}="${appName}"]`;
+    processor.process(stylesheetElement, prefix);
+  }
+};
+```
+
+这里说一下作用域沙箱不支持`link`标签引入的样式，这也是在解析子应用静态资源时为什么把`link`样式转化为`style`样式的一个原因。
+
+
+
+#### 3.3.2 重写所有选择器
+
+选择器重写的过程都是在`ScopedCSS`这个类中完成，这里按照选择器添加的方式可以将**选择器分成三类**：
+
+1. 当前`style`标签中存在的选择器
+2. 动态添加到当前`style`标签中的选择器
+3. 动态添加的`style`或者`link`标签中的选择器
+
+
+
+##### 3.3.2.1 当前style标签中存在的选择器
+
+对于这类选择器，直接解析样式文本，重写其中的选择器。对应的方法是`rewrite`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/bf03b50799b180f0f5b3e02c747d1fcdf5583348/src/sandbox/patchers/css.ts#L91)
+
+```typescript
+private rewrite(rules: CSSRule[], prefix: string = '') {
+    let css = '';
+
+    rules.forEach((rule) => {
+        switch (rule.type) {
+            case RuleType.STYLE:
+                css += this.ruleStyle(rule as CSSStyleRule, prefix);
+                break;
+            case RuleType.MEDIA:
+                css += this.ruleMedia(rule as CSSMediaRule, prefix);
+                break;
+            case RuleType.SUPPORTS:
+                css += this.ruleSupport(rule as CSSSupportsRule, prefix);
+                break;
+            default:
+                css += `${rule.cssText}`;
+                break;
+        }
+    });
+
+    return css;
+}
+```
+
+可以看到，这里只对三种类型的规则进行了重写，其他的类型不处理。
+
+> @keyframes, @font-face, @import, @page 将不会被重写。
+>
+> 能满足绝大部分场景
+
+
+
+这里我们重点看一下对于普通样式规则的重写，对应的方法是`ruleStyle`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/bf03b50799b180f0f5b3e02c747d1fcdf5583348/src/sandbox/patchers/css.ts#L119)
+
+```typescript
+private ruleStyle(rule: CSSStyleRule, prefix: string) {
+    const rootSelectorRE = /((?:[^\w\-.#]|^)(body|html|:root))/gm;
+    const rootCombinationRE = /(html[^\w{[]+)/gm;
+
+    const selector = rule.selectorText.trim();
+
+    let {
+        cssText
+    } = rule;
+    // handle html { ... }
+    // handle body { ... }
+    // handle :root { ... }
+    /**
+     * 根节点选择器的处理
+     */
+    if (selector === 'html' || selector === 'body' || selector === ':root') {
+        return cssText.replace(rootSelectorRE, prefix);
+    }
+
+    // handle html body { ... }
+    // handle html > body { ... }
+    /**
+     * 根节点组合选择器的处理
+     */
+    if (rootCombinationRE.test(rule.selectorText)) {
+        const siblingSelectorRE = /(html[^\w{]+)(\+|~)/gm;
+
+        // since html + body is a non-standard rule for html
+        // transformer will ignore it
+        if (!siblingSelectorRE.test(rule.selectorText)) {
+            cssText = cssText.replace(rootCombinationRE, '');
+        }
+    }
+
+    // handle grouping selector, a,span,p,div { ... }
+    /**
+     * 其他选择器的处理
+     */
+    cssText = cssText.replace(/^[\s\S]+{/, (selectors) =>
+        selectors.replace(/(^|,\n?)([^,]+)/g, (item, p, s) => {
+            // handle div,body,span { ... }
+            if (rootSelectorRE.test(item)) {
+                return item.replace(rootSelectorRE, (m) => {
+                    const whitePrevChars = [',', '('];
+
+                    if (m && whitePrevChars.includes(m[0])) {
+                        return `${m[0]}${prefix}`;
+                    }
+
+                    // replace root selector with prefix
+                    return prefix;
+                });
+            }
+
+            return `${p}${prefix} ${s.replace(/^ */, '')}`;
+        }),
+    );
+
+    return cssText;
+}
+```
+
+上面函数中将选择器分成**三种规则**来重写：
+
+1. **对于子应用中的根选择器，比如html或者body，会将当前根选择器修改成前缀选择器**。也就是将包裹子应用的`DOM`当成是`body`节点，继承子应用的顶层样式。
+
+   ```css
+   // 子应用中
+   body{
+     color: red
+   }
+   body p{
+     font-size: 14px
+   }
+   
+   // 重写之后
+   div[data-qiankun="react"]{
+     color: red
+   }
+   div[data-qiankun="react"] p{
+     font-size: 14px
+   }
+   
+   // html选择器也是一样的
+   ```
+
+2. 对于子应用中的组合根选择器，比如`html body{}`，也会替换成前缀选择器
+
+   ```css
+   // 子应用中
+   html body{
+     color: red
+   }
+   
+   // 重写之后
+   div[data-qiankun="react"]{
+     color: red
+   }
+   ```
+
+3. **对于其他类型的选择器，前面增加前缀选择器**
+
+   ```css
+   // 子应用中
+   .row{
+     height: 200px
+   }
+   
+   // 重写之后
+   div[data-qiankun="react"] .row{
+     height: 200px
+   }
+   ```
+
+   
+
+##### 3.3.2.2 动态添加到当前`style`标签中的选择器
+
+对于这类选择器的重写规则其实是一样的，重要的是**需要监听`style`标签的变化，获取动态添加的内容。**
+
+监听DOM元素的变化，可以使用`MutationObserver`，`qiankun`中也是使用这个API来监听`style`标签的变化
+
+对应的代码在`ScopedCSS.process`方法中
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/bf03b50799b180f0f5b3e02c747d1fcdf5583348/src/sandbox/patchers/css.ts#L46)
+
+```typescript
+process(styleNode: HTMLStyleElement, prefix: string = '') {
+		// ... 省略
+    const mutator = new MutationObserver((mutations) => {
+        /**
+         * 针对动态添加样式类
+         */
+        for (let i = 0; i < mutations.length; i += 1) {
+            const mutation = mutations[i];
+
+            if (ScopedCSS.ModifiedTag in styleNode) {
+                return;
+            }
+
+            if (mutation.type === 'childList') {
+                const sheet = styleNode.sheet as any;
+                const rules = arrayify < CSSRule > (sheet ? .cssRules ? ? []);
+                const css = this.rewrite(rules, prefix);
+
+                // eslint-disable-next-line no-param-reassign
+                styleNode.textContent = css;
+                // eslint-disable-next-line no-param-reassign
+                (styleNode as any)[ScopedCSS.ModifiedTag] = true;
+            }
+        }
+    });
+
+    mutator.observe(styleNode, {
+        childList: true
+    });
+}
+```
+
+可以看到，最终重写选择器调用的方法也是`rewrite`方法
+
+
+
+##### 3.3.2.3 动态添加的`style`或者`link`标签中的选择器
+
+这种情况下，我们要想获取动态添加的`style`或`link`标签里面的内容，可以**改写浏览器中增加DOM节点的API，从而来劫持动态添加的`style`和`link`标签。**
+
+`qiankun`中也是使用这种方式来劫持动态添加的`style、link和script`标签。
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/bf03b50799b180f0f5b3e02c747d1fcdf5583348/src/sandbox/patchers/dynamicAppend/common.ts#L149)
+
+```typescript
+function getOverwrittenAppendChildOrInsertBefore(opts: {
+  rawDOMAppendOrInsertBefore: <T extends Node>(newChild: T, refChild?: Node | null) => T;
+  isInvokedByMicroApp: (element: HTMLElement) => boolean;
+  containerConfigGetter: (element: HTMLElement) => ContainerConfig;
+}) {
+  return function appendChildOrInsertBefore<T extends Node>(
+    this: HTMLHeadElement | HTMLBodyElement,
+    newChild: T,
+    refChild?: Node | null,
+  ) {
+    let element = newChild as any;
+    const { rawDOMAppendOrInsertBefore, isInvokedByMicroApp, containerConfigGetter } = opts;
+    if (!isHijackingTag(element.tagName) || !isInvokedByMicroApp(element)) {
+      return rawDOMAppendOrInsertBefore.call(this, element, refChild) as T;
+    }
+
+    if (element.tagName) {
+      const containerConfig = containerConfigGetter(element);
+      const {
+        appName,
+        appWrapperGetter,
+        proxy,
+        strictGlobal,
+        dynamicStyleSheetElements,
+        scopedCSS,
+        excludeAssetFilter,
+      } = containerConfig;
+
+      switch (element.tagName) {
+        case LINK_TAG_NAME:
+        case STYLE_TAG_NAME: {
+          let stylesheetElement: HTMLLinkElement | HTMLStyleElement = newChild as any;
+          const { href } = stylesheetElement as HTMLLinkElement;
+          if (excludeAssetFilter && href && excludeAssetFilter(href)) {
+            return rawDOMAppendOrInsertBefore.call(this, element, refChild) as T;
+          }
+
+          const mountDOM = appWrapperGetter();
+
+          if (scopedCSS) {
+            // exclude link elements like <link rel="icon" href="favicon.ico">
+            const linkElementUsingStylesheet =
+              element.tagName?.toUpperCase() === LINK_TAG_NAME &&
+              (element as HTMLLinkElement).rel === 'stylesheet' &&
+              (element as HTMLLinkElement).href;
+            if (linkElementUsingStylesheet) {
+              const fetch =
+                typeof frameworkConfiguration.fetch === 'function'
+                  ? frameworkConfiguration.fetch
+                  : frameworkConfiguration.fetch?.fn;
+              // 先请求样式文本，再来重写选择器
+              stylesheetElement = convertLinkAsStyle(
+                element,
+                (styleElement) => css.process(mountDOM, styleElement, appName),
+                fetch,
+              );
+              dynamicLinkAttachedInlineStyleMap.set(element, stylesheetElement);
+            } else {
+              css.process(mountDOM, stylesheetElement, appName);
+            }
+          }
+
+          // eslint-disable-next-line no-shadow
+          dynamicStyleSheetElements.push(stylesheetElement);
+          const referenceNode = mountDOM.contains(refChild) ? refChild : null;
+          return rawDOMAppendOrInsertBefore.call(mountDOM, stylesheetElement, referenceNode);
+        }
+
+        case SCRIPT_TAG_NAME: {
+          // ...省略 script标签的处理 后面再介绍
+        }
+
+        default:
+          break;
+      }
+    }
+
+    return rawDOMAppendOrInsertBefore.call(this, element, refChild);
+  };
+}
+```
+
+上面方法可以看到，**不管是动态添加的style还是link标签，最终都会调用`css.process`方法来重写内部的选择器**
+
+
+
+#### 3.3.3 作用域沙箱总结
+
+至此，关于作用域沙箱的内容我们就讲完了。
+
+整体看来作用域沙箱基本能满足用户的需求，但是目前还是一个实验期的特性，后续很多细节很可能会发生修改，但是主要的思路感觉不会改动。
+
+作用域沙箱还有一个**比较大的缺点**，就是**运行时重写选择器是需要消耗时间的**，特别是对于比较大的子应用，这个可能是一个比较耗时的过程。
+
+
+
+## 4. 总结
+
+整个分析下来，我们清楚了为什么需要CSS沙箱，以及`qiankun`内部提供的三种沙箱的实现原理和优缺点。
+
+在实际的工作中，我们需要根据具体的场景来选择沙箱。在单实例模式中，新建的子应用往往使用天然沙箱+工程化手段就能满足需求。
 

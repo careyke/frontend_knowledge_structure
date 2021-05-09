@@ -393,7 +393,8 @@ function getEmbedHTML(template, styles, opts = {}) {
 
 > TODO：这样做的好处是什么？
 >
-> 这样做可以减少一起请求
+> 1. 这样做可以减少一次请求
+> 2. 作用域沙箱不支持`link`样式
 
 
 
