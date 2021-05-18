@@ -92,12 +92,77 @@ export default class SnapshotSandbox implements SandBox {
 
 ## 2. proxySandbox — 代理沙箱
 
-代理沙箱的实现原理是：**每个实例创建一个全局对象（window）的替代对象（fakeWindow），并且使用`proxy`来代理对全局对象的操作，使其操作在替代对象中**。
+代理沙箱的实现原理：**为每个实例创建一个全局对象（window）的替代对象（fakeWindow），并且使用`proxy`来代理对全局对象的操作，使其操作在替代对象中**。
 
-代理沙箱对应的实现文件是`/src/sandbox/proxySandbox.ts`，可以分成两个部分
+代理沙箱对应的实现文件是`/src/sandbox/proxySandbox.ts`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/58253a35b30e5534dc1b62ef5181901cc814ee17/src/sandbox/proxySandbox.ts#L129)
+
+```typescript
+export default class ProxySandbox implements SandBox {
+  // 记录fakeWindow中更新的属性
+  private updatedValueSet = new Set<PropertyKey>();
+	// 沙箱的名字
+  name: string;
+	// 沙箱类型
+  type: SandBoxType;
+	// fakeWindow的代理对象
+  proxy: WindowProxy;
+	// 当前沙箱是否在运行
+  sandboxRunning = true;
+	// 最后一个修改的属性，用来获取子应用的生命周期函数
+  latestSetProp: PropertyKey | null = null;
+
+  active() {
+    if (!this.sandboxRunning) activeSandboxCount++;
+    this.sandboxRunning = true;
+  }
+
+  inactive() {
+    if (--activeSandboxCount === 0) {
+      variableWhiteList.forEach((p) => {
+        if (this.proxy.hasOwnProperty(p)) {
+          // @ts-ignore
+          delete window[p];
+        }
+      });
+    }
+
+    this.sandboxRunning = false;
+  }
+
+  constructor(name: string) {
+    this.name = name;
+    this.type = SandBoxType.Proxy;
+    const { updatedValueSet } = this;
+
+    const rawWindow = window;
+    // 创建fakeWindow
+    const { fakeWindow, propertiesWithGetter } = createFakeWindow(rawWindow);
+    // 记录属性描述对象的来源，也就是属性的来源（window or fakeWindow）
+    const descriptorTargetMap = new Map<PropertyKey, SymbolTarget>();
+    const hasOwnProperty = (key: PropertyKey) => fakeWindow.hasOwnProperty(key) || rawWindow.hasOwnProperty(key);
+
+    const proxy = new Proxy(fakeWindow, {
+      // ...省略
+    });
+
+    this.proxy = proxy;
+
+    activeSandboxCount++;
+  }
+}
+```
+
+从上面代码中可以将代理沙箱的实现分成两个部分
 
 1. **创建全局对象的替代对象**
 2. **使用`proxy`来代理全局对象的操作**
+
+> 属性解释：
+>
+> 1. variableWhiteList：白名单的属性值修改需要反馈到`window`对象中，其他js文件可能需要访问
+> 2. activeSandboxCount：激活沙箱的个数
 
 
 
@@ -155,7 +220,96 @@ function createFakeWindow(global: Window) {
 
 
 
-
-
 ### 2.2 使用proxy代理全局对象的操作
+
+整个代理对象中实现了多个拦截器，这里我们主要来分析一下`set`和`get`拦截器，其他的拦截器代码比较简单
+
+
+
+#### 2.2.1 set
+
+```typescript
+set: (target: FakeWindow, p: PropertyKey, value: any): boolean => {
+    if (this.sandboxRunning) {
+        if (!target.hasOwnProperty(p) && rawWindow.hasOwnProperty(p)) {
+          	// window中独有的属性
+            const descriptor = Object.getOwnPropertyDescriptor(rawWindow, p);
+            const {
+                writable,
+                configurable,
+                enumerable
+            } = descriptor!;
+            if (writable) {
+                Object.defineProperty(target, p, {
+                    configurable,
+                    enumerable,
+                    writable,
+                    value,
+                });
+            }
+        } else {
+            // @ts-ignore
+            target[p] = value;
+        }
+
+        if (variableWhiteList.indexOf(p) !== -1) {
+            // @ts-ignore
+            rawWindow[p] = value; // 白名单中的属性需要存在在真实的window对象中
+        }
+
+        updatedValueSet.add(p);
+
+        this.latestSetProp = p;
+
+        return true;
+    }
+
+    // 在 strict-mode 下，Proxy 的 handler.set 返回 false 会抛出 TypeError，在沙箱卸载的情况下应该忽略错误
+    return true;
+},
+```
+
+上面代码可以看出，**除了白名单中的属性之后，全局对象中所有属性的修改都会保存在`fakeWindow`中，并不会污染`window`对象**。
+
+> 白名单中的属性如果发生修改同样会修改`window`中对应的属性，但是在**所有的**沙箱都卸载的时候会删除`window`中这些属性
+
+
+
+#### 2.2.2 get
+
+```typescript
+get(target: FakeWindow, p: PropertyKey): any {
+    // ... 省略一些特殊属性的处理
+    
+    if (p === 'document' || p === 'eval') {
+        setCurrentRunningSandboxProxy(proxy);
+        nextTick(() => setCurrentRunningSandboxProxy(null)); // 临时方案
+        switch (p) {
+            case 'document':
+                return document;
+            case 'eval':
+                // eslint-disable-next-line no-eval
+                return eval;
+                // no default
+        }
+    }
+		
+  	// propertiesWithGetter中的属性从window或者fakeWindow中获取都可以
+    const value = propertiesWithGetter.has(p) ?
+        (rawWindow as any)[p] :
+        p in target ?
+        (target as any)[p] :
+        (rawWindow as any)[p];
+  	// 对于Function属性的特殊处理，绑定this为window
+    return getTargetValue(rawWindow, value);
+},
+```
+
+`get`拦截器中有很多对于特殊属性的`hack`代码，这里就不展开分析了。我们重点看一下上面贴出来的代码。
+
+当访问`document`属性时，会调用`setCurrentRunningSandboxProxy`方法来**设置当前操作是在哪个沙箱实例中**进行的，这一步对后面劫持`document.create`方法起到关键的作用。（后面会再次讲到）
+
+
+
+### 3. qinakun中JS沙箱的使用
 
