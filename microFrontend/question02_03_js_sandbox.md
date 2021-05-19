@@ -219,6 +219,10 @@ function createFakeWindow(global: Window) {
 
 `propertiesWithGetter`用来记录这些不可配置属性中哪些拥有`getter`，也就是可以被访问。
 
+> 至于fakeWindow是如何在运行时来替换window，简单来说就是通过**函数作用域**和**this绑定**来实现的。
+>
+> 具体的执行可以看`import-html-entry`中的实现，可以看[这里](https://github.com/kuitos/import-html-entry/blob/3765762fe7fc3d960b981c8a2dc6181e37a23ee6/src/index.js#L52)
+
 
 
 ### 2.2 使用proxy代理全局对象的操作
@@ -443,7 +447,7 @@ export function createSandboxContainer(
 上面代码中可以看出，子应用的js沙箱可以分成两个部分：
 
 1. **创建js沙箱**
-2. **添加各种补丁**
+2. **补丁系统**
 
 
 
@@ -470,7 +474,7 @@ if (window.Proxy) {
 
 
 
-### 3.2 添加各种补丁
+### 3.2 补丁系统
 
 在创建好js沙箱之后，在子应用`mount`之前，`qiankun`给沙箱实例添加了一些补丁，用来解决不同的问题，当子应用卸载的时候，这些补丁也会卸载。
 
@@ -483,7 +487,7 @@ if (window.Proxy) {
 
 
 
-#### 3.2.1 dynamicAppend
+#### 3.2.1 dynamicAppend 补丁
 
 子应用中动态添加的样式或者脚本资源默认也需要运行在对应的`CSS沙箱`和`JS沙箱`中，`dynamicAppend`就是用来解决这个问题。
 
@@ -788,7 +792,7 @@ function getOverwrittenAppendChildOrInsertBefore(opts: {
 
    主要做了两个操作：
 
-   1. 缓存动态添加到**子应用沙箱环境**的`style`元素，为后续子应用再次由`unmount`变成`mount`时恢复沙箱环境做准备。
+   1. 缓存动态添加到**子应用沙箱环境**的`style和link`元素，为后续子应用再次由`unmount`变成`mount`时恢复沙箱环境做准备。
 
    2. 如果子应用开启了`作用域CSS沙箱`，需要将动态添加的`link`转化成`style`，然后给里面的选择器添加前缀选择器
 
@@ -846,5 +850,179 @@ function getOverwrittenAppendChildOrInsertBefore(opts: {
    }
    ```
 
-   **对于动态添加子应用沙箱环境的`script`标签，直接由`qiankun`内部请求并在沙箱环境中执行，不插入DOM树中，而且插入一个`CommentElement`来注释这个`script`标签。**
+   **对于动态添加到子应用沙箱环境的`script`标签，直接由`qiankun`内部请求并在沙箱环境中执行，不插入DOM树中，而且插入一个`CommentElement`来注释这个`script`标签。**
+
+> 注意：
+>
+> 这里有一个概念需要解释一下，**动态添加到子应用沙箱环境的资源指的是`excludeAssetFilter`白名单之外的资源，这些资源可以子应用的沙箱关联在一起，执行的时候需要使用到CSS沙箱或者JS沙箱。**（CSS沙箱开启的时候）
+
+
+
+##### 3.2.1.3 缓存和恢复动态添加`style`元素和对应的`CSSRules`
+
+上面代码中可以看出，当`dynamicAppend`补丁卸载的时候，会缓存子应用沙箱环境中动态添加的`style`元素的`CSSRules`，对应的方法是`recordStyledComponentsCSSRules`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/ef328fe0972ebf2f1c9b7a1bc4898490db3fd085/src/sandbox/patchers/dynamicAppend/common.ts#L116)
+
+```typescript
+export function recordStyledComponentsCSSRules(styleElements: HTMLStyleElement[]): void {
+  styleElements.forEach((styleElement) => {
+    if (styleElement instanceof HTMLStyleElement && isStyledComponentsLike(styleElement)) {
+      // style元素才有CSSRules
+      if (styleElement.sheet) {
+        // record the original css rules of the style element for restore
+        styledComponentCSSRulesMap.set(styleElement, (styleElement.sheet as CSSStyleSheet).cssRules);
+      }
+    }
+  });
+}
+```
+
+然后在**子应用由`unmount`变成`mount`的时候，重新将这些样式资源存在沙箱环境中，将子应用的沙箱环境恢复到`unmount`之前的环境。**
+
+对应的方法是`rebuildCSSRules`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/ef328fe0972ebf2f1c9b7a1bc4898490db3fd085/src/sandbox/patchers/dynamicAppend/common.ts#L365)
+
+```typescript
+export function rebuildCSSRules(
+  styleSheetElements: HTMLStyleElement[],
+  reAppendElement: (stylesheetElement: HTMLStyleElement) => boolean,
+) {
+  styleSheetElements.forEach((stylesheetElement) => {
+    // 将之前缓存的样式元素重新添加在沙箱环境中
+    const appendSuccess = reAppendElement(stylesheetElement);
+    if (appendSuccess) {
+      if (stylesheetElement instanceof HTMLStyleElement && isStyledComponentsLike(stylesheetElement)) {
+        const cssRules = getStyledElementCSSRules(stylesheetElement);
+        if (cssRules) {
+          // 这里不会导致规则重复添加吗？？？
+          for (let i = 0; i < cssRules.length; i++) {
+            const cssRule = cssRules[i];
+            const cssStyleSheetElement = stylesheetElement.sheet as CSSStyleSheet;
+            cssStyleSheetElement.insertRule(cssRule.cssText, cssStyleSheetElement.cssRules.length);
+          }
+        }
+      }
+    }
+  });
+}
+```
+
+也就是说，**子应用中动态添加到沙箱环境的样式资源被认为是沙箱环境的一部分，当子应用重新激活的时候，需要将沙箱环境恢复到卸载之前的状态。**
+
+所以如果想重新激活之后没有之前动态添加的样式，需要手动清除
+
+> 这里在恢复样式的时候有一个问题？
+>
+> 子应用卸载的时候`style`元素内部的`CSSRules`也被缓存了一份，而且恢复的时候重新追加到对应的`style`元素中，这里感觉会导致样式规则重复
+>
+> （TODO）需要验证
+
+
+
+当`dynamicAppend`补丁卸载的时候，还有一个细节需要注意一下：
+
+当`dynamicAppend`补丁卸载的时候，按照正常的思路就是需要将之前劫持的方法还原，但是前面提到过，这些方法是通过重写的方式来劫持的，所以修改的时候会影响其他子应用，所以需要等到**所有子应用的`dynamicAppend`补丁都卸载的时候才能还原被劫持的方法**。
+
+
+
+#### 3.2.2 interval 补丁
+
+这个补丁的代码实现比较简单，直接看代码就可以
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/ef328fe0972ebf2f1c9b7a1bc4898490db3fd085/src/sandbox/patchers/interval.ts#L12)
+
+```typescript
+export default function patch(global: Window) {
+  let intervals: number[] = [];
+
+  global.clearInterval = (intervalId: number) => {
+    intervals = intervals.filter((id) => id !== intervalId);
+    return rawWindowClearInterval(intervalId);
+  };
+
+  global.setInterval = (handler: CallableFunction, timeout?: number, ...args: any[]) => {
+    const intervalId = rawWindowInterval(handler, timeout, ...args);
+    intervals = [...intervals, intervalId];
+    return intervalId;
+  };
+
+  return function free() {
+    intervals.forEach((id) => global.clearInterval(id));
+    global.setInterval = rawWindowInterval;
+    global.clearInterval = rawWindowClearInterval;
+
+    return noop;
+  };
+}
+```
+
+这个补丁是通过代理的方式来实现的，在`fakeWindow`中增加`setInterval和clearInterval`方法来代理`window`中的方法。不会影响到其他的应用，只在当前沙箱起作用。
+
+从以上代码分析来看，**`interval`补丁的作用就是用来防止开发者在子应用卸载的时候没有清除`setInterval`定时器而导致的内存泄漏问题。**
+
+
+
+#### 3.2.3 windowListener 补丁
+
+比较简单，直接看代码
+
+> 对应的源代码可以看[这里]()
+
+```typescript
+export default function patch(global: WindowProxy) {
+  const listenerMap = new Map<string, EventListenerOrEventListenerObject[]>();
+
+  global.addEventListener = (
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ) => {
+    const listeners = listenerMap.get(type) || [];
+    listenerMap.set(type, [...listeners, listener]);
+    return rawAddEventListener.call(window, type, listener, options);
+  };
+
+  global.removeEventListener = (
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ) => {
+    const storedTypeListeners = listenerMap.get(type);
+    if (storedTypeListeners && storedTypeListeners.length && storedTypeListeners.indexOf(listener) !== -1) {
+      storedTypeListeners.splice(storedTypeListeners.indexOf(listener), 1);
+    }
+    return rawRemoveEventListener.call(window, type, listener, options);
+  };
+
+  return function free() {
+    listenerMap.forEach((listeners, type) =>
+      [...listeners].forEach((listener) => global.removeEventListener(type, listener)),
+    );
+    global.addEventListener = rawAddEventListener;
+    global.removeEventListener = rawRemoveEventListener;
+
+    return noop;
+  };
+}
+```
+
+实现思路上和`interval`是一样的，也是通过在`fakeWindow`中代理的形式来实现的。
+
+从代码上来看，**`windowListener`补丁的作用是防止子应用卸载的时候，内部绑定在`window`对象中的事件没有及时销毁而导致的内存泄漏或其他影响。**
+
+
+
+## 4. 总结
+
+至此，`qiankun`中JS沙箱的实现和应用基本就分析完了。
+
+简单来说，可以总结以下几点：
+
+1. `qiankun`中的提供了两种JS沙箱：`snapshotSandbox`和`proxySandbox`，目前大家基本使用的都是`proxySandbox`。该沙箱使用`fakeWindow`来替代`window`对象，并且代理了全局对象`fakeWindow`的操作
+
+2. `qiankun`中每个子应用都会对应一个JS沙箱实例，这个沙箱实例会持久化的伴随着子应用，用来保存子应用的执行上下文信息，直到当前`qiankun`应用销毁。
+
+3. `qiankun`给`JS`沙箱增加了补丁系统，用来完善沙箱的功能
 
