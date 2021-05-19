@@ -75,9 +75,9 @@ export default class SnapshotSandbox implements SandBox {
 可以看出，整体的实现代码非常简单。
 
 - 在沙箱激活之前，使用一个对象来保存当前`window`对象的快照。同时将**已经修改的属性**更新到`window`对象中，然后子应用**直接在`window`对象上操作**。
-- 在沙箱卸载的时候，对应当前`window`对象和之前保存的`window`快照对象，收集被修改的属性，然后使用快照还原`window`对象。
+- 在沙箱失活的时候，对应当前`window`对象和之前保存的`window`快照对象，收集被修改的属性，然后使用快照还原`window`对象。
 
-由此刚好形成一个闭环操作。通过在沙箱激活和卸载的时候更新`window`对象来达到不影响子应用的效果（仅在单实例模式下）。
+由此刚好形成一个闭环操作。通过在沙箱激活和失活的时候更新`window`对象来达到不影响子应用的效果（仅在单实例模式下）。
 
 
 
@@ -154,10 +154,11 @@ export default class ProxySandbox implements SandBox {
 }
 ```
 
-从上面代码中可以将代理沙箱的实现分成两个部分
+从上面代码中可以将代理沙箱的实现分成三个部分
 
 1. **创建全局对象的替代对象**
 2. **使用`proxy`来代理全局对象的操作**
+3. **沙箱的生命周期**
 
 > 属性解释：
 >
@@ -231,6 +232,7 @@ function createFakeWindow(global: Window) {
 ```typescript
 set: (target: FakeWindow, p: PropertyKey, value: any): boolean => {
     if (this.sandboxRunning) {
+      	// 沙箱激活时才能修改全局属性
         if (!target.hasOwnProperty(p) && rawWindow.hasOwnProperty(p)) {
           	// window中独有的属性
             const descriptor = Object.getOwnPropertyDescriptor(rawWindow, p);
@@ -271,7 +273,7 @@ set: (target: FakeWindow, p: PropertyKey, value: any): boolean => {
 
 上面代码可以看出，**除了白名单中的属性之后，全局对象中所有属性的修改都会保存在`fakeWindow`中，并不会污染`window`对象**。
 
-> 白名单中的属性如果发生修改同样会修改`window`中对应的属性，但是在**所有的**沙箱都卸载的时候会删除`window`中这些属性
+> 白名单中的属性如果发生修改同样会修改`window`中对应的属性，但是在**所有的**沙箱都失活的时候才会删除`window`中这些属性
 
 
 
@@ -281,6 +283,7 @@ set: (target: FakeWindow, p: PropertyKey, value: any): boolean => {
 get(target: FakeWindow, p: PropertyKey): any {
     // ... 省略一些特殊属性的处理
     
+  	// 动态创建标签或者执行脚本时
     if (p === 'document' || p === 'eval') {
         setCurrentRunningSandboxProxy(proxy);
         nextTick(() => setCurrentRunningSandboxProxy(null)); // 临时方案
@@ -307,9 +310,541 @@ get(target: FakeWindow, p: PropertyKey): any {
 
 `get`拦截器中有很多对于特殊属性的`hack`代码，这里就不展开分析了。我们重点看一下上面贴出来的代码。
 
-当访问`document`属性时，会调用`setCurrentRunningSandboxProxy`方法来**设置当前操作是在哪个沙箱实例中**进行的，这一步对后面劫持`document.create`方法起到关键的作用。（后面会再次讲到）
+当访问`document`属性时，会调用`setCurrentRunningSandboxProxy`方法来**设置当前操作是在哪个沙箱实例中**进行的，这一步对后面劫持`document.createElement`方法起到关键的作用。
+
+子应用动态创建某些标签的时候需要插入额外逻辑，执行完成之后需要还原执行上下文（后面会详细分析），防止影响主应用的使用。这里创建一个微任务来还原执行上下文。
+
+```typescript
+export function nextTick(cb: () => void): void {
+  Promise.resolve().then(cb);
+}
+```
+
+> **注意：**这里还原的方案是一个临时方案，某些场景无法覆盖。
+>
+> 考虑一种情况：当子应用和主应用同步创建`script`标签的时候，主应用创建的`script`标签对应的代码会运行在沙箱环境中。这个是不合适的。（qiankun团队暂时还没有解决这个问题）
 
 
 
-### 3. qinakun中JS沙箱的使用
+### 2.3 沙箱的生命周期：active 和 inactive
+
+`ProxySandbox`类中构造代理对象之外，还提供了两个方法用来描述沙箱实例的生命周期。
+
+1. active - 沙箱激活。
+
+   ```typescript
+   active() {
+       if (!this.sandboxRunning) activeSandboxCount++;
+       this.sandboxRunning = true;
+   }
+   ```
+
+   **沙箱激活之后才能在修改全局对象的属性。在失活状态，修改全局属性会失败，但是可以读取属性**。（看前面的set和get方法）
+
+2. Inactive - 沙箱失活。
+
+   ```typescript
+   inactive() {
+       if (--activeSandboxCount === 0) {
+           variableWhiteList.forEach((p) => {
+               if (this.proxy.hasOwnProperty(p)) {
+                   // @ts-ignore
+                   delete window[p];
+               }
+           });
+       }
+   
+       this.sandboxRunning = false;
+   }
+   ```
+
+   如果所有的沙箱都失活，会删除window对象中存在在白名单中的属性
+
+
+
+## 3. qiankun中沙箱的使用
+
+`qiankun`中会为每一个子应用创建一个`js`沙箱，对应的入口方法是`createSandboxContainer`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/2b42f2156e3865215e8b912e449acbf0fc4eff10/src/sandbox/index.ts#L32)
+
+```typescript
+export function createSandboxContainer(
+  appName: string,
+  elementGetter: () => HTMLElement | ShadowRoot,
+  scopedCSS: boolean,
+  useLooseSandbox?: boolean,
+  excludeAssetFilter?: (url: string) => boolean,
+) {
+  let sandbox: SandBox;
+  if (window.Proxy) {
+    sandbox = useLooseSandbox ? new LegacySandbox(appName) : new ProxySandbox(appName);
+  } else {
+    sandbox = new SnapshotSandbox(appName);
+  }
+
+  // some side effect could be be invoked while bootstrapping, such as dynamic stylesheet injection with style-loader, especially during the development phase
+  const bootstrappingFreers = patchAtBootstrapping(appName, elementGetter, sandbox, scopedCSS, excludeAssetFilter);
+  // mounting freers are one-off and should be re-init at every mounting time
+  let mountingFreers: Freer[] = [];
+
+  let sideEffectsRebuilders: Rebuilder[] = [];
+
+  return {
+    instance: sandbox,
+
+    /**
+     * 沙箱被 mount
+     * 可能是从 bootstrap 状态进入的 mount
+     * 也可能是从 unmount 之后再次唤醒进入 mount
+     */
+    async mount() {
+      /* ------------------------------------------ 因为有上下文依赖（window），以下代码执行顺序不能变 ------------------------------------------ */
+
+      /* ------------------------------------------ 1. 启动/恢复 沙箱------------------------------------------ */
+      sandbox.active();
+
+      const sideEffectsRebuildersAtBootstrapping = sideEffectsRebuilders.slice(0, bootstrappingFreers.length);
+      const sideEffectsRebuildersAtMounting = sideEffectsRebuilders.slice(bootstrappingFreers.length);
+
+      // must rebuild the side effects which added at bootstrapping firstly to recovery to nature state
+      if (sideEffectsRebuildersAtBootstrapping.length) {
+        sideEffectsRebuildersAtBootstrapping.forEach((rebuild) => rebuild());
+      }
+
+      /* ------------------------------------------ 2. 开启全局变量补丁 ------------------------------------------*/
+      // render 沙箱启动时开始劫持各类全局监听，尽量不要在应用初始化阶段有 事件监听/定时器 等副作用
+      // mount阶段也会执行沙箱的补丁
+      mountingFreers = patchAtMounting(appName, elementGetter, sandbox, scopedCSS, excludeAssetFilter);
+
+      /* ------------------------------------------ 3. 重置一些初始化时的副作用 ------------------------------------------*/
+      // 存在 rebuilder 则表明有些副作用需要重建
+      if (sideEffectsRebuildersAtMounting.length) {
+        sideEffectsRebuildersAtMounting.forEach((rebuild) => rebuild());
+      }
+
+      // clean up rebuilders
+      sideEffectsRebuilders = [];
+    },
+
+    /**
+     * 恢复 global 状态，使其能回到应用加载之前的状态
+     */
+    async unmount() {
+      // 卸载补丁，
+      sideEffectsRebuilders = [...bootstrappingFreers, ...mountingFreers].map((free) => free());
+
+      sandbox.inactive();
+    },
+  };
+}
+```
+
+上面代码中可以看出，子应用的js沙箱可以分成两个部分：
+
+1. **创建js沙箱**
+2. **添加各种补丁**
+
+
+
+### 3.1 创建JS沙箱
+
+创建js沙箱的代码比较简单
+
+```typescript
+let sandbox: SandBox;
+if (window.Proxy) {
+    sandbox = useLooseSandbox ? new LegacySandbox(appName) : new ProxySandbox(appName);
+} else {
+    sandbox = new SnapshotSandbox(appName);
+}
+```
+
+根据当前的运行环境选择实例化不同类型的沙箱，这里除了前面介绍的两种沙箱`SnapshotSandbox`和`ProxySandbox`，还有一种沙箱叫做`LegacySandbox`。这种沙箱是一个向下兼容的`proxySandbox`，慢慢会被抛弃，所以就不展开分析了。
+
+这里有一个点需要注意：
+
+**子应用的js沙箱是在`bootstrap`阶段创建，然后持久化的存在在子应用的各个生命周期中，子应用卸载的时候也只是使沙箱失活，并不会注销这个沙箱。**
+
+> `qiankun`中并没有实现`single-spa`中注销子应用的接口，后续如果实现的话应该需要同步注销对应的js沙箱
+
+
+
+### 3.2 添加各种补丁
+
+在创建好js沙箱之后，在子应用`mount`之前，`qiankun`给沙箱实例添加了一些补丁，用来解决不同的问题，当子应用卸载的时候，这些补丁也会卸载。
+
+`qiankun`暂时添加了4种补丁：
+
+1. dynamicAppend：用来解决子应用动态添加`link、style或script`标签的情况
+2. interval：用来解决子应用卸载时内部`setInterval`可能没有卸载的问题
+3. windowListener: 用来解决子应用卸载时内部绑定在window上的事件可能没有卸载的问题
+4. historyListener: 用来解决和`umi`一起使用时的问题（这个不展开分析）
+
+
+
+#### 3.2.1 dynamicAppend
+
+子应用中动态添加的样式或者脚本资源默认也需要运行在对应的`CSS沙箱`和`JS沙箱`中，`dynamicAppend`就是用来解决这个问题。
+
+那么它是如何来解决的呢？我们看一下具体的实现，该补丁的入口方法是`patchStrictSandbox`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/2b42f2156e3865215e8b912e449acbf0fc4eff10/src/sandbox/patchers/dynamicAppend/forStrictSandbox.ts#L53)
+
+```typescript
+let bootstrappingPatchCount = 0; // bootstrap阶段添加该补丁的次数
+let mountingPatchCount = 0; // mount阶段添加该补丁的次数
+
+export function patchStrictSandbox(
+  appName: string,
+  appWrapperGetter: () => HTMLElement | ShadowRoot,
+  proxy: Window,
+  mounting = true,
+  scopedCSS = false,
+  excludeAssetFilter?: CallableFunction,
+): Freer {
+  let containerConfig = proxyAttachContainerConfigMap.get(proxy);
+  if (!containerConfig) {
+    // 子应用的基本配置信息
+    containerConfig = {
+      appName,
+      proxy,
+      appWrapperGetter,
+      dynamicStyleSheetElements: [],
+      strictGlobal: true,
+      excludeAssetFilter,
+      scopedCSS,
+    };
+    proxyAttachContainerConfigMap.set(proxy, containerConfig);
+  }
+  // 动态添加的style rules ，都会被缓存起来
+  const { dynamicStyleSheetElements } = containerConfig;
+
+  // 代理document.create方法
+  const unpatchDocumentCreate = patchDocumentCreateElement();
+
+  // 代理动态插入DOM元素的方法
+  const unpatchDynamicAppendPrototypeFunctions = patchHTMLDynamicAppendPrototypeFunctions(
+    (element) => elementAttachContainerConfigMap.has(element),
+    (element) => elementAttachContainerConfigMap.get(element)!,
+  );
+
+  if (!mounting) bootstrappingPatchCount++;
+  if (mounting) mountingPatchCount++;
+
+  // 补丁卸载方法
+  return function free() {
+    // bootstrap patch just called once but its freer will be called multiple times
+    if (!mounting && bootstrappingPatchCount !== 0) bootstrappingPatchCount--;
+    if (mounting) mountingPatchCount--;
+
+    const allMicroAppUnmounted = mountingPatchCount === 0 && bootstrappingPatchCount === 0;
+    // 必须所有子应用都销毁时才能卸载补丁
+    if (allMicroAppUnmounted) {
+      unpatchDynamicAppendPrototypeFunctions();
+      unpatchDocumentCreate();
+    }
+
+    // 缓存动态添加的样式元素
+    recordStyledComponentsCSSRules(dynamicStyleSheetElements);
+
+    // 重建补丁产生的副作用，也就是缓存的样式元素
+    return function rebuild() {
+      rebuildCSSRules(dynamicStyleSheetElements, (stylesheetElement) => {
+        const appWrapper = appWrapperGetter();
+        if (!appWrapper.contains(stylesheetElement)) {
+          rawHeadAppendChild.call(appWrapper, stylesheetElement);
+          return true;
+        }
+        return false;
+      });
+    };
+  };
+}
+```
+
+上面代码可以看出，这个补丁主要做了以下三个操作来实现对动态添加资源的劫持
+
+1. 劫持`document.createElement`方法
+2. 劫持`appendChild、insertBefore和removeChild`方法
+3. 缓存和恢复 动态添加`style`元素和对应的`CSSRules`
+
+
+
+##### 3.2.1.1 劫持document.createElement方法
+
+对应的方法是`patchDocumentCreateElement`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/2b42f2156e3865215e8b912e449acbf0fc4eff10/src/sandbox/patchers/dynamicAppend/forStrictSandbox.ts#L21)
+
+```typescript
+function patchDocumentCreateElement() {
+  if (Document.prototype.createElement === rawDocumentCreateElement) {
+    Document.prototype.createElement = function createElement<K extends keyof HTMLElementTagNameMap>(
+      this: Document,
+      tagName: K,
+      options?: ElementCreationOptions,
+    ): HTMLElement {
+      const element = rawDocumentCreateElement.call(this, tagName, options);
+      if (isHijackingTag(tagName)) {
+        // 如果是需要劫持的标签
+        const currentRunningSandboxProxy = getCurrentRunningSandboxProxy();
+        if (currentRunningSandboxProxy) {
+          // 从proxy-containerConfig map中获取对应子应用的基本配置信息
+          const proxyContainerConfig = proxyAttachContainerConfigMap.get(currentRunningSandboxProxy);
+          if (proxyContainerConfig) {
+            // 如果是在沙箱中调用，在element-containerConfig map中储存起来
+            elementAttachContainerConfigMap.set(element, proxyContainerConfig);
+          }
+        }
+      }
+
+      return element;
+    };
+  }
+
+  // 返回一个函数 用来还原配置，qiankun内部有很多这种类似的方法
+  return function unpatch() {
+    Document.prototype.createElement = rawDocumentCreateElement;
+  };
+}
+```
+
+代码逻辑比较简单，采用**重写**的形式来劫持`createElement`方法。
+
+针对动态创建的`hijackingTag`元素做的额外操作就是**记录新元素`element`和子应用配置信息`containerConfig`之间的映射关系，**后面插入元素时需要使用。
+
+> **注意：**
+>
+> 这种重写的劫持方式需要处理好边界，是有可能会影响到其他应用的。这个前面`get`方法那里有讲过。
+
+
+
+##### 3.2.1.2 劫持DOM插入和删除的方法
+
+DOM插入和删除对应的方法是`appendChild、insertBefore和removeChild`，对应的劫持方法是`patchHTMLDynamicAppendPrototypeFunctions`
+
+> 对应的源代码可以看[这里](https://github.com/umijs/qiankun/blob/387a50899f6b21ed94be3a19f6c464d5791136a3/src/sandbox/patchers/dynamicAppend/common.ts#L300)
+
+```typescript
+export function patchHTMLDynamicAppendPrototypeFunctions(
+  isInvokedByMicroApp: (element: HTMLElement) => boolean,
+  containerConfigGetter: (element: HTMLElement) => ContainerConfig,
+) {
+  // Just overwrite it while it have not been overwrite
+  if (
+    HTMLHeadElement.prototype.appendChild === rawHeadAppendChild &&
+    HTMLBodyElement.prototype.appendChild === rawBodyAppendChild &&
+    HTMLHeadElement.prototype.insertBefore === rawHeadInsertBefore
+  ) {
+    HTMLHeadElement.prototype.appendChild = getOverwrittenAppendChildOrInsertBefore({
+      rawDOMAppendOrInsertBefore: rawHeadAppendChild,
+      containerConfigGetter,
+      isInvokedByMicroApp,
+    }) as typeof rawHeadAppendChild;
+    HTMLBodyElement.prototype.appendChild = getOverwrittenAppendChildOrInsertBefore({
+      rawDOMAppendOrInsertBefore: rawBodyAppendChild,
+      containerConfigGetter,
+      isInvokedByMicroApp,
+    }) as typeof rawBodyAppendChild;
+
+    HTMLHeadElement.prototype.insertBefore = getOverwrittenAppendChildOrInsertBefore({
+      rawDOMAppendOrInsertBefore: rawHeadInsertBefore as any,
+      containerConfigGetter,
+      isInvokedByMicroApp,
+    }) as typeof rawHeadInsertBefore;
+  }
+
+  // Just overwrite it while it have not been overwrite
+  if (
+    HTMLHeadElement.prototype.removeChild === rawHeadRemoveChild &&
+    HTMLBodyElement.prototype.removeChild === rawBodyRemoveChild
+  ) {
+    HTMLHeadElement.prototype.removeChild = getNewRemoveChild(
+      rawHeadRemoveChild,
+      (element) => containerConfigGetter(element).appWrapperGetter,
+    );
+    HTMLBodyElement.prototype.removeChild = getNewRemoveChild(
+      rawBodyRemoveChild,
+      (element) => containerConfigGetter(element).appWrapperGetter,
+    );
+  }
+
+  return function unpatch() {
+    HTMLHeadElement.prototype.appendChild = rawHeadAppendChild;
+    HTMLHeadElement.prototype.removeChild = rawHeadRemoveChild;
+    HTMLBodyElement.prototype.appendChild = rawBodyAppendChild;
+    HTMLBodyElement.prototype.removeChild = rawBodyRemoveChild;
+
+    HTMLHeadElement.prototype.insertBefore = rawHeadInsertBefore;
+  };
+}
+```
+
+可以看到，这里也是使用重写的方式来劫持原生的方法，所以会污染全局，使用的时候需要处理好边界条件。
+
+
+
+这里我们主要来看看劫持插入元素的方法额外做了哪些操作。对应的方法是`getOverwrittenAppendChildOrInsertBefore`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/2b42f2156e3865215e8b912e449acbf0fc4eff10/src/sandbox/patchers/dynamicAppend/common.ts#L149)
+
+```typescript
+function getOverwrittenAppendChildOrInsertBefore(opts: {
+  rawDOMAppendOrInsertBefore: <T extends Node>(newChild: T, refChild?: Node | null) => T;
+  isInvokedByMicroApp: (element: HTMLElement) => boolean;
+  containerConfigGetter: (element: HTMLElement) => ContainerConfig;
+}) {
+  return function appendChildOrInsertBefore<T extends Node>(
+    this: HTMLHeadElement | HTMLBodyElement,
+    newChild: T,
+    refChild?: Node | null,
+  ) {
+    let element = newChild as any;
+    const { rawDOMAppendOrInsertBefore, isInvokedByMicroApp, containerConfigGetter } = opts;
+    if (!isHijackingTag(element.tagName) || !isInvokedByMicroApp(element)) {
+      // 边界判断不过，走原生逻辑
+      return rawDOMAppendOrInsertBefore.call(this, element, refChild) as T;
+    }
+
+    if (element.tagName) {
+      const containerConfig = containerConfigGetter(element);
+      const {
+        appName,
+        appWrapperGetter,
+        proxy,
+        strictGlobal,
+        dynamicStyleSheetElements,
+        scopedCSS,
+        excludeAssetFilter,
+      } = containerConfig;
+
+      switch (element.tagName) {
+        case LINK_TAG_NAME:
+        case STYLE_TAG_NAME: {
+          // ...省略
+        }
+
+        case SCRIPT_TAG_NAME: {
+          // ...省略
+        }
+
+        default:
+          break;
+      }
+    }
+
+    return rawDOMAppendOrInsertBefore.call(this, element, refChild);
+  };
+}
+```
+
+内部对动态添加的样式资源和脚本资源都做了额外处理。
+
+1. **样式资源**：动态添加的`style`或者`link`标签
+
+   ```typescript
+   {
+       let stylesheetElement: HTMLLinkElement | HTMLStyleElement = newChild as any;
+       const {
+           href
+       } = stylesheetElement as HTMLLinkElement;
+       if (excludeAssetFilter && href && excludeAssetFilter(href)) {
+         	// 白名单的资源不加入子应用沙箱中，会添加在head标签内部
+           return rawDOMAppendOrInsertBefore.call(this, element, refChild) as T;
+       }
+   
+       const mountDOM = appWrapperGetter();
+   
+       if (scopedCSS) {
+         	// 需要使用作用域CSS沙箱
+           const linkElementUsingStylesheet =
+               element.tagName ? .toUpperCase() === LINK_TAG_NAME &&
+               (element as HTMLLinkElement).rel === 'stylesheet' &&
+               (element as HTMLLinkElement).href;
+           if (linkElementUsingStylesheet) {
+               const fetch =
+                   typeof frameworkConfiguration.fetch === 'function' ?
+                   frameworkConfiguration.fetch :
+                   frameworkConfiguration.fetch ? .fn;
+               // 将link解析成style
+               stylesheetElement = convertLinkAsStyle(
+                   element,
+                   (styleElement) => css.process(mountDOM, styleElement, appName),
+                   fetch,
+               );
+               dynamicLinkAttachedInlineStyleMap.set(element, stylesheetElement);
+           } else {
+               css.process(mountDOM, stylesheetElement, appName);
+           }
+       }
+   
+       // 记录动态添加到子应用沙箱中的style和link
+       dynamicStyleSheetElements.push(stylesheetElement);
+       const referenceNode = mountDOM.contains(refChild) ? refChild : null;
+       return rawDOMAppendOrInsertBefore.call(mountDOM, stylesheetElement, referenceNode);
+   }
+   ```
+
+   主要做了两个操作：
+
+   1. 缓存动态添加到**子应用沙箱环境**的`style`元素，为后续子应用再次由`unmount`变成`mount`时恢复沙箱环境做准备。
+
+   2. 如果子应用开启了`作用域CSS沙箱`，需要将动态添加的`link`转化成`style`，然后给里面的选择器添加前缀选择器
+
+      
+
+2. **脚本资源**： 动态添加的`script`元素
+
+   ```typescript
+   {
+       const {src,text} = element as HTMLScriptElement;
+       // some script like jsonp maybe not support cors which should't use execScripts
+       if (excludeAssetFilter && src && excludeAssetFilter(src)) {
+           return rawDOMAppendOrInsertBefore.call(this, element, refChild) as T;
+       }
+   
+       const mountDOM = appWrapperGetter();
+       const {fetch} = frameworkConfiguration;
+       const referenceNode = mountDOM.contains(refChild) ? refChild : null;
+   
+       if (src) {
+           execScripts(null, [src], proxy, {
+               fetch,
+               strictGlobal,
+               beforeExec: () => {
+                   Object.defineProperty(document, 'currentScript', {
+                       get(): any {
+                           return element;
+                       },
+                       configurable: true,
+                   });
+               },
+               success: () => {
+                   manualInvokeElementOnLoad(element);
+                   element = null;
+               },
+               error: () => {
+                   manualInvokeElementOnError(element);
+                   element = null;
+               },
+           });
+   
+         	// 创建CommentElement来注释script元素插入
+           const dynamicScriptCommentElement = document.createComment(`dynamic script ${src} replaced by qiankun`);
+           dynamicScriptAttachedCommentMap.set(element, dynamicScriptCommentElement);
+           return rawDOMAppendOrInsertBefore.call(mountDOM, dynamicScriptCommentElement, referenceNode);
+       }
+   
+       // inline script never trigger the onload and onerror event
+       execScripts(null, [`<script>${text}</script>`], proxy, {
+           strictGlobal
+       });
+       const dynamicInlineScriptCommentElement = document.createComment('dynamic inline script replaced by qiankun');
+       dynamicScriptAttachedCommentMap.set(element, dynamicInlineScriptCommentElement);
+       return rawDOMAppendOrInsertBefore.call(mountDOM, dynamicInlineScriptCommentElement, referenceNode);
+   }
+   ```
+
+   **对于动态添加子应用沙箱环境的`script`标签，直接由`qiankun`内部请求并在沙箱环境中执行，不插入DOM树中，而且插入一个`CommentElement`来注释这个`script`标签。**
 
