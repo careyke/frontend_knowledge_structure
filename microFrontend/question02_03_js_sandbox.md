@@ -868,7 +868,7 @@ function getOverwrittenAppendChildOrInsertBefore(opts: {
 export function recordStyledComponentsCSSRules(styleElements: HTMLStyleElement[]): void {
   styleElements.forEach((styleElement) => {
     if (styleElement instanceof HTMLStyleElement && isStyledComponentsLike(styleElement)) {
-      // style元素才有CSSRules
+      // 没有textContent，只有sheet的style元素
       if (styleElement.sheet) {
         // record the original css rules of the style element for restore
         styledComponentCSSRulesMap.set(styleElement, (styleElement.sheet as CSSStyleSheet).cssRules);
@@ -913,11 +913,43 @@ export function rebuildCSSRules(
 
 所以如果想重新激活之后没有之前动态添加的样式，需要手动清除
 
+
+
 > 这里在恢复样式的时候有一个问题？
 >
-> 子应用卸载的时候`style`元素内部的`CSSRules`也被缓存了一份，而且恢复的时候重新追加到对应的`style`元素中，这里感觉会导致样式规则重复
+> 子应用卸载的时候`style`元素内部的`CSSRules`也被缓存了一份，而且恢复的时候重新追加到对应的`style`元素中，这里感觉会导致样式规则重复。
 >
-> （TODO）需要验证
+> **经验证是不会的。**
+>
+> 
+>
+> 先看`recordStyledComponentsCSSRules`方法中收集`CSSRule`的逻辑，这里调用`isStyledComponentsLike`方法
+>
+> ```typescript
+> export function isStyledComponentsLike(element: HTMLStyleElement) {
+>   return (
+>     !element.textContent &&
+>     ((element.sheet as CSSStyleSheet)?.cssRules.length || getStyledElementCSSRules(element)?.length)
+>   );
+> }
+> ```
+>
+> 这里方法用来过滤符合条件的`style`元素
+>
+> 1. **textContent为空**。也就是style标签内没有内容
+> 2. **sheet.cssRules不为空**。也就是说这个`style`标签的样式是直接通过`CSSStyleSheet API`来直接添加的，也就是style标签没有内容时也是有可能包含样式规则的。样式规则是存在`sheet.cssRules`中的，`styled-component`就是通过这种方式添加样式的
+>
+> 
+>
+> 这里有一个细节需要注意一下
+>
+> **`style`元素的`sheet`属性是由浏览器解析生成的，也就是说只有当style元素插入到DOM树中，才会生成样式表并关联在sheet属性中；如果style元素从DOM树中移除，相应的sheet属性也会去掉。**
+>
+> **对于有内容的style元素来说，样式表中的规则可以在元素重新插入页面的时候根据内容重新生成。但是对于没有内容的style元素来说，元素重新插入页面时无法还原之前的样式规则。**
+>
+> 这也是为什么在子应用卸载的时候需要对没有内容的`style`元素**手动存储**对应的`cssRules`
+
+
 
 
 
