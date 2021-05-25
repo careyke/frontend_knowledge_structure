@@ -2,7 +2,7 @@
 HTML5是对超文本标记语言的第五次修改，定义了全新的语法标准。
 
 ### 语法
-HTML5语法向下兼容了大部分HTML4的语法，但是**HTML5文档的解析不在基于SGML**，而是形成了自己的标准。
+HTML5语法向下兼容了大部分HTML4的语法，但是**HTML5文档的解析不再基于SGML**，而是形成了自己的标准。
 
 #### 1.文档类型声明
 HTML5不在基于SGML，所以不再需要是用DTD来声明文档类型。而是变成下面的方式
@@ -61,7 +61,7 @@ ctx.fillRect(10, 10, 150, 100);
 
 #### 7.新增属性，这里主要针对表单元素来说明
 - input标签增加多种type：tel, search, email, url, number, date, time, range, color。
-- form属性可以用于input,select,textarea,button,label,feildset等表单元素上，用来指定该元素属于哪一个form，可以是form标签和表单元素的层叠关系变得相对自由。
+- form属性可以用于input,select,textarea,button,label,feildset等表单元素上，用来指定该元素属于哪一个form，可以使form标签和表单元素的层叠关系变得相对自由。
 - input,textarea等元素提供placeholder属性，用来给用户一些输入提示。
 - script标签增加async defer属性，用来定义js脚本的加载方式。
 
@@ -78,11 +78,11 @@ ctx.fillRect(10, 10, 150, 100);
 #### 9.HTML5提供了丰富的Web存储方式
 ##### 1.增加了localStorage和sessionStorage。
 - localStorage : 长期存储站点的数据，站点内部每一个页面都可以访问到。（同源策略）
-- sessionStorage : 会话存储，用来临时保存某一个页签或者窗口的数据，当页签或者窗口关闭的时候数据会销毁。
+- sessionStorage : 会话存储，用来临时保存某一个**页签或者窗口**的数据，当页签或者窗口关闭的时候数据会销毁。
 
 ##### 2.引入了indexedDB和Web SQL，允许在浏览器端创建数据库表存储数据
 
-##### 3.引入了应用程序缓存器(application cache)，可对web进行缓存，在没有网络的情况下使用，通过创建cache manifest文件,创建应用缓存，为PWA(Progressive Web App)提供了底层的技术支持
+##### 3.引入了应用程序缓存器(application cache)，可对web进行缓存，在没有网络的情况下使用，通过创建`cache manifest`文件,创建应用缓存，为PWA(Progressive Web App)提供了底层的技术支持
 
 
 ### 不一定需要全部记住，但是要有印象
@@ -90,7 +90,6 @@ ctx.fillRect(10, 10, 150, 100);
 ### 参考
 1. [HTML4和HTML5的区别](https://www.jianshu.com/p/e09d4b126384)
 2. [HTML5与HTML4的区别](https://blog.csdn.net/superhoy/article/details/51637670)
-
 
 
 
