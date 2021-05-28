@@ -28,6 +28,10 @@
 
 
 
+> 关系async和defer执行的具体情况，以及和页面渲染之间的关系可以看这篇[文章](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/rendering/question06_first_render.md)
+
+
+
 
 ## 参考
 1. [async、defer与DOMContentLoaded的执行先后关系](https://blog.csdn.net/zyj0209/article/details/79698430)

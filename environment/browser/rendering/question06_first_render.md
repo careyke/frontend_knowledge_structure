@@ -4,7 +4,7 @@
 
 
 
-## 1. 页面渲染的完整流程
+## 1. 页面渲染的完整流程（***）
 
 在分析页面渲染和静态资源之间的关系之前，我们先要来分析**一个HTML文件从下载到最终内容呈现到页面上**这其中经历了哪些过程。
 
@@ -38,6 +38,12 @@
 
 
 上面流程中可以看到，**只有`Composite Layers`任务执行完成之后，对应的内容才会显示到浏览器中**。后面分析中我们可以通过这个任务来判断页面首次渲染的时机。
+
+> 在具体的测试过程中，极少场景中`Composite Layers`任务执行完也不一定会显示到浏览器中，但是多刷新几次有可能还是会。
+>
+> 这里笔者猜测是浏览器的一个优化行为，具体是否需要渲染到显示器中要具体看当前的资源调度情况。
+>
+> 但是这个并不影响分析，我们还是可以将`Composite Layers`任务看做是页面渲染的信号。
 
 
 
@@ -80,6 +86,8 @@
 ```
 
 > 后续的分析中会以**外链资源**为例来分析
+
+> Chrome的版本：91.0.4472.77
 
 
 
@@ -514,7 +522,235 @@ body标签内部的内容最终需要渲染到页面上，所以在针对body内
 2. **body中的JS文件的下载和执行的过程会阻塞DOM树的构建**，这和head中是一样的
 3. **body中的CSS文件的下载和执行也会阻塞DOM树的构建**，这个和head中是不一样的
 4. 浏览器实现了**预解析操作**，会提前分析HTML文件中引入了哪些资源，**提前并行发出请求**
-5. 渲染进程在页面的渲染过程中，**根据当前引入文件的大小和请求响应的快慢，对页面的渲染做出了一下优化，目的是减少资源引入的过程中页面渲染的次数**。（这里的渲染是值渲染到显示屏上）
+5. 渲染进程在页面的渲染过程中，**根据当前引入文件的大小和请求响应的快慢，对页面的渲染做出了一下优化，目的是减少资源引入的过程中页面渲染的次数**。（这里的渲染是指渲染到显示屏上）
 
 
+
+### 2.5 静态资源分别在head和body中
+
+#### 2.5.1 CSS在head中，JS在body中
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+</head>
+<body>
+    <div>1</div>
+  	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
+    <div>2</div>
+    <div>3</div>
+</body>
+</html>
+```
+
+对应的Performance的执行截图：
+
+![css_in_head_js_in_body01](./images/css_in_head_js_in_body01.jpg)
+
+![css_in_head_js_in_body02](./images/css_in_head_js_in_body02.jpg)
+
+上面图中可以看到：**当解析到body中的`script`标签执行首次渲染的时候，需要等到head中的CSS文件下载并执行完成**。也就是说**head中的CSS文件会阻塞首屏渲染。**
+
+
+
+#### 2.5.2 JS在head中，CSS在body中
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
+</head>
+<body>
+    <div>1</div>
+  	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+    <div>2</div>
+    <div>3</div>
+</body>
+</html>
+```
+
+对应的Performance的执行截图：
+
+![js_in_head_css_in_body01](./images/js_in_head_css_in_body01.jpg)
+
+![js_in_head_css_in_body02](./images/js_in_head_css_in_body02.jpg)
+
+![js_in_head_css_in_body03](./images/js_in_head_css_in_body03.jpg)
+
+上面流程可以看到：**当解析到body中的link标签时，由于此时CSS资源还没有下载完成，所以会触发一次渲染，也就是首次渲染。**
+
+
+
+### 2.6 总结（***）
+
+#### 2.6.1 静态资源的下载和执行
+
+在前面的分析中，我们穿插着提到了一些资源的下载和执行的时机，下面来总结一下：
+
+1. **下载**：由于浏览器提供了**预解析操作**，会提前解析HTML中有哪些资源需要下载。**这些资源会提前下载，可以认为是同步发起下载请求**。并不是解析到对应的script或者link标签才请求。
+2. **执行**：**一般来说是解析到对应的标签时会执行，如果此时资源没有下载完，会暂停解析等待**。但是也有例外的情况，head中的CSS文件下载和执行不会阻塞DOM树的构建，所以`Parse HTML`任务没有暂停等待CSS文件下载执行完。
+
+
+
+#### 2.6.2 静态资源和页面渲染的关系
+
+通过上面针对各种场景的分析，**同步引入的外链静态资源**与页面渲染的关系可以总结如下：
+
+1. 对于head中引入的静态资源
+
+   - CSS：CSS文件的下载和执行不会阻塞DOM树的构建，但是会阻塞首次渲染
+   - JS：JS文件的下载和执行都会阻塞DOM树的构建，而且会阻塞首次渲染。
+   - 如果JS前面有引入CSS文件，JS文件的执行需要等待前面的CSS文件下载并执行完成，然后才开始执行。因为JS中有可能修改DOM树中节点的样式
+
+2. 对于body中引入的静态资源
+
+   - **当解析到body中的`link或者script`标签时，如果此时对应的资源还没有下载完成（这里可能有一个buffer时间），会触发一次页面渲染。如果资源已经下载完成，不会触发页面渲染，资源的执行会发生在`Parse HTML`任务中，减少渲染次数**。
+
+   - CSS：CSS文件的下载和执行会阻塞DOM树的构建，不会阻塞首屏渲染。
+   - JS：JS文件的下载和执行也会阻塞DOM树的构建，不会阻塞首屏渲染。这里JS仍然需要等到前面的CSS文件下载执行完成之后才会执行，但是和head中实现原理不一样。body中因为CSS文件的下载和执行本身就会阻塞DOM树的构建。
+
+3. 对于同时在head和body中引入静态资源，对应的资源也会遵守上面总结的规则。
+   - head中引入的CSS文件不会阻塞DOM构建，但是会阻塞页面渲染。
+   - body中引入的JS文件需要等到head中的CSS文件下载并执行完成之后才会执行。这里的原因和上面两种也不一样，这里是**因为body中的`script`会触发一次页面渲染，而且head中的CSS文件下载和执行刚好会阻塞页面的渲染。**
+
+> 所以说：JS文件的执行需要等到前面引入的CSS文件下载并执行完成之后才能开始执行。
+
+
+
+#### 2.6.3 浏览器在渲染过程做的优化
+
+1. **预解析操作，并行下载**
+2. **合并任务，减少渲染**：当解析到body中的`link或script`标签时，如果该资源已经下载完成，不会触发渲染
+
+
+
+#### 2.6.4 为什么CSS要在head中，JS要放在body的最后？
+
+在雅虎军规中，有一条规则是CSS资源要放在head中，JS资源要放在body的最后，这样要能够提高页面的渲染体验。那么为什么能够提高体验呢？这里我们结合上面总结的规则来分析一下。
+
+首先要想提高渲染的体验，要满足以下两点：
+
+1. **页面渲染足够快**
+
+   基于这一点，JS文件不能放在head中，因为JS文件会head中会阻塞DOM构建，而且不会触发一次渲染。所以JS文件只能放在body中。
+
+2. **页面首屏内容要有样式而且尽可能完整**，否则会抖动
+
+   基于这一点，CSS文件不能放在body中，因为在body中CSS不仅会阻塞DOM树的构建，还会触发一次渲染，而且没有样式信息。所以CSS文件需要放在head中，不会阻塞DOM树的构建。
+
+   还有就是script应该放在body的最后面，可以在首次渲染时尽可能渲染完整页面
+
+
+
+### 2.7 异步JS资源
+
+#### 2.7.1 async
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script async type="text/javascript" src="./index.js"></script>
+  <script async type="text/javascript" src="https://unpkg.com/react@17/umd/react.development.js"></script>
+</head>
+<body>
+    <div>1</div>
+    <div>2</div>
+    <div>3</div>
+  	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
+</body>
+</html>
+```
+
+对应的Performance的执行截图：
+
+![async_js01](./images/async_js01.jpg)
+
+![async_js02](./images/async_js02.jpg)
+
+![async.js03](./images/async.js03.jpg)
+
+上面可以async的JS的一些特点：
+
+1. **async的JS下载和执行过程不会阻塞DOM树的构建和首屏渲染**
+2. **async的JS在下载完成之后就会执行，执行时机和`DOMContentLoaded Event`没有必然关系**
+3. async的JS不保证执行顺序
+
+
+
+> **补充说明**
+>
+> 这里其实不确定async的JS文件**执行**一定不阻塞DOM树的构建，因为一般的例子中，JS文件没有下载完，Parse HTML就已经执行完成了。在极端的例子下，如果`Parse HTML`还没有完成，感觉还是可能会阻塞DOM树的构建。
+>
+> 所以可以认为：**在绝大部分情况下，async的JS的下载和执行都是不阻塞DOM树的构建和首屏渲染的。**
+
+
+
+#### 2.7.2 defer
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script defer type="text/javascript" src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script defer type="text/javascript" src="./index.js"></script>
+</head>
+<body>
+    <div>1</div>
+    <div>2</div>
+    <div>3</div>
+  	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
+</body>
+</html>
+```
+
+对应Performance中的执行截图
+
+![defer_js01](./images/defer_js01.jpg)
+
+![defer_js02](./images/defer_js02.jpg)
+
+![defer_js03](./images/defer_js03.jpg)
+
+从上面图中可以看出defer的JS的特点：
+
+1. **defer的JS下载和执行都不阻塞DOM树的构建和首屏渲染**
+2. **defer的JS会在同步JS执行完成之后，在`DOMContentLoaded Event`事件触发之前执行**
+3. defer的JS执行时是保证顺序的
+
+
+
+### 2.8 DOMContentLoaded VS Load
+
+1. **`DOMContentLoaded`事件是在`Parse HTML`任务完成而且所有的`defer的JS`下载执行完成之后才会触发**。内部同步引入和JS和CSS文件都会可能会影响`Parse HTML`任务的执行，从而应该`DOMContentLoaded`事件的触发
+2. **`Load`事件是在页面所依赖的所有脚本资源和图片资源都加载完成之后才会触发**。视频和音频资源不包括
+
+
+
+
+
+## 3. 参考资料
+
+1. [Chrome的First Paint触发的时机探究](https://cloud.tencent.com/developer/article/1124484)
+
+2. [再谈 load 与 DOMContentLoaded](https://juejin.cn/post/6844903623583891469#heading-9)
 
