@@ -54,7 +54,7 @@
 
 ### 1.4 preload VS 预解析操作
 
-在分析页面渲染流程的时候我们提到过浏览器的一个优化操作，就是预解析操作。**当浏览器获取到HTML文件之后，会分析其中依赖哪些外部资源，并提前下载这个外部资源。**
+在分析页面渲染流程的时候我们提到过浏览器的一个优化操作，就是预解析操作。**当浏览器获取到HTML文件之后，会分析其中依赖哪些外部资源，并提前下载这些外部资源。**
 
 > 页面渲染流程的文章可以看[这里](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/rendering/question06_first_render.md)
 
@@ -81,7 +81,7 @@ prefetch在MDN中的定义：[传送门](https://developer.mozilla.org/zh-CN/doc
 preload 和 prefetch在使用上是有很大的不同的。
 
 - **`preload`针对的资源是当前页面需要的资源，下载的优先级很高**
-- **`prefetch`针对的资源是下个页面需要的资源，下载的优先级很低**
+- **`prefetch`针对的资源是下个页面需要的资源，下载的优先级很低，有空的时候才下载**
 
 所以开发者是使用的时候需要区分场景，避免浪费用户的带宽资源。
 

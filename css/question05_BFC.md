@@ -32,7 +32,7 @@ FC(Formatting Context) —— **格式化上下文，也页面渲染区域的单
   <div style="float:left">this is a float box</div>
   <div style="float:left">this is a float box</div>
 </div>
-```  
+```
 
 ![floatclear.jpg](./images/floatclear.jpg)
 
@@ -47,7 +47,7 @@ margin重叠的情况可以参考[MDN](https://developer.mozilla.org/zh-CN/docs/
   <div style="height:50px;margin-bottom:50px;background-color: chocolate"></div>
   <div style="height:50px;margin-top:50px;background-color:cyan;overflow: hidden;"></div>
 </div>
-```  
+```
 
 ##### 正确方式
 ![margintrue.jpg](./images/margintrue.jpg)
@@ -59,7 +59,7 @@ margin重叠的情况可以参考[MDN](https://developer.mozilla.org/zh-CN/docs/
     <div style="height:50px;margin-top:50px;background-color:cyan;"></div>
   </div>
 </div>
-```  
+```
 
 #### 3.两栏自使用布局 —— 运用第5条规则
 在实际工作中，两栏自适应布局会经常使用到，这里可以使用BFC来轻松达到想要的效果
@@ -71,7 +71,7 @@ margin重叠的情况可以参考[MDN](https://developer.mozilla.org/zh-CN/docs/
   <div style="background-color:cyan;width:150px;height:100%;float:left"></div>
   <div style="background-color:darkgoldenrod;height:100%;overflow:hidden"></div>
 </body>
-```  
+```
 
 ### 参考文章
 1. [[布局概念] 关于CSS-BFC深入理解](https://juejin.im/post/5909db2fda2f60005d2093db)

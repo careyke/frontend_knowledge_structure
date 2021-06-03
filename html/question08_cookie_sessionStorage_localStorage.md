@@ -25,7 +25,7 @@
 
 ### 4.应用场景
 - cookie: 基本都是用在**前后端通信**中，用来保存用户的登录状态和登录信息
-- sessionStorage: sesstionStorage用来存储一些临时的信息，防止刷新浏览器之后丢失。**不同浏览器页面中的sessionStorage是独立的，即时展示的页面是同源的。**
+- sessionStorage: sesstionStorage用来存储一些临时的信息，防止刷新浏览器之后丢失。**不同浏览器页面中的sessionStorage是独立的，即使展示的页面是同源的。**
 - lcoalStorage: **不同浏览器页面中的lcoalStorage是共用的**。所以可以用来跨浏览器页面传输数据。前提是同源的页面，否则访问不到数据
 
 ### 参考文章
