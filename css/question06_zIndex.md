@@ -37,10 +37,11 @@
 
 ### 2.层叠水平
 **层叠水平也叫层叠等级（stacking level），用来描述元素在Z轴上的摆放顺序**。每个元素都有层叠水平这个属性，但是层叠水平的比较有一定的规则：
+
 1. **处于同一个层叠上下文中的两个元素，层叠水平越高的元素，在Z轴上的位置越高。**
 2. **处于不同层叠上下文的元素，层叠水平由其所在的层叠上下文元素的层叠水平决定，处于不同层叠上下文的元素比较层叠水平是没有意义的。**
 
-需要注意的是，**不要将层叠水平和z-index属性混为一谈**。这两者是是不同的概念，虽然z-index的值在某些情况下可以影响层叠水平，但是仅限于z-index生效的元素；但是层叠水平是所有元素都有的。
+需要注意的是，**不要将层叠水平和z-index属性混为一谈**。这两者是是不同的概念，虽然z-index的值在某些情况下可以影响层叠水平，但是仅限于`z-index`生效的元素；而层叠水平是所有元素都有的。
 
 #### 2.1 z-index生效的元素
 1. 定位元素 —— position属性不为static的元素
@@ -77,7 +78,7 @@
   <div style="background-color: coral;width: 200px;height: 200px;"></div>
   <div style="background-color:aquamarine;width: 100px;height: 100px;transform:rotate(45deg)"></div>
 </body>
-```  
+```
 这里第二个div通过tranform属性创建层叠上下文，图中可以看出层叠水平大于普通元素
 
 #### 4.2 不支持z-index的层叠上下文元素和定位元素的层叠水平一样，都是z-index：auto级别
@@ -88,7 +89,7 @@
   <div style="background-color: coral;width: 200px;height: 200px; position: relative;"></div>
   <div style="background-color:aquamarine;width: 100px;height: 100px;transform: rotate(45deg);"></div>
 </body>
-```  
+```
 
 ![stacking03.jpg](./images/stacking03.jpg)
 
@@ -97,12 +98,12 @@
   <div style="background-color:aquamarine;width: 100px;height: 100px;transform: rotate(45deg);"></div>
   <div style="background-color: coral;width: 200px;height: 200px; position: relative;"></div>
 </body>
-```  
+```
 
-可以上面两个div就是顺序不同，展示的堵盖情况也不同，都是后面的div覆盖前面的div。**大的div是一个定位元素，z-index为auto，并没有形成层叠上下文。小的div形成了层叠上下文，不支持z-index。两个div的层叠水平是一样的，都是z-index:auto的水平。**
+上面两个div就是顺序不同，展示的覆盖情况也不同，都是后面的div覆盖前面的div。**大的div是一个定位元素，z-index为auto，并没有形成层叠上下文。小的div形成了层叠上下文，不支持z-index。两个div的层叠水平是一样的，都是z-index:auto的水平。**
 
 
-#### 4.3 不同层叠上下文的元素覆盖时，比较的元素所在的层叠上下文的层叠水平
+#### 4.3 不同层叠上下文的元素覆盖时，比较的是元素所在的层叠上下文的层叠水平
 ![stacking04.jpg](./images/stacking04.jpg)
 
 ```html
@@ -114,14 +115,13 @@
     <div style="background-color: coral;width: 100px;height: 100px; position: absolute; top: 50px; z-index: 1"></div>
   </div>
 </body>
-```  
+```
 可以看出绿色div本身的z-index虽然很大，但是两个div所在的层叠上下文的z-index是一样，而黄色在后面，所以黄色的层叠水平更高
 
 ### 参考文章
 1. [深入理解CSS中的层叠上下文和层叠顺序](https://www.zhangxinxu.com/wordpress/2016/01/understand-css-stacking-context-order-z-index/?shrink=1)
 2. [彻底搞懂CSS层叠上下文、层叠等级、层叠顺序、z-index](https://juejin.im/post/5b876f86518825431079ddd6#heading-4)
 3. [MDN](https://developer.mozilla.org/zh-CN/docs/Web/Guide/CSS/Understanding_z_index/The_stacking_context)
-
 
 
 

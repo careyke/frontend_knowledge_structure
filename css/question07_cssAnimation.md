@@ -1,5 +1,6 @@
 ## CSS动画的实现方式有哪些？CSS动画 VS JS动画?
 **动画的形成实际上是元素从一个关键帧的状态变换到另一个关键帧状态的过程，所以一个动画中的关键帧越多，说明这个动画越复杂，动画越丰富**。在CSS中，让元素动起来有三种方式可以实现：
+
 1. transform：一个关键帧，看不到动画变化的过程，只能看到结果。
 2. transition：两个关键帧，分别是动画的初始状态和结束状态，可以看到中间的过渡过程
 3. animation：多个关键帧，适用于复杂动画
@@ -15,19 +16,19 @@ transform: none | transform-functions
 transform: none;
 transfrom: translate(20px,20px);
 transform: rotate(30deg) translate(20px,30px);
-```  
+```
 
 #### transform-functions列表
 function | 说明 | 示例 | 派生
-------- | ------- | -------  
-<div style="width: 100px">translate | 平移元素，基点默认为元素的中心点,可以通过transform-origin修改 | <div style="width: 180px">translate(20px,30px) | translateX(20px),<br>translateY(2px),translateZ(0px),translate3d(0,0,0)  
+------- | ------- | -------  | -------  
+translate | 平移元素，基点默认为元素的中心点,可以通过transform-origin修改 | translate(20px,30px) | translateX(20px),<br>translateY(2px),<br/>translateZ(0px),<br/>translate3d(0,0,0) 
 scale | 缩放元素 | scale(x,y) | scaleX(),<br>scaleY()  
 rotale | 以元素中心点为圆心顺时针旋转元素 | rotate(30deg) | 
 skew | 倾斜元素，实际上倾斜坐标系 | skew(30deg,30deg) | skewX(30deg),<br>skewY(30px)
 matrix | 设置元素的矩阵变换，不常用 | matrix(1, 2, 3, 4, 5, 6); |
 
 ### 2.transition
-**transition属性用来描述某些属性在两个关键帧之间的过渡过程**。一旦transition-property指定的属性发生变化，就会动画的过渡过程。
+**transition属性用来描述某些属性在两个关键帧之间的过渡过程**。一旦transition-property指定的属性发生变化，就会发生动画的过渡过程。
 
 transition动画由于需要transition-property发生变化的时候，才会产生过渡动画。所以**transition动画初始的时候无法触发，需要一个触发的条件。比如常用的:hover，:active或者js事件**
 
@@ -46,11 +47,11 @@ transition:width 2s ease-in,height 1s esae-out; //多个属性
 .demo:hover{
   width:20px;
 }
-```  
+```
 
 #### transition属性列表
 属性名 | 说明 | 取值 | 示例
-------- | ------- | -------  
+------- | ------- | -------  | -------  
 transition-property | 产生过渡动画的属性 | [css属性] / all / none | transition-property: width
 transition-duration | 过渡动画的持续时间 | number[s] | transition-duration: 2s
 transition-timing-function | 计算动画中间值的函数，定义动画的过渡过程 | ease,ease-in,ease-out,ease-in-out | transition-timing-function: ease
@@ -82,14 +83,14 @@ animation由于可定义的关键帧比较多，所以**采用keyframes关键字
 }
 
 animation: animationName 2s ease-in
-```  
+```
 
 #### keyframes用法
 ```css
 @keyframes name{
   keyframes-selector{css-style}
 }
-```  
+```
 属性名 | 说明 
 ------- | ------- 
 animation name | 必需，定义动画的名称，animation中会使用
@@ -99,7 +100,7 @@ css-style | 必需，动画的变化属性
 #### animation的属性列表
 属性 | 说明
 ------- | -------
-<div style="width: 200px">animation-name | 用来调用@keyframes定义好的动画，与@keyframes定义的动画名称一致 
+animation-name | 用来调用@keyframes定义好的动画，与@keyframes定义的动画名称一致 
 animation-duration | 一次完整动画的持续时间 
 animation-timing-function | 动画中间帧的计算函数，规则动画速度曲线 
 animation-delay | 动画执行之前的延时时间

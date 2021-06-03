@@ -19,8 +19,8 @@ FC(Formatting Context) —— **格式化上下文，也页面渲染区域的单
 2. 内部的Block-level box会在垂直方向上一个一个放置。
 3. 属于同一个BFC中的两个相邻的box的margin会发生重叠
 4. BFC内部的子元素不会超过它的包含块
-5. BFC的区域不会和float区域发生重叠
-6. BFC区域在计算高度的时候，会包含其中的float元素的高度
+5. **BFC的区域不会和float区域发生重叠**
+6. **BFC区域在计算高度的时候，会包含其中的float元素的高度**
 
 ![marginchongdie.jpg](./images/marginchongdie.jpg)
 
