@@ -67,7 +67,7 @@ transition-delay | 动画的延时时间，过多久之后执行动画 | number[
 ### 3.animation
 animation是transition的真强版，用来实现复杂的动画。**animation动画中可以定义多个关键帧，相邻两个关键帧之间都会产生过渡动画**，意味着animation可以实现更加复杂的动画效果。
 
-animation由于可定义的关键帧比较多，所以**采用keyframes关键字来定义动画的关键帧**。
+animation由于可定义的关键帧比较多，所以**采用`keyframes`关键字来定义动画的关键帧**。
 
 ```css
 @keyframes animationName {
@@ -119,7 +119,7 @@ aniamtion-play-state | **控制元素动画的播放状态**，通过此来控�
 
 ### 4.CSS动画 VS JS动画
 #### javascript动画
-js动画是使用js代码来控制CSS属性从而产生动画。在实际的使用中，常常通过使用**requestAnimationFrame**方法来优化js动画的性能。
+js动画是使用js代码来控制CSS属性从而产生动画。在实际的使用中，常常通过使用**`requestAnimationFrame`**方法来优化js动画的性能。
 
 #### js动画的优点
 1. js可以实现的动画种类很多，比较灵活
@@ -145,7 +145,7 @@ js动画是使用js代码来控制CSS属性从而产生动画。在实际的使�
 #### 总结
 1. 当动画的切换状态比较简单时，关键帧比较少的时候，可以采用CSS动画实现
 2. 当动画需要控制的地方很多的时候，CSS就无法实现了，此时应该使用JS动画来实现
-3. 当需要手动协调动画的时候，可以使用requestAnimationFrame来优化动画
+3. 当需要手动协调动画的时候，可以使用`requestAnimationFrame`来优化动画
 
 
 ### 参考文章

@@ -32,7 +32,7 @@
   background-color: yellow;
   margin-top: -10px;
 }
-```  
+```
 注意：从图中可以看出，**块级元素在覆盖的时候，其中的文本并不会覆盖。**
 
 #### 2.如果设置的是margin-right或者margin-bottom
@@ -62,7 +62,7 @@
 .test4{
   background-color: yellow;
 }
-```  
+```
 
 #### 3.特殊情况：当块级元素不设置宽度的时候，设置margin-left或margin-right为负值的时候会增加元素的宽度，效果类似于padding。
 ![margin03.jpg](./images/margin03.jpg)
@@ -84,7 +84,7 @@
   margin-left: -50px;
   margin-right: -50px;
 }
-```  
+```
 
 
 这种特殊的情况只会产生在块级元素上，行内元素和块级行内元素不会产生，因为后者的宽度默认是靠内容撑开的。
@@ -123,7 +123,7 @@
   height: 100px;
   margin-right: -50px;
 }
-```  
+```
 
 #### 2.如果设置的负margin的方向与浮动的方向相反，那么元素本身不动，元素后面的元素会向该元素方向移动相应的距离
 ![margin05.jpg](./images/margin05.jpg)
@@ -189,7 +189,7 @@
   width: 100px;
   height: 100px;
 }
-```  
+```
 
 ##### 设置负margin之后
 ![margin07.jpg](./images/margin07.jpg)
@@ -226,7 +226,7 @@
   width: 100px;
   height: 100px;
 }
-```  
+```
 
 从两个例子可以看出，**当left元素设置margin-left: -100px时，元素在文档流实际占据的位置为0，left元素会浮动到center元素的后面，改变了垂直方向上的位置**。这也是圣杯布局和双飞翼布局的原理。
 
@@ -270,7 +270,7 @@
   top: 100px;
   margin-right: -50px;
 }
-```  
+```
 
 #### 2.当负margin的方向和绝对定位的偏移方向是相反的的时候，没有任何影响，因为元素已经完全脱离了文档流，不会影响其他的元素。
 
@@ -320,7 +320,7 @@
   float: right;
   margin-right: -100px;
 }
-```  
+```
 #### 圣杯布局的问题
 圣杯布局虽然巧妙，但是也是有缺陷的。**当容器宽度小于left盒子的宽度时，-100%的值小于left盒子自身宽度，就会出现left盒子无法浮上去，从而布局错乱。**（margin的百分比值是相对于负容器的宽度）
 
@@ -364,7 +364,7 @@
   background-color: turquoise;
   margin-left: -200px;
 }
-```  
+```
 虽然双飞翼中也是用-100%，但是容器的宽度更大，需要缩小到比较极致的情况才会出现布局紊乱。
 
 ### 其他的三栏布局
@@ -406,7 +406,7 @@
   float: right;
 }
 
-```  
+```
 
 
 #### 2.absolute
@@ -451,14 +451,13 @@
 }
 
 
-```  
+```
 
 
 ### 参考文章
 1. [CSS布局奇淫巧计之-强大的负边距](https://www.cnblogs.com/2050/archive/2012/08/13/2636467.html#2457812)
 2. [理解并运用 CSS 的负 margin 值](https://segmentfault.com/a/1190000007184954)
 3. [负margin用法权威指南](https://www.w3cplus.com/css/the-definitive-guide-to-using-negative-margins.html)
-
 
 
 

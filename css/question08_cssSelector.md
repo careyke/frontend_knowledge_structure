@@ -31,7 +31,7 @@
 div{
   color: blue !important;
 }
-```  
+```
 可以看到!important的优先级最高，但是这种用法的入侵比较高，会破坏选择器的权重比较规则。
 
 ##### 覆盖!important
@@ -52,7 +52,7 @@ div{
 div{
   color: blue !important;
 }
-```  
+```
 图中可以看出，权重高的选择器中的!important会覆盖低权重选择器中的!important。
 
 ##### 不推荐使用!important
@@ -94,7 +94,7 @@ div{
 #test11{
   color: coral;
 }
-```  
+```
 可以看出，这个class选择器的权重值是110，而id选择器的权重是100。如果只看权重值，理论上是class选择器比较大，但是实际上是id选择器比较大。
 
 #### 3.两个权重不同的选择器作用在同一个元素时，权重值高的选择器优先级更高
@@ -122,7 +122,7 @@ div{
 .test1 .test2 #name{ //10+10+100=120
   color: red;
 }
-```  
+```
 
 #### 4. 如果两个权重值相同的选择器作用在同一个元素，后定义的选择器中的规则会覆盖前面的选择器
 ![selector05.jpg](./images/selector05.jpg)
@@ -141,7 +141,7 @@ div{
 .test1 .test3{ //10+10=20
   color: red;
 }
-```  
+```
 
 #### 5.如果两个权重值相同的选择器作用在同一个元素，但是引入的方式不同，与元素近的选择器优先级更高。
 
@@ -164,7 +164,7 @@ div{
 .test2 .test3{
   color: blueviolet;
 }
-```  
+```
 由于内嵌方式引入的css样式距离元素更近，所以内嵌方式的选择器优先级更高。
 
 ### 使用总结
@@ -176,7 +176,6 @@ div{
 ### 参考文章
 1. [你对CSS权重真的足够了解吗？](https://juejin.im/post/5afa98bf51882542c832e5ec)
 2. [你应该知道的一些事情——CSS权重](https://www.w3cplus.com/css/css-specificity-things-you-should-know.html)
-
 
 
 
