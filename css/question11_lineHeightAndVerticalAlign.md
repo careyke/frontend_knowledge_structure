@@ -4,7 +4,7 @@
 之所以要将line-height和vertical-align拿出来一起分析，虽然这两个属性看起来没有关系，但是实际上这两个属性内部的工作原理是很相似的，都是**基于line-box来工作**的。
 
 ### 1.line-box深度分析
-元素内容中的每一行都会形成一个line-box，每一个line-box都有4条关键的线，类似于小写的英文作业本。直接看下图
+元素内容中的每一行都会形成一个line-box，每一个line-box都有4条关键的线，类似于小写的拼音作业本。直接看下图
 ![linebox.jpg](./images/linebox.jpg)
 
 图中可以看出：
@@ -55,7 +55,7 @@ line-height属性设置的是line box的高度。**对于非替换的inline元�
   line-height: inherit;
   font-size: 30px;
 }
-```  
+```
 ![linebox03.jpg](./images/linebox03.jpg)
 
 ![linebox04.jpg](./images/linebox04.jpg)
@@ -76,7 +76,7 @@ line-height属性设置的是line box的高度。**对于非替换的inline元�
   font-size: 30px;
   background-color: hotpink;
 }
-```  
+```
 ![linebox06.jpg](./images/linebox06.jpg)
 
 ![linebox07.jpg](./images/linebox07.jpg)
@@ -90,7 +90,7 @@ line-height属性设置的是line box的高度。**对于非替换的inline元�
   height: 40px;
   line-height: 40px;
 }
-```  
+```
 但是实际上只需要设置line-height就能够是内部的文本垂直居中，同时也能达到撑起父元素的效果。
 
 line-height不会修改content area，修改的是line box之间的行间距。
@@ -104,7 +104,7 @@ line-height不会修改content area，修改的是line box之间的行间距。
   <span style="background-color:darkviolet;">xxx</span>
   <span style="background-color:darkviolet;">xxx</span>
 </div>
-```  
+```
 ![linebox09.jpg](./images/linebox09.jpg)
 
 ![linebox10.jpg](./images/linebox10.jpg)
@@ -176,7 +176,7 @@ CSS中一个公认的公理：**元素中小写字符x的下边缘线就是当�
   height: 100px;
   background-color: royalblue;
 }
-```  
+```
 看代码可知，外面div的高度是由内部div高度撑起来的，不应该会出现间隙。但是事实上就是会出现这种怪异的情况。
 
 这个是**因为每个行框盒子在开始的位置都有一个与之行高相同、字体大小一致而且宽度为0的inline盒子。这个节点被称为幽冥空白节点**
@@ -191,7 +191,7 @@ CSS中一个公认的公理：**元素中小写字符x的下边缘线就是当�
   background-color: blanchedalmond;
   font-size: 0px;
 }
-```  
+```
 
 2. 设置内部inline-block盒子的vertical-align属性不为baseline
 ```css
@@ -202,7 +202,7 @@ CSS中一个公认的公理：**元素中小写字符x的下边缘线就是当�
   background-color: royalblue;
   vertical-align: middle;
 }
-```  
+```
 
 #### 5.vertical-align的典型问题分析
 ##### 1.vertical-align:middle是近似垂直居中，并不准确
@@ -229,7 +229,7 @@ CSS中一个公认的公理：**元素中小写字符x的下边缘线就是当�
   background-color: royalblue;
   vertical-align: middle;
 }
-```  
+```
 出现这种现象是因为**文字下沉性**。**就是文字的垂直中心点并没有和当前行框的垂直中心点对齐，而是会偏下一点，所以会出现这种情况。平常使用中字体比较小，这种差异基本是可以忽略的。文字越大，这种差异越明显。**
 
 ##### 2.使用vertical-align: middle居中无效
@@ -269,7 +269,7 @@ CSS中一个公认的公理：**元素中小写字符x的下边缘线就是当�
   background-color: crimson;
   vertical-align: middle;
 }
-```  
+```
 原因分析：**出现这种原因的本质就是当前行的行高不足，当前行框的高度小于容器的高度，元素只在当前行框中垂直居中**。**因为line box的高度取决于内部最高的盒子的高度**，所以要解决这个问题，就得将当前行框的高度设置成和容器的高度一样。
 1. 利用伪元素，将行框的高度撑到与容器的高度一样，然后也需要设置vertical-align: middle
 ```css
@@ -279,7 +279,7 @@ CSS中一个公认的公理：**元素中小写字符x的下边缘线就是当�
   display: inline-block;
   vertical-align: middle;
 }
-```  
+```
 2. 使用line-height属性来设置行高
 ```css
 .contianer {
@@ -287,7 +287,7 @@ CSS中一个公认的公理：**元素中小写字符x的下边缘线就是当�
   height: 300px;
   line-height: 300px;
 }
-```  
+```
 
 ### 参考文章
 1. [彻底搞定vertical-align垂直居中不起作用疑难杂症](https://juejin.im/post/5a7d6b886fb9a06349129463#heading-1)
