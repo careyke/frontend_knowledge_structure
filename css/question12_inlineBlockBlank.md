@@ -15,10 +15,10 @@
   display: inline-block;
   background-color: chocolate;
 }
-```  
+```
 可以看到，每两个inline-block之间都产生了一个空隙。产生的原因是**因为我们在html文件中为了层级结构分明，在每一个div后面都有一个换行符。默认情况下div是块级元素，换行符并不会被解析。但是当元素变成行内元素的时候，元素之间的空白符（空格、换行符等）会被浏览器处理，根据CSS中white-space属性对元素中空白进行处理（默认是normal，合并多余空白），所以HTML中的换行符被处理成了一个空白字符，在字体大小不为0的时候，空白字符也会占据一定的宽度，所以就产生了间隙**。
-**
-不只是inline-block元素会解析换行符，所有的行内元素（inline,inline-block）都会解析元素之间的换行符。 **span,a等
+
+**不只是inline-block元素会解析换行符，所有的行内元素（inline,inline-block）都会解析元素之间的换行符。 **span,a等
 
 ### 2.解决方法
 #### 1.去掉html中的换行符，但是会降低可读性
@@ -31,7 +31,7 @@
 <span>xxx</span><!--
 --><span>xxx</span><!--
 --><span>xxx</span>
-```  
+```
 
 #### 2.使用负margin处理，但是对于不同字体大小空白字符的宽度不同，不推荐大规模使用
 ```js
@@ -39,7 +39,7 @@ span{
   background-color: chocolate;
   margin-right: -4px;
 }
-```  
+```
 
 
 #### 3.父元素使用font-size: 0px。这种情况下空白字符的宽度为0
@@ -50,7 +50,7 @@ span{
 .container span{
   font-size:14px;
 }
-```  
+```
 
 #### 4.使用float，修改元素为浮动元素，不解析标签之间的换行符。但是会有浮动成本
 
@@ -58,7 +58,7 @@ span{
 .container span{
   float:left
 }
-```  
+```
 
 #### 5.使用letter-spacing或者word-spacing属性，可能会有兼容性问题。还有就是和负margin方法一样，对不同字体大小需要额外处理
 
@@ -72,13 +72,13 @@ span{
 .container span{
   letter-spacing: 0px;
 }
-```  
+```
 
 ```css
 .contianer{
   word-spacing: -4px;
 }
-```  
+```
 
 ### 参考文章
 1. [inline-block产生空白间隙的问题](https://www.cnblogs.com/erduyang/p/5341953.html)
