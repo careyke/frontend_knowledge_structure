@@ -17,7 +17,7 @@ let obj2 = new Foo();
 
 console.log(obj1.a); //23
 console.log(obj2.a); //23
-```  
+```
 
 ### 1.2 原型
 **js中每一个对象在创建的时候，都会将它与另一个对象（或者null）相关联，这个对象就叫做它的原型。对象可以从它的原型中获取属性。**
@@ -32,7 +32,7 @@ var obj = {a:2}
 Foo.prototype = obj;
 var obj = new Foo();
 obj.__proto__ === Foo.prototype; //true
-```  
+```
 
 2. 使用Object.getPrototypeOf()方法
 ```js
@@ -41,7 +41,7 @@ var obj = {a:2}
 Foo.prototype = obj;
 var obj = new Foo();
 Object.getPrototypeOf(obj) === Foo.prototype; //true
-``` 
+```
 
 #### 1.2.2 设置原型的方法
 1. 使用new操作符实例化一个类，这个实例对象的原型就是该构造函数的原型对象
@@ -52,7 +52,7 @@ Foo.prototype = obj;
 var obj = new Foo();
 obj.a // 2
 Object.getPrototypeOf(obj) === Foo.prototype; //true
-```  
+```
 
 2. Object.create(______proto______)
 ```js
@@ -62,7 +62,7 @@ var obj = {
 var o = Object.create(obj,{b:{value:3,writable:true}});
 o.__proto__ === obj; //true
 o.a; // 2
-```  
+```
 
 3. Object.setPrototypeOf(obj,______proto______)
 ```js
@@ -75,7 +75,7 @@ var o = {
 Object.setPrototypeOf(o,obj);
 o.__proto__ === obj; //true
 o.a; // 2
-```  
+```
 
 4. 给______proto______属性赋值修改，但是这个属性有兼容性问题
 ```js
@@ -88,7 +88,7 @@ var o = {
 o.__proto__ = obj;
 o.__proto__ === obj; //true
 o.a; // 2
-```  
+```
 
 注意：
 **对象的______proto______属性并不是存放在对象上的属性，而是对象原型链上的属性**，具体是**Object.prototype对象上的getter和setter属性**。
@@ -98,7 +98,7 @@ o.a; // 2
 以下面这个赋值操作为例：
 ```js
 obj.a = 1;
-```  
+```
 - **如果obj对象中存在a属性**，直接给该属性赋值即可。不需要再查找原型链，即会屏蔽掉原型链上的a属性。
 ```js
 var obj = {
@@ -106,7 +106,7 @@ var obj = {
 }
 obj.a = 1;
 obj // {a:1}
-```  
+```
 
 - **如果a不直接存在在obj对象中，**那么就会按照obj的原型链往上找。如果**原型链上也没有**，则a会直接添加在obj对象中。
 - **如果obj中不存在a属性，但是原型链上存在**。
@@ -118,7 +118,7 @@ obj // {a:1}
   obj.a = 2;
   obj; //{a:2}
   proto; //{a:10}
-  ```  
+  ```
 
   - 如果原型链上的a属性**被标记为只读**，那么**无法修改已有属性，而且也无法在obj中创建屏蔽属性**。严格模式下会报错。
   ```js
@@ -129,7 +129,7 @@ obj // {a:1}
   obj.a = 2;
   obj // {}
   proto // {a:10}
-  ```  
+  ```
 
   - **如果原型链上存在的是a属性的setter**，那就一定会调用这个setter。**不会在obj中创建屏蔽属性a，也不会修改原型链中a的setter**。
   ```js
@@ -143,7 +143,7 @@ obj // {a:1}
   obj.a = 2; // 2
   obj;  //{}
   proto;  //{}
-  ```  
+  ```
 
 总结：
 **给对象属性赋值的操作，大部分的情况下都是直接在当前对象上进行。但是在一些特殊的场景下，并不会在当前对象上操作，但是都不会修改原型链上的属性。**
