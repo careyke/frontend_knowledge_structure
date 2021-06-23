@@ -80,3 +80,21 @@ Questions and answers about front-end
 
 ### 3.2 变量、函数、作用域和闭包
 
+1. [编译器、JS引擎和作用域之间有什么关系？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question01_compiler_jsEngine_scope.md)
+2. [作用域和作用域链](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question02_scope.md)
+3. [执行栈和执行上下文](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question03_executionContext.md)
+
+4. [变量声明提升的原理是什么？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question04_variable_hoisting.md)
+
+5. [定义变量的方式有哪些？有什么区别？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question05_var_let_const.md)
+
+6. [闭包是什么？有什么作用？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question06_closure.md)
+
+7. [实现柯里化函数](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question07_currying.md)
+
+8. [防抖和节流](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/variableAndScope/question08_throttle_debounce.md)
+
+
+
+### 3.3 this关键字
+
