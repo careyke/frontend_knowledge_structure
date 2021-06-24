@@ -19,11 +19,14 @@ const myAdd = myCurry(add,1,2);
 myAdd(3,4); //10
 myAdd()(3,4); //10
 myAdd(3)(4); //10
-```  
+```
 实现myCurry函数：
 ```js
 function myCurry(fn,...params){
   const len = fn.length;  //获取函数形参个数
+  
+  // 这里不推荐使用箭头函数，箭头函数是没有this的，会导致fn函数的this也消失
+  // 没有this透传
   function currying(...args){
     const newParams = params.concat(args)
     if(newParams.length < len){
@@ -35,5 +38,5 @@ function myCurry(fn,...params){
   }
   return currying;
 }
-```  
+```
 

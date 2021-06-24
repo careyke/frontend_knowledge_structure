@@ -34,7 +34,7 @@ function myDebounce(fn,delay,immediate = false){
   }
   return debounce;
 }
-```  
+```
 可以看到，使用的就是闭包和setTimeout函数来实现的。
 
 ### 节流（throttle）
@@ -71,7 +71,7 @@ function myThrottle(fn,delay,immediate=false){
   }
   return throttle;
 }
-```  
+```
 
 
 
