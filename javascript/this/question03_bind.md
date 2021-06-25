@@ -27,9 +27,12 @@ v.b // 2 说明Foo.prototype在fn.prototype的原型链上
 
 v.a // 1
 obj.a //undefined 说明new的优先级高于bind
-```  
+```
+
+
 
 ### 实现一个myBind
+
 ```js
 Function.prototype.myBind = function(context, ...params){
   if(typeof this !== 'function'){
@@ -52,9 +55,12 @@ Function.prototype.myBind = function(context, ...params){
   bind.prototype = Object.create(this.prototype);
   return bind;
 }
-```  
+```
+
+
 
 ### 利用bind实现柯里化函数
+
 ```js
 function curryByBind(fn,...params){
   const len = fn.length;
@@ -67,16 +73,31 @@ function curryByBind(fn,...params){
   }
   return curry.bind(this,...params);
 }
-```  
+// 这个方案有一个问题是this取的是curryByBind的this，而不是调用curry的this
+```
 
 
 
+### 一个经典的问题：一个函数可以链式bind多次吗？
 
+```js
+function foo(){
+  console.log(this.a);
+}
 
+var obj1={a:1};
+var obj2={a:2};
 
+const foo1 = foo.bind(obj1);
+foo1(); // 1
 
+const foo2 = foo1.bind(obj2);
+foo2(); // 1
+```
 
+从执行结果可以看出，**对于bind之后的函数再执行bind是不生效的**。
 
+结合上面bing的实现代码可以很容易分析其中的原理。
 
 
 

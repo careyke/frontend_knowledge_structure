@@ -98,3 +98,31 @@ Questions and answers about front-end
 
 ### 3.3 this关键字
 
+1. [谈谈this机制？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/this/question01_this.md)
+
+2. [普通函数 VS 箭头函数](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/this/question02_function_vs_arrowFunction.md)
+
+3. [手写一个bind方法](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/this/question03_bind.md)
+
+4. [手动实现一个call和apply方法](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/this/question04_call_apply.md)
+
+
+
+### 3.4 JS中的类、继承和行为委托
+
+
+
+### 3.5 JS异步解决方案
+
+
+
+### 3.6 JS循环和迭代器
+
+
+
+### 3.7 模块化
+
+
+
+### 3.8 数组和对象
+
