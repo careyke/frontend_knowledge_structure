@@ -37,7 +37,10 @@ function myDebounce(fn,delay,immediate = false){
 ```
 可以看到，使用的就是闭包和setTimeout函数来实现的。
 
+
+
 ### 节流（throttle）
+
 **在事件频繁触发的过程中，使得事件回调函数每隔一段时间n触发一次。**
 
 代码实现：
