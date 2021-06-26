@@ -422,3 +422,27 @@ function (_Parent) {
 
 2. 调用Parent的构造函数继承父类的实例属性
 
+
+
+> **super方法之所以放在构造函数的在最前面调用，就是防止构造函数中代码访问父类的实例属性不存在的情况**。
+>
+> ```js
+> class Person {
+>   constructor(name) {
+>     this.name = name;
+>   }
+> }
+>  
+> class PolitePerson extends Person {
+>   constructor(name) {
+>     this.greetColleagues(); //这是不允许的
+>     super(name);
+>   }
+>  
+>   greetColleagues() {
+>     alert('Good morning folks!');
+>     alert('My name is ' + this.name + ', nice to meet you!');
+>   }
+> }
+> ```
+
