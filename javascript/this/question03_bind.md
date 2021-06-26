@@ -4,8 +4,9 @@ bind方法是用来显示修改函数this值的方法。也可以用来实现函
 ### bind方法的特点
 1. bind返回一个新的函数
 2. bind方法可以修改函数的this，并且可以预先为函数传递参数
-3. new操作符修改this的优先级高于bind
-4. **bind返回函数的原型链( ______proto______ )和原型对象(prototype)要继承原始函数**
+3. 当thisArg为null或者undefined时，新函数this为全局对象window
+4. **new操作符修改this的优先级高于bind**
+5. **bind返回函数的原型链( ______proto______ )和原型对象(prototype)要继承原始函数**
 
 ```js
 function Foo(){
@@ -44,7 +45,7 @@ Function.prototype.myBind = function(context, ...params){
   }
   const fn = this;
   function bind(...args){
-    // 处理new操作符
+    // 处理new操作符，这一步很关键，需要结合new操作符的内部实现来理解
     return fn.apply(this instanceof bind ? this:context, params.concat(args));
   }
   //设置__proto__
@@ -73,7 +74,7 @@ function curryByBind(fn,...params){
   }
   return curry.bind(this,...params);
 }
-// 这个方案有一个问题是this取的是curryByBind的this，而不是调用curry的this
+// 这个方案有一个问题是this取的是curryByBind的this，而不是调用curry的this，this值可能会不正确
 ```
 
 

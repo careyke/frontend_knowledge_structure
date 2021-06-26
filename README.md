@@ -110,19 +110,59 @@ Questions and answers about front-end
 
 ### 3.4 JS中的类、继承和行为委托
 
+1. [谈谈JS中的类的本质是什么](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/class/question01_class.md)
+2. [原型和原型链是什么？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/class/question02_prototype.md)
+
+3. [对比js中的继承方案](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/class/question03_class_extends.md)
+4. [类 VS 行为委托](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/class/question04_class_BehavioralCommission.md)
+5. [实现一个new方法](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/class/question05_new.md)
+
 
 
 ### 3.5 JS异步解决方案
+
+1. [S中的异步实现和EventLoop](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/async/question01_eventLoop.md)
+
+2. [JS中异步编程方案的演化过程](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/async/question02_async_scheme.md)
+
+3. [深入理解Promise以及手动实现一个Promise](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/async/question03_promise.md)
+
+4. [深入理解Generator及其在异步方案中的作用](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/async/question04_generator_co.md)
+5. [深入理解async+await](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/async/question05_async_await.md)
 
 
 
 ### 3.6 JS循环和迭代器
 
+1. [深入理解迭代器和Generator](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/iterator/question01_generator_iterator.md)
+2. [for...of循环和forEach之间的区别](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/iterator/question02_forof_forEach.md)
+
+3. [实现一个可以用for...of遍历的对象](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/iterator/question03_iterator_object.md)
+
 
 
 ### 3.7 模块化
 
+1. [前端模块化的演变过程](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/module/question01_module.md)
+2. [深入理解CommonJS在node中的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/module/question02_CommonJS.md)
+3. [深入理解ES Module](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/module/question03_ESModule.md)
+
+4. [CommonJS和ES Module之间的区别](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/module/question04_ESModuleVSCommonJS.md)
+
 
 
 ### 3.8 数组和对象
+
+1. [类数组对象和数组的关联](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question01_arrayList_array.md)
+2. [数组去重](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question02_array_unique.md)
+3. [数组平铺](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question03_array_flat.md)
+
+4. [手动实现一个数组map方法](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question04_array_map.md)
+5. [手动实现一个filter方法](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question05_array_filter.md)
+6. [手动实现一个reduce方法](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question06_array_reduce.md)
+7. [分析V8中的sort方法并手动实现一个](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question07_array_sort.md)
+
+8. [数组乱序](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question08_array_disorder.md)
+
+9. [Object的浅拷贝和深拷贝](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question09_copy.md)
 
