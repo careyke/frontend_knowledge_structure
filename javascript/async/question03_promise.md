@@ -30,6 +30,8 @@ Promise状态转换是**不可逆**的，一旦由pending状态变成了其他�
 
 这个值通常是通过resolve或者reject方法存储在Promise实例对象中，而后传给回调函数使用。
 
+
+
 ### 1.2 Promise的回调函数
 
 Promise中异步任务的回调函数是通过 `then(...)` 方法注册的。
@@ -60,6 +62,8 @@ p.then((data)=>{
 	return 45;
 })
 ```
+
+
 
 ### 1.3 Promise的链式调用
 
@@ -101,11 +105,13 @@ then内部创建的Promise实例的状态变化规则：
    - 当then中**没有注册失败回调**的时候，内部会调用一个默认的失败回调函数，将之前的异常抛给下一个then方法。内部Promise状态是rejected
    - 当then**注册了失败回调函数**的时候，会捕获之前的异常对象，调用失败回调函数。后面的过程和调用成功回调函数一样
 
+
+
 ### 1.4 Promise的异常处理
 
 **Promise内部执行抛错的时候，在外面是无法捕获这个错误的。**
 
-**（`猜测`）因为异常在Promise内部就已经被捕获了，从而将Promise的状态切换成rejected，然后异常对象存放在 promise 中，调用失败回调函数将异常对象暴露给使用者。**
+**（猜测）因为异常在Promise内部就已经被捕获了，从而将Promise的状态切换成rejected，然后异常对象存放在 promise 中，调用失败回调函数将异常对象暴露给使用者。**
 
 ```js
 var p = new Promise(function(resolve,reject){
@@ -154,6 +160,8 @@ promise
 第二种方式比第一种更好。因为第二种方式中 catch 还能捕获前面then中抛出的错误。
 
 **因为Promsie内部的异常具有冒泡的特性，所以只需要在链式调用的最后一个环节添加一个catch方法即可。它可以捕获之前没有被捕获的异常。**
+
+
 
 ### 1.5 处理resolve([promise])
 
@@ -206,6 +214,8 @@ p.catch((err)=>{
 })
 ```
 
+
+
 ## 2. 手动实现一个Promise
 
 Promise是根据[Promises/A+](https://www.ituring.com.cn/article/66566)规范实现的。这里我们根据A+规范和上面分析的Promise的特点，自己手动实现一个Promise类
@@ -249,7 +259,10 @@ function MyPromise(stateManager) {
   function resolve(value) {
     if (context.state !== Pending) return;
     if (value instanceof MyPromise) {
-      value.then(resolve, reject); // 内部Promise通过调用外部promsie的修改方法来决定外部Promsie的状态
+      // 内部Promise通过调用外部promsie的修改方法来决定外部Promsie的状态
+      // 将修改当前promise状态的方法，委托给另一个promise来执行
+      // 来实现状态的相互影响
+      value.then(resolve, reject); 
     } else {
       context.state = Fulfilled;
       context.value = value;
@@ -262,12 +275,14 @@ function MyPromise(stateManager) {
   }
 
   try {
-    stateManager(resolve, reject);
+    stateManager(resolve, reject); // stateManager方法的this不由promise控制
   } catch (err) {
     reject(err);
   }
 }
 ```
+
+
 
 ### 2.2 实现Promise.prototype.then方法
 
@@ -286,61 +301,51 @@ MyPromise.prototype.then = function (onResolve, onReject) {
 
   const context = this;
 
-  //处理回调函数的返回值对象promise状态的影响
-  const resolvePromise = (returnValue, resolve, reject) => {
-    if (returnValue instanceof MyPromise) {
-      returnValue.then(resolve, reject);
-    } else {
-      resolve(returnValue);
+  // 处理then中的回调函数，特别是返回值是promise的情况
+  const resolveThen = (value, resolve, reject, rejected = false) => {
+    try {
+      let returnValue = onResolve(value);
+      if (rejected) {
+        returnValue = onReject(value);
+      }
+      if (returnValue instanceof MyPromise) {
+        returnValue.then(resolve, reject);
+      } else {
+        resolve(returnValue);
+      }
+    } catch (error) {
+      reject(error);
     }
-  }
+  };
 
   return new MyPromise(function (resolve, reject) {
     if (context.state === Pending) {
       // 暂存回调函数
       context.fulfillCallback.push((value) => {
         setTimeout(() => {
-          try {
-            const returnValue = onResolve(value);
-            resolvePromise(returnValue, resolve, reject);
-          } catch (error) {
-            reject(error);
-          }
+          resolveThen(value, resolve, reject);
         }, 0)
       });
       context.rejectCallback.push((reason) => {
         setTimeout(() => {
-          try {
-            const returnValue = onReject(reason);
-            resolvePromise(returnValue, resolve, reject);
-          } catch (error) {
-            reject(error);
-          }
+          resolveThen(reason, resolve, reject, true);
         }, 0)
       })
     } else if (context.state === Fulfilled) {
       // 直接塞进任务队列
       setTimeout(() => {
-        try {
-          const returnValue = onResolve(context.value);
-          resolvePromise(returnValue, resolve, reject);
-        } catch (error) {
-          reject(error);
-        }
+        resolveThen(context.value, resolve, reject);
       }, 0)
     } else {
       setTimeout(() => {
-        try {
-          const returnValue = onReject(context.reason);
-          resolvePromise(returnValue, resolve, reject);
-        } catch (error) {
-          reject(error);
-        }
+        resolveThen(context.reason, resolve, reject, true);
       }, 0)
     }
   });
 }
 ```
+
+
 
 ### 2.3 实现Promise.prototype.catch()和Promise.prototye.finally()
 
@@ -359,6 +364,8 @@ MyPromise.prototype.catch = function(onReject){
    - 与`Promise.resolve(2).then(() => {}, () => {})` （resolved的结果为`undefined`）不同，`Promise.resolve(2).finally(() => {})` resolved的结果为 `2`
    - `Promise.reject(3).then(() => {}, () => {})` (resolved 的结果为`undefined`), `Promise.reject(3).finally(() => {})` rejected 的结果为 `3`。finally不会捕获错误
 3. finally方法返回一个新的Promise对象
+
+> **finally环节不影响正常的promise链式调用，除非finally环节发生错误**
 
 ```js
 MyPromise.prototype.finally = function(cb){
@@ -459,6 +466,8 @@ MyPromise.reject = function(reason){
 }
 ```
 
+
+
 ### 2.5 实现Promise.all() 和 Promise.race() 方法
 
 **Promise.all()**：全部成功才能成功
@@ -473,17 +482,21 @@ MyPromise.all = function(promiseArr){
   return new MyPromise(function(resolve,reject){
     const value = [];
     const len = promiseArr.length;
-    for(let p of promiseArr){
-      MyPromise.resolve(p).then((v)=>{
-        value.push(v);
-        if(value.length === len){
-          resolve(value);
+    let count = 0;
+    promiseArr.forEach((promise, index) => {
+      MyPromise.resolve(promise).then(
+        (value) => {
+          result[index] = value; // 这里要注意返回值的顺序和promise是一一对应的
+          count++;
+          if (count === len) {
+            resolve(result);
+          }
+        },
+        (reason) => {
+          reject(reason);
         }
-      },(reason)=>{
-        reject(reason);
-        //这里不能使用break，异步执行的
-      })
-    }
+      );
+    });
   });
 }
 
@@ -508,6 +521,8 @@ MyPromise.race = function(promiseArr){
 }
 ```
 
+
+
 ### 2.6 实现Promise.allSettled() 和 Promise.any()
 
 **Promise.allSettled()**：判断所有的Promise是否都完成，all 和 race 都无法办到，ES2020引入
@@ -521,19 +536,25 @@ MyPromise.allSettled = function(promiseArr){
   return new MyPromise(function(resolve, reject){
     const result = [];
     const len = promiseArr.length;
-    for(let p of promiseArr){
-      MyPromise.resolve(p).then((value)=>{
-        result.push({status:Fulfilled, value: value});
-        if(result.length === len){
-          resolve(result);
+    let count = 0;
+    promiseArr.forEach((promise, index) => {
+      MyPromise.resolve(promise).then(
+        (value) => {
+          result[index] = { status: Fulfilled, value: value };
+          count++;
+          if (count === len) {
+            resolve(result);
+          }
+        },
+        (reason) => {
+          result[index] = { status: Rejected, reason: reason };
+          count++;
+          if (count === len) {
+            resolve(result);
+          }
         }
-      },(reason)=>{
-        result.push({status:Rejected, reason: reason});
-        if(result.length === len){
-          resolve(result);
-        }
-      })
-    }
+      );
+    });
   });
 }
 ```
@@ -547,16 +568,21 @@ MyPromise.any = function(promiseArr){
   return new MyPromise(function(resolve, reject){
     const result = [];
     const len = promiseArr.length;
-    for(let p of promiseArr){
-      MyPromise.resolve(p).then((value)=>{
-        resolve(value);
-      },(reason)=>{
-        result.push(reason);
-        if(len === result.length){
-          reject(result);
+    let count = 0;
+    promiseArr.forEach((promise, index) => {
+      MyPromise.resolve(promise).then(
+        (value) => {
+          resolve(value);
+        },
+        (reason) => {
+          result[index] = value;
+          count++;
+          if (count === len) {
+            reject(reason);
+          }
         }
-      })
-    }
+      );
+    });
   })
 }
 ```

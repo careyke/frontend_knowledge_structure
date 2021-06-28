@@ -5,10 +5,14 @@ JS是一门**单线程、非阻塞**的脚本语言。
 
 JS程序中，代码可以分成两个部分：**同步代码和异步代码。同步代码指的是现在就要执行的代码；异步代码指的是现在不执行，将来条件满足之后再执行的代码。**
 
+
+
 ## 1.JS引擎和JS宿主环境
 JS引擎并不是独立运行的，需要运行在宿主环境中。
 - **JS引擎负责的是对于js代码块的解析和运行**。可以理解为一个只知道执行js代码的机器人
 - **JS宿主环境负责JS代码块的调度，异步代码的实现正是由宿主环境调度来完成的**。常见的宿主环境有浏览器、Node
+
+
 
 ## 2.事件循环（event loop）
 js代码之所以能够异步执行，是因为宿主环境中提供了**事件循环机制**来调度js代码块。**不管是浏览器还是Node环境，内部都提供了事件循环的机制来调度js代码，但是两者事件循环的实现细节是不同的。**
@@ -33,7 +37,10 @@ while(true){
 ```
 这个伪代码主要是帮助理解事件循环机制的中心思想，就是**宿主环境将js代码分成多个代码块存放在事件（任务）队列中（提供API的形式），然后循环去执行事件队列中的代码块，直到清空事件队列。**
 
+
+
 ### 2.2 宏任务队列和微任务队列
+
 JS引擎执行到异步任务的时候，会将异步任务暂时挂起。这里的**挂起指的是将异步任务的回调函数暂存在某个地方**。
 
 **宿主环境中提供了宏任务队列和微任务队列来存放这些回调函数。**也就是说，异步任务分为宏任务和微任务
@@ -57,7 +64,9 @@ JS引擎执行到异步任务的时候，会将异步任务暂时挂起。这里
 注意：**这里说的宏任务和微任务指的都是相关API的回调函数部分，并不是API整体。**
 
 
+
 ### 2.3 浏览器中的eventLoop
+
 直接看图：
 
 ![eventloop01.jpg](./images/eventloop01.jpg)
@@ -96,9 +105,19 @@ setTimeout(function() {
 //1 3 5 4 2 6 7
 ```
 
+
+
 ### 2.4 Node环境中的eventLoop
+
 Node环境中的事件循环和浏览器中的事件循环是完全不同的。
 - 在浏览器环境中，可以认为只存在**一个宏任务队列和一个微任务队列**。事件循环的过程分析相对比较简单
+
+  > 实际上浏览器中也是存在多个宏任务队列和微任务队列的：
+  >
+  > - 在实现上，宏任务队列分成**消息队列**和**延时队列** —— [浏览器工作原理和实践](https://time.geekbang.org/column/article/134456)
+  >
+  > - 每个宏任务中存在一个微任务队列
+
 - 在Node环境中，存在**多个宏任务队列和多个微任务队列**。整个调度的过程相对比较复杂。
 
 node中的**事件循环机制的实现是在libuv层完成的**，libuv是一个基于事件驱动的跨平台抽象层，封装了不同操作系统一些底层特性，对外提供统一的API
@@ -121,15 +140,17 @@ node中，将事件循环的过程分成6个阶段。按照执行的顺序依次
 2. I/O callbacks阶段：**执行上一轮循环中没有被执行的回调函数**（这些回调函数指的是残留在**Poll Queue**中的回调函数）。不包括timers的callback、close的callback和setImmediate的callback
 3. idle,prepare阶段：这个阶段内部使用，不做分析
 4. **poll阶段**：这个阶段对应的**宏任务队列是Poll Queue，这个队列用来保存除了timer，close和setImmediate之外的异步回调函数（主要是I/O callback）**。poll阶段主要功能是：
-  1. 处理Poll Queue中的回调函数
-  2. 如果有timers callback,则回到timers阶段执行这些callback
-  3. **当eventLoop进入poll阶段并且Timers Queue中没有可执行的回调函数**
-    - **如果Poll Queue非空**，event loop会同步执行Poll Queue里面的回调函数，直到queue为空或者达到系统设置的阈值
-    - **如果Poll Queue为空**
-        - **如果Check Queue中存在回调函数**，eventLoop结束poll阶段，进入check阶段执行Check Queue中的回调函数
-        - **如果Check Queue为空**，event loop将阻塞在这个阶段，等待callback被添加到队列并且立即执行。
-  4. **当event loop进入poll阶段而且Timer Queue不为空的时候。如果Poll Queue为空的话**，eventLoop会**按照循环的顺序**进去timers阶段，执行Timer Queue中的回调函数。（如果Poll Queue和Timer Queue都不为空的时候，应该会向执行Poll Queue）
+   - 处理Poll Queue中的回调函数
+   - 如果有timers callback,则回到timers阶段执行这些callback
+   - **当eventLoop进入poll阶段并且Timers Queue中没有可执行的回调函数**
+     - **如果Poll Queue非空**，event loop会同步执行Poll Queue里面的回调函数，直到queue为空或者达到系统设置的阈值
+     - **如果Poll Queue为空**
+       - **如果Check Queue中存在回调函数**，eventLoop结束poll阶段，进入check阶段执行Check Queue中的回调函数
+       - **如果Check Queue为空**，event loop将阻塞在这个阶段，等待callback被添加到队列并且立即执行。
+   - **当event loop进入poll阶段而且Timer Queue不为空的时候。如果Poll Queue为空的话**，eventLoop会**按照循环的顺序**进去timers阶段，执行Timer Queue中的回调函数。（如果Poll Queue和Timer Queue都不为空的时候，应该会向执行Poll Queue）
+
 5. check阶段：这个阶段对应的宏任务队列是**Check Queue**，存储的是setImmediate的callback。如果Check Queue不为空，则执行其中的回调函数
+
 6. close callbacks阶段：这个阶段对应的是**Close Queue**。如果一个 socket 或者事件处理函数突然关闭/中断(比如：socket.destroy()),则这个阶段就会发生 close 的回调执行。否则他会通过 process.nextTick() 发出
 
 #### 2.4.3 Node中的宏任务队列和微任务队列
@@ -141,7 +162,7 @@ node中，将事件循环的过程分成6个阶段。按照执行的顺序依次
 
 Node中还存在**两个微任务队列：**
 1. 微任务队列(micro Queue)：普通的微任务队列。
-2. nextTick Queue：**这个微任务队列会在普通的微任务队列之前执行**。
+2. nextTick Queue：**这个微任务队列会在普通的微任务队列之前执行**。（优先级高）
 
 
 #### 2.4.4 Node中eventlop的详细执行过程
@@ -180,6 +201,9 @@ setTimeout(()=>{
 #### 2.4.5 setTimeout vs setImmediate
 ##### 2.4.5.1 分析之前，首先要明白
 1. 不管在浏览器还是node环境中，**setTimeout和setInterval中的延时，指的是在一段时间之后将对应的回调函数添加到对于的任务队列中，而不是一段时间之后直接执行**。也就是说这个时间是不准确的，如果之前有比较耗时的任务阻塞住eventLoop，那么就会比设定的延时更久才能执行。
+
+   > 这里实际上**对于setTimeout这类的延时异步任务，是直接放在延时队列中。每次执行完宏任务之后会检验延时队列中是否有到期的任务，有的话就执行**。
+
 2. setTimeout(fn,0)中直观表示是不延时立马加入任务队列。但是其实**0延时是不存在的，系统内部会定义一个最小延时时间，大约是1ms**。所以setTimeout(fn,0) = setTimeout(fn,1)
 
 ```js
@@ -229,12 +253,13 @@ fs.readFile(__filename, () => {
 **因为I/O callback是在poll阶段执行的**，当Poll Queue执行完成之后，因为有timers callback和setImmediate，所以不会阻塞在这个阶段。**存在timers callback，所以会循环到timers阶段去执行回调函数，循环的过程中会先经过check阶段，所以会先执行setImmediate**
 
 
+
 ## 参考文章
+
 1. [简单-Node.js Event Loop 的理解 Timers，process.nextTick()](https://www.jianshu.com/p/d6a47421a3e2)
 2. [浏览器与Node的事件循环(Event Loop)有何区别?](https://juejin.im/post/5c337ae06fb9a049bc4cd218#heading-13)
 3. [理解event loop（浏览器环境与nodejs环境）](https://imweb.io/topic/5b148768d4c96b9b1b4c4ea1)
 4. [带你彻底弄懂Event Loop](https://juejin.im/post/5b8f76675188255c7c653811#heading-7)
-
 
 
 

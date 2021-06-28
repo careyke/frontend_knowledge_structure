@@ -50,7 +50,9 @@ fs.readFile('1.json',(err,data)=>{
 如上述代码，需要在回调中嵌套回调。如果这样的异步任务很多的时候，嵌套的层次也越来越多，这种现象就叫做**回调地狱**。
 
 
+
 ## 2. Promise
+
 为了解决回调函数中出现的问题，ES6中提供了Promise机制。Promise就是“承诺”的意义，**是ES6提供是一种可信任的用来管理异步回调函数的机制。**
 
 **Promise会将异步任务转化成一个承诺，该承诺在未来总会有一个结果。如果承诺实现了，会调用实现的回调函数；如果承诺失败了，会调用失败的回调函数**
@@ -112,7 +114,10 @@ try{
 1. **Promise内部产生的错误是无法在外面进行捕获的，只能使用catch(...)方法来捕获**
 2. Promise是无法中途取消的，也就是说是没有中间状态的
 
+
+
 ## 3. Generator / CO
+
 **Generator是ES6提供的一种可以被打断执行的函数，返回值是一个迭代器，来控制函数体的执行**
 
 Generator函数配合**CO 模块**可以**用同步代码的方式来组织异步代码，按顺序一个一个执行**。
@@ -127,7 +132,10 @@ function* readFileGenerator(){
 co(readFileGenerator); //返回一个Promise对象
 ```
 
+
+
 ## 4. async + await
+
 async和await是ES7中实现的关键字，配合使用。使用形式和Generator中的 `*` 和yield关键字差不多。也可以用同步代码的方式来书写异步代码
 
 **async + await就是 Generator+CO 的语法糖，由js内部实现**。
@@ -144,5 +152,4 @@ async function readFile(){
   await readFilePromise('4.json');
 }
 ```
-
 
