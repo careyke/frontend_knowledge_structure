@@ -95,6 +95,9 @@ foo1(1,2,3,4); //[1, 2, 3, 4]
 ```js
 const Foo = ()=>{}
 console.log(Foo.prototype); // undefined
+
+function Bar(){}
+console.log(Bar.prototype); // {...}
 ```
 
 
