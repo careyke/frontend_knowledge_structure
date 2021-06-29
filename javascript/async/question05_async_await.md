@@ -4,12 +4,14 @@ async+await是ES7提供的异步的终极解决方案。**其底层也是通过�
 
 上一篇文章深入理解Generator就是为了来理解async+await
 
+
+
 ## 1. async+await的特点
 
 1. async函数也是一个协程，执行的过程中也是可以暂停和恢复的。await和Generator中的yield关键字一样，是协程交出线程控制权的标志
 2. async函数内部实现了一个自执行器，可以和普通函数一样调用执行
 3. **await关键字后面只能是Promise对象，如果不是Promise对象，内部会自动转化成Promise对象**
-4. **await语句的返回值，就是后面Promise对象的决议值。**（类似于Generator中在then的回到函数中调用next方法，传入异步任务的结果）
+4. **await语句的返回值，就是后面Promise对象的决议值。**（类似于Generator中在then的回调函数中调用next方法，传入异步任务的结果）
 5. **async函数返回一个Promsie对象**
    - **当async函数内部没有错误的时候，函数体执行完成Promise才算完成，Promise的状态就是fulfilled，决议值就是async函数的返回值（类似于co）**
    - **当async函数内部抛错而且没有在内部捕获的时候，Promise直接完成，状态为rejected，决议值就是抛出的这个异常。**
@@ -71,6 +73,8 @@ p.then((data)=>{console.log(data)}).catch((err)=>{console.log(err)});
 // 123 -> 'error' -> 'ok'
 ```
 
+
+
 ## 2. async+await的异常处理机制
 
 由于async+await内部是基于Generator实现的，所以其异常处理也是基于Generator的异常处理进行封装的。
@@ -126,17 +130,17 @@ p.then((data)=>{console.log(data)}).catch((err)=>{console.log(err)});
 ```js
 async function foo(){
   try{
-    var a = Promise.resolve(1);
+    var a = await Promise.resolve(1);
   }catch(err){
     console.log(err)
   }
   try{
-    var b = Promise.reject('error');
+    var b = await Promise.reject('error');
   }catch(err){
     console.log(err)
   }
   try{
-    var c = Promise.reject('err');
+    var c = await Promise.reject('err');
   }catch(err){
     console.log(err)
   }
@@ -144,7 +148,9 @@ async function foo(){
 foo();
 ```
 
-这种情况下才能保证每个异步任务都能执行。但是这种方式太繁琐，代码冗余难以维护。还有另外一种方法就是在**每个异步任务后面加一个catch方法，将错误捕获住，但是还得要能判断当前任务是成功还是失败。**
+这种情况下才能保证每个异步任务都能执行。但是这种方式太繁琐，代码冗余难以维护。
+
+还有另外一种方法就是在**每个异步任务后面加一个catch方法，将错误捕获住，但是还得要能判断当前任务是成功还是失败。**
 
 ```js
 function awaitWrap(value){
@@ -164,6 +170,8 @@ foo();
 ```
 
 使用这种方式可以很优雅的解决错误中断执行的问题，而且还能根据值判断任务的真正状态
+
+
 
 ## 3. async+await的执行顺序问题
 
@@ -213,3 +221,4 @@ console.log('script end')
 ```
 
 但是在低版本的浏览器和node中，执行顺序有一点偏差，但是现在已经统一
+

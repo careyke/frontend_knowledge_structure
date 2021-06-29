@@ -26,6 +26,8 @@ g.next(); // {value: 'c',done: false}
 g.next(); // {value: 'd',done: false}
 ```
 
+
+
 ### 1.2 next()的返回值和yield语句的返回值
 
 遍历器的next(...)方法的返回值是一个对象：`{value: ,done:boolean}`
@@ -63,6 +65,8 @@ g.next('aaa'); // {value:2,done:false}
 g.next('bbb'); // {value:3,done:true}
 // bbb
 ```
+
+
 
 ### 1.3 Generator函数的异常捕获
 
@@ -137,9 +141,11 @@ g.throw('error'); // {value: 2, done:false} 开启下一个片段的执行
 g.next(); // {value:3, done:true}
 ```
 
+
+
 ### 1.4 遍历器的next()、throw()和return()方法之间的差别
 
-1. 这三个方法都能恢复下一个片段的执行。但是只有next()能在最开始开启函数体的执行。
+1. 这三个方法都能恢复下一个片段的执行。但是只有next()能在**最开始开启函数体的执行**。
 
 2. 这三个方法都可以将上一个yield表达式替换成一个其他的语句。
 
@@ -185,6 +191,8 @@ g.next(); // {value:3, done:true}
      //替换成 return 'error'
      ```
 
+
+
 ### 1.5 yield* 语句
 
 在一个Generator中调用另一个Generator函数时，使用yield* 语句会非常的方便。`yield*`会**自动去迭代这个遍历器对象**。就是for...of语句的简写。但是yield*只能用在Generator函数体中
@@ -211,9 +219,11 @@ g.next(); //{value: 'b',done:false} 这个返回值并不是{value:3,done:false}
 g.next(); //{value: 'c',done:true}
 ```
 
-从上面代码可以看出，对于yield*语句来说：
+从上面代码可以看出，对于 **`yield*`** 语句来说：
 
 **Generator函数中的return语句并不是一个状态，也不是暂停函数的标志，就是yield*语句的返回值**
+
+
 
 ### 1.6 Generator函数与协程
 
@@ -224,7 +234,6 @@ g.next(); //{value: 'c',done:true}
 在JS中，**一个线程可以有多个协程。同一时间只能执行其中一个协程**。每个协程都有自己的执行上下文。
 
 > Generator函数就是ES6对于协程的实现，可以将Generator函数理解成一个协程。使用yield关键字来让出线程控制权，使用next方法来重新获取线程控制权。
->
 
 ```js
 function B(){
@@ -251,6 +260,8 @@ g.next();
 1. 协程之间的切换由程序自身控制，是子程序之前的切换。切换的开销远远小于线程之间的切换
 2. 协程不需要锁，因为都是同一个线程中，同一时间只执行一个协程。不存在变量冲突
 
+
+
 ##  2. Generator函数实现的异步方案
 
 所谓异步指的是将来某个之间执行的代码，而Generator函数中，多个片段的代码都可以在将来才执行。这两者之间是不谋而合的。所以自然而然就是有使用Generator函数实现的异步方案。
@@ -264,11 +275,13 @@ g.next();
 1. Thunk函数
 2. Promise
 
+
+
 ### 2.1 Generator异步方案 —— Thunk函数（偏函数）
 
 什么是Thunk函数？
 
-**Thunk函数的核心逻辑就是接收一定的参数，然后一个定制化的函数。**然后使用这个定制化的函数完成一些功能。**多个将原本多个参数的函数转换成单一参数的函数，而且可以保存中间状态，有利于复用。**
+**Thunk函数的核心逻辑就是接收一定的参数，然后返回一个定制化的函数**。然后使用这个定制化的函数完成一些功能。**将原本多个参数的函数转换成单一参数的函数，而且可以保存中间状态，有利于复用。**
 
 ```js
 //非Thunk版本
@@ -330,6 +343,8 @@ function autoRunThunk(g){
 autoRunThunk(g);
 ```
 
+
+
 ### 2.2 Generator异步方案 —— Promise实现
 
 **Generator + Promise的异步实现**
@@ -373,6 +388,8 @@ function autoRunPromise(g){
 autoRunPromise(g);
 ```
 
+
+
 ### 2.3 Generator + CO模块
 
 CO模块是Generator的自动执行器，其内部的实现原理其实就是前面介绍的两种方法。CO将他们封装成了一个模块。
@@ -403,8 +420,11 @@ co(gen()).then((res)=>{
 2. **yield关键字后面的语句只能是Thunk函数或者Promise对象。如果是其他类型的值，会先转化成Promise对象**
 3. CO可以自动执行Generator函数
 
+
+
 ### 2.4 总结
 
 **Generator异步方案的好处：可以将异步代码按照同步代码的方式组织。**
 
 但是自从ES7提供了async+await之后，基本就不会使用这种方案了。之所以深入的理解也是为了了解async+await的实现机制 —— 也是基于Generator实现的。
+
