@@ -4,6 +4,8 @@ ES Module是es6开始js原生支持的模块化方案。在设计上是尽量静
 
 ES Module暂时并不是所有的浏览器都支持，所以使用的时候需要用babel工具来进行转化，然后才能执行
 
+
+
 ## 1. ES Module的特点
 
 ### 1.1 ES Module是一种静态的模块化方案
@@ -25,11 +27,15 @@ console.log(x); //1
 
 **b.js 通过import语句引入 a.js 中的x变量，在代码编译的时候，编译器会识别import和export关键字，将两个文件中的x变量联系起来，建立引用关系。当使用 x 变量的时候，会通过引用关系去a.js中动态获取x变量此时的值。**
 
+
+
 ### 1.2 ES Module中的模块不是一个对象
 
-在CommonJS、AMD和CMD的实现代码中，内部都有一个模块管理系统，每个模块都是也够对象，需要使用模块系统来管理和缓存。模块之间的联系也只能在运行时建立，因为模块对象需要在运行时才能生成。
+在CommonJS、AMD和CMD的实现代码中，内部都有一个模块管理系统，每个模块都是一个对象，需要使用模块系统来管理和缓存。模块之间的联系也只能在运行时建立，因为模块对象需要在运行时才能生成。
 
 但是对于ES Module来说，**模块之间的关系编译期就可以建立，不需要在运行期动态创建模块和管理模块，所以在设计的时候，就没有把每个模块设计成一个对象。**
+
+
 
 ### 1.3 import和export导入导出的不是对象
 
@@ -87,6 +93,8 @@ import语句的特点：
 
 2. import后面的也是一个接口列表，和export中的是一一对应的
 
+
+
 ### 1.4 ES Module可以支持片段引入
 
 ES Module是静态引入模块的，接口之间也是静态建立引用关系的。所以**只会引入依赖模块中的部分接口，而不会将模块的所有接口都引入进来。**
@@ -109,9 +117,11 @@ import {add,get} from './a.js';
 //这里只会将add和get变量和a.js中的add和get关联在一起，其他的接口并不会关联过里
 ```
 
+
+
 ## 2. ES Module中的循环引用分析
 
-ES Module是在编译的时候建立模块之间变量的引用关系，再发生循环引用的时候也按照这个原理分析
+ES Module是在编译的时候建立模块之间变量的引用关系，发生循环引用的时候也按照这个原理分析
 
 ```js
 // a.mjs
@@ -164,6 +174,8 @@ undefined
 a.mjs
 bar
 ```
+
+
 
 ### 2.1 整个过程可以使用babel打包之后的模拟代码来辅助理解
 
@@ -224,6 +236,7 @@ bar
 
         "use strict";
         __webpack_require__.r(__webpack_exports__);
+  // 先声明了foo属性，变量提升
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "foo", function () { return foo; });
 /* harmony import */ var _lib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./lib */ "./esModule/lib.js");
 
@@ -258,3 +271,28 @@ bar
 ```
 
 着重看两个文件中的exports和require的顺序
+
+
+
+## 3. ES Module的实现原理分析
+
+对于每个ES module的模块来说，需要经历一下**三个阶段**：
+
+1. Construction(构造)：查找并下载所有的文件并且解析为module records
+
+2. Instantiation(实例化)：在内存里找到对应的 “盒子”，把所有导出的变量放进去（但是**暂时还不求值**）。然后，让导出和导入都指向内存里面的这些盒子。这叫做 **“linking(链接)”**
+
+   > 这里同一个变量的导入和导出指向同一块内存区域，建立链接
+
+3. Evaluation(求值)：执行代码，得到变量的值然后放到这些内存的“盒子”里
+
+> 可以看到，**ES Module中模块之间的链接是编译期通过将同一个导出和导入变量指向同一块内存区域来建立的**。所以导出模块修改值会影响导入模块得到的值。
+
+
+
+这里可以参考两篇文章，推荐大家读一下：
+
+1. [ES module工作原理](https://segmentfault.com/a/1190000020388889)
+
+2. [【翻译】ES modules：通过漫画进行深入理解](https://zhuanlan.zhihu.com/p/35756399)
+
