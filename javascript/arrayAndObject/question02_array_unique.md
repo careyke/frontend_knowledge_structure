@@ -25,6 +25,8 @@
 var boundryTestArray=[NaN, NaN, +0, -0, {a:1}, {a:1}, undefined, null];
 ```
 
+
+
 ## 2. 去重方法的性能测试
 
 生成一个大的随机数组，然后使用这个数组来测试性能
@@ -43,6 +45,8 @@ function perfTest(){
 }
 var pref=perfTest();
 ```
+
+
 
 ## 3. 去重的方法分析
 
@@ -109,6 +113,8 @@ pref(uniqueByFilterIndexOf);
 // test: 3728.66796875ms
 ```
 
+
+
 ### 3.2 includes()方法
 
 ES6中Array类中新增的方法
@@ -141,6 +147,8 @@ uniqueByIncludes(boundryTestArray);
 pref(uniqueByIncludes);
 // test: 4265.844970703125ms
 ```
+
+
 
 ### 3.3 sort()方法
 
@@ -240,13 +248,15 @@ uniqueBySortReduce([1,'1','2',1]);
 
  **所以当一个数组中有多个类型的数据的时候，要慎用sort()方式去重。**
 
+
+
 ### 3.4 Object键值对
 
 前面的去重方法中，都是**将唯一值记录在数组中，然后通过去数组查找是否存在当前值来判断是否唯一**。这是就需要使用到indexOf或者includes方法，这些方法内部都是**遍历数组**去查找，所以是比较耗时的。
 
-Object键值对的方案是**使用一个object将唯一值作为key对保存在object中，然后直接根据这个object判断当前值是否唯一**
+Object键值对的方案是**使用一个object将唯一值作为key值保存在object中，然后直接根据这个object判断当前值是否唯一**
 
-**但是使用object也存在一下问题**
+**但是使用object也存在以下问题**
 
 1. **object中的key都是字符串的，内部会涉及到隐式类型转换，所以无法分辨 `1` 和`'1'`**
 2. object中的key如果是对象类型，会**执行toString()转化成字符串**，所以很多对象都会转化成 `[object Object]`，无法对这些对象去重
@@ -285,6 +295,8 @@ pref(uniqueByObject);
 //test: 81.544189453125ms
 ```
 
+
+
 ### 3.5 Map方案
 
 由于object中的key只能是字符串，所以需要对特殊类型做一些转化才能存储进去。然后使用Map来存储映射表的话就没有这些问题。
@@ -319,9 +331,11 @@ pref(uniqueByMap);
 // test: 11.6259765625ms
 ```
 
+
+
 ### 3.6 Set方案
 
-ES6中提供了一种特殊的对象类型Set，感觉就是为去重而生的
+ES6中提供了一种特殊的对象类型Set，就是为去重而生的
 
 ```js
 function uniqueBySet(arr){
@@ -344,6 +358,8 @@ pref(uniqueBySet);
 // test: 9.616943359375ms
 ```
 
+
+
 ## 3. 总结
 
 | 方案               | 边界处理                         | 性能测试 | 是否有风险                       |
@@ -352,7 +368,7 @@ pref(uniqueBySet);
 | indexOf + filter   | NaN被忽略，对象不去重，+0,-0去重 | 3728ms   | NaN会被忽略，需要改造            |
 | Includes           | NaN和0去重，对象不去重           | 4265ms   |                                  |
 | sort方法           | NaN和对象不去重，0去重           | 47ms     | 排序有很大隐患，会导致去重不正确 |
-| sort + Object.is() | NaN去重，对象和==0不去重==       | 47ms     | 排序有很大隐患，会导致去重不正确 |
+| sort + Object.is() | NaN去重，对象和0不去重           | 47ms     | 排序有很大隐患，会导致去重不正确 |
 | Object键值对       | NaN，对象和0都去重               | 81ms     |                                  |
 | Map                | NaN和0去重，对象不去重           | 11ms     |                                  |
 | Set                | NaN和0去重，对象不去重           | 9ms      |                                  |
@@ -363,6 +379,8 @@ pref(uniqueBySet);
 2. indexOf和includes方式，内部需要**多次遍历数组**，性能相对比较差，不推荐使用
 3. sort的方式，面对**有多种数据类型的数组**，存在风险。要考虑清楚
 4. 推荐使用ES6中的Map和Set方式，性能和效果都很好
+
+
 
 ## 4. 参考文章
 

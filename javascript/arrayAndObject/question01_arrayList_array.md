@@ -27,6 +27,8 @@ function isArrayLike(o) {
 1. 函数中的arguments对象
 2. 获取DOM对象的方法的返回值，比如 `document.getElementsByClassName()`
 
+
+
 ## 2. 类数组对象和组数之间的联系
 
 假设有以下的类数组对象和数组
@@ -74,6 +76,8 @@ arrLike.forEach((v)=>console.log(v));  //会报错，因为类数组原型链上
 Array.prototype.forEach.call(arrLike,(v)=>{console.log(v)});
 // 1 2 3
 ```
+
+
 
 ## 3. 类数组对象转化成数组的方式
 
@@ -124,7 +128,7 @@ Array.prototype.forEach.call(arrLike,(v)=>{console.log(v)});
    Array.prototype.filter.call(arrLike,v=>1); // [1,2,3]
    ```
 
-上面6种方法**对于索引密集的列数组对象转化成数组是一样的，都是返回一个密集数组**。但是对于索引稀疏的类数组对象，上面方法返回是不一致的
+上面6种方法**对于索引密集的类数组对象转化成数组是一样的，都是返回一个密集数组**。但是对于**索引稀疏**的类数组对象，上面方法返回是不一致的
 
 ```js
 var arrLike={
@@ -144,9 +148,11 @@ Array.prototype.filter.call(arrLike,v=>1); // [1,2] 出现不期望的过滤
 
 总结：
 
-- 当**类数组对象的索引稀疏**的时候，类似于`{0:1,4:3,length:5}`，将类数组对象作为参数的方法返回的是密集数组，使用undefined填补空位；将类数组对象作为 this 的方法返回的是稀疏数组。
+- 当**类数组对象的索引稀疏**的时候，类似于`{0:1,4:3,length:5}`，将类数组对象作为参数的方法返回的是密集数组，使用undefined填补空位；将类数组对象作为 this 的方法返回的是稀疏数组（filter方法除外）。
 - 当**类数组对象的索引密集**的时候，返回的都是密集数组
 - **最好是直接使用`Array.from()`方法**
+
+
 
 ### 3.2 使用扩展运算符
 
@@ -162,7 +168,7 @@ var arrLike={
 [...arrLike]; // 会报错
 ```
 
-但是我们常见的类数组对象 `argument` 是一个迭代器对象，是可以用扩展运算符转化成数组的。
+但是我们常见的**类数组对象 `argument` 是一个迭代器对象**，是可以用扩展运算符转化成数组的。
 
 ```js
 function foo(){
@@ -171,6 +177,8 @@ function foo(){
 foo(1,2,3);
 // [1,2,3]
 ```
+
+
 
 ## 参考文章
 
