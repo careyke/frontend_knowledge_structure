@@ -166,3 +166,37 @@ Questions and answers about front-end
 
 9. [Object的浅拷贝和深拷贝](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/arrayAndObject/question09_copy.md)
 
+
+
+## 4. React源码解析
+
+1. [React架构演变](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question01_stackVSfiber.md)
+
+2. [Fiber架构的实现原理](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question02_fiber.md)
+3. [结合源码分析render阶段](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question03_render_phase.md)
+
+4. [结合源码分析Diff算法的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question04_diff.md)
+5. [commit - before mutation](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question05_01_beforeMutation.md)
+6. [commit - mutation](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question05_02_commit_mutation.md)
+7. [commit - layout](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question05_03_commit_layout.md#commit---layout)
+8. [结合源码解析Scheduler的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question06_scheduler.md)
+
+9. [update - 创建update](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question07_01_create_update.md)
+
+10. [update - 调度update](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question07_02_schedule_update.md)
+
+11. [update - 执行update](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question07_03_execute_update.md)
+
+12. [React Hooks的设计理念](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question08_01_react_hooks.md)
+13. [Hooks的数据结构和更新流程](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question08_02_hook_update.md)
+14. [useState和useReducer](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question08_03_useState.md)
+15. [保存无副作用状态：useCallback、useMemo和useRef](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question08_04_useCallback_useMemo_useRef.md)
+16. [Effects的数据结构和调用流程](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question08_05_hook_effect.md)
+
+17. [useEffect 和 useLayoutEffect](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question08_06_useLayoutEffect.md)
+18. [结合源码分析React事件系统](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question09_react_event.md)
+
+19. [批量更新的实现原理](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question10_batch_update.md)
+20. [结合源码分析Context的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question11_context.md)
+21. [结合React源码分析Suspense的实现原理](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question12_suspense.md)
+
