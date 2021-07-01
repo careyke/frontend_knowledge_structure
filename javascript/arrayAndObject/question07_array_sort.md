@@ -17,7 +17,9 @@
   - 当10 < length <= 1000的时候，将数组中间位置的数作为 third
   - 当length > 1000 的时候，每隔 200 ~ 215 个元素取一个值，然后将这些值进行排序，取中间值的作为 third
 
-###1.1 为什么小于等于10的时候，采用插入排序
+
+
+### 1.1 为什么小于等于10的时候，采用插入排序
 
 虽然插入排序的时间复杂度是O(n^2)，大于快速排序的时间复杂度O(nlogn)。但是这些都只是**n趋向无穷大时候的估算结果**，而且是忽略掉常数项的。但是当n比较小的时候，常数项是不能忽略的，插入排序是有可能比快速排序更快的。
 
@@ -42,6 +44,8 @@ function defaultCompareFn(a,b){
 }
 ```
 
+
+
 ### 2.2 实现一个插入排序
 
 这个插入函数需要传入数组的区间索引和比较函数
@@ -51,7 +55,7 @@ function insertSort(arr, left, right, compareFn){
   for(let i=left+1;i<=right;i++){
     let t = arr[i];
     let j = i-1;
-    for(; j>=0 && compareFn(arr[j], t) > 0; j--){
+    for(; j>=left && compareFn(arr[j], t) > 0; j--){
       arr[j+1] = arr[j];
     }
     arr[j+1] = t;
@@ -59,6 +63,8 @@ function insertSort(arr, left, right, compareFn){
   return;
 }
 ```
+
+
 
 ### 2.3 实现一个获取third的方法
 
@@ -69,7 +75,7 @@ function getThirdIndex(arr, left, right, compareFn){
     return (left+right) >>> 1;
   }
   const pickArr=[];
-  const increment = 200 + (15 & (right - left));  // 与运算，不会操作15
+  const increment = 200 + (15 & (right - left));  // 与运算，不会超过15
   for(let i = left+1; i<right; i+=increment){
     pickArr.push([i,arr[i]]);
   }
@@ -79,6 +85,8 @@ function getThirdIndex(arr, left, right, compareFn){
   return pickArr[pickArr.length >>> 1][0];
 }
 ```
+
+
 
 ### 2.4 实现快速排序
 
@@ -103,6 +111,8 @@ function quickSort(arr, left, right, compareFn){
   // 这里不做递归，由外层做递归，因为有可能是插入排序
 }
 ```
+
+
 
 ### 2.5* 整体代码实现
 
@@ -130,7 +140,7 @@ function sort(arr, compareFn) {
     for (let i = left + 1; i <= right; i++) {
       let t = arr[i];
       let j = i - 1;
-      for (; j >= 0 && compareFn(arr[j], t) > 0; j--) {
+      for (; j >= left && compareFn(arr[j], t) > 0; j--) {
         arr[j + 1] = arr[j];
       }
       arr[j + 1] = t;
@@ -144,7 +154,7 @@ function sort(arr, compareFn) {
       return (left + right) >>> 1;
     }
     const pickArr = [];
-    const increment = 200 + (15 & (right - left));  // 与运算，不会操作15
+    const increment = 200 + (15 & (right - left));  // 与运算，不会超过15
     for (let i = left + 1; i < right; i += increment) {
       pickArr.push([i, arr[i]]);
     }
@@ -213,11 +223,14 @@ sort(arr,(a,b)=>b-a);
 
 上面的实现中是按照 V8 中sort方法实现的特点来实现的。但是这里快速排序的实现和V8中是不一样的
 
+
+
 ### 2.6 V8中sort方法中的快速排序
 
 采用的是双指针的遍历方式实现的。代码来自[神三元](https://juejin.im/post/5dbebbfa51882524c507fddb#heading-35)
 
-（主观）和上面实现的快速排序的时间复杂度应该是一样，上面理解起来稍微简单一点
+> （主观）和上面实现的快速排序的时间复杂度应该是一样，上面理解起来稍微简单一点
+>
 
 ```js
 const quickSort = (a, from, to) => {

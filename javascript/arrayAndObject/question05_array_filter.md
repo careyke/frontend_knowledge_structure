@@ -8,6 +8,8 @@
 4. 返回一个数组，**空值会跳过不处理**，使参数函数的返回值为真值的数组项被添加到返回数组中
 5. **遍历的时候，也会查找原型链上的属性**
 
+
+
 ## 2. 手动实现一个myFilter函数
 
 ```js
@@ -29,7 +31,7 @@ Array.prototype.myFilter = function(fn, context){
     if(i in thisObj){ // in 操作符会查找原型链
       let v = thisObj[i];
       if(fn.call(context, thisObj[i], i, thisObj)){
-        result.push(v); // 这一步会跳过空值
+        result.push(v); // 这一步会跳过空值，中间没有空值
       }
     }
   }

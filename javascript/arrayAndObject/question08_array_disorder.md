@@ -35,6 +35,8 @@ test();
 
 结果可知，这个方案乱序是不可靠的。因为**一个元素出现在各个位置的概率不是一样的**。
 
+
+
 ### 1.1 分析概率不一样的原因
 
 上一篇文章有讲过，sort内部排序使用的是插入排序和快速排序两种，但是最终区间变小的时候都是**插入排序**。
@@ -46,7 +48,7 @@ function insertSort(arr, left, right, compareFn){
   for(let i=left+1;i<=right;i++){
     let t = arr[i];
     let j = i-1;
-    for(; j>=0 && compareFn(arr[j], t) > 0; j--){
+    for(; j>=left && compareFn(arr[j], t) > 0; j--){
       arr[j+1] = arr[j];
     }
     arr[j+1] = t;
@@ -125,6 +127,8 @@ chanceTest([1,2,3]);
 根本原因在于：
 
 **插入排序的时候，当元素插入有序区间的时候，如果确定了位置，就不会再和前面的元素继续比较。所以元素插入各位位置的概率并不是一致的。**
+
+
 
 ## 2. Fisher–Yates
 

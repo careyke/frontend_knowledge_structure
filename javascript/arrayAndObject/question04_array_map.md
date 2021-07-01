@@ -30,7 +30,7 @@ Array.prototype.myMap = function(fn, context){
   for(let i = 0;i<len;i++){
     if(i in thisObj){ // in 操作符会查找原型链
       const v = fn.call(context, thisObj[i], i, thisObj);
-      result[i] = v;  // 这一步操作保证不跳过空值
+      result[i] = v;  // 这一步操作保证不跳过空值, 没有赋值的索引就是空值
     }
   }
   return result;

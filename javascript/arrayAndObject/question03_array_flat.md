@@ -51,9 +51,9 @@ flatByJson(flatTestArray);
 
 #### 1.1.2 这种方案的弊端
 
-这种方式是一种非常规的解决方案，它能够解决很多的问题。但是也一些**限制**
+这种方式是一种非常规的解决方案，它能够解决一些问题。但是也一些**限制**
 
-1. JSON.stringify()无法正确解析undefined和function类型的数据
+1. **JSON.stringify()无法正确解析undefined和function类型的数据**
 
    ```js
    var arr=[1,2,[undefined,3],4,function foo(){}]
@@ -107,6 +107,10 @@ flatByRecursionReduce(flatTestArray);
 
 递归方法总归是有爆栈的隐患，但是在这种场景中基本不会爆栈。
 
+> 这里是利用`concat`来实现展开层级
+
+
+
 ### 1.3 使用栈的思想来
 
 利用栈的思想，将递归改成循环来实现。
@@ -137,6 +141,8 @@ flatByStack(flatTestArray);
 // [1, 2, 3, 4, 5, 6, "7", "8", 9, {a:1}, {b:2}, 10]
 ```
 
+
+
 ### 1.4 使用Generator来实现
 
 Generator函数中存在`yield*`，**这个操作符用来执行后面对象的迭代器的遍历器，类似于 for...of 操作**。所以刚好可以用来打平数组。
@@ -158,6 +164,8 @@ function flatByGenerator(arr){
 flatByGenerator(flatTestArray);
 // [1, 2, 3, 4, 5, 6, "7", "8", 9, {a:1}, {b:2}, 10]
 ```
+
+
 
 ### 1.5 Array.prototype.flat()
 
@@ -197,13 +205,15 @@ flat方法的特点：
 3. 参数传入 `Infinity` 关键字的时候，则所有层级都展开
 4. flat会跳过空值
 
+
+
 ## 2. 手动实现一个myFlat()方法
 
 根据上面的特点，手动实现一个 flat() 方法
 
 ```js
 Array.prototype.myFlat=function(num = 1){
-  if(!Number(num) || Number() < 0) return this; //参数判断
+  if(!Number(num) || Number(num) < 0) return this; //参数判断
   const flat=(arr, n)=>{
     if(n>0){
       return arr.reduce((result, v)=>{
@@ -218,7 +228,8 @@ Array.prototype.myFlat=function(num = 1){
 
 //也可以使用Generator实现
 Array.prototype.myFlatBtGenerator=function(num = 1){
-  if(!Number(num) || Number() < 0) return this; //参数判断
+  if(!Number(num) || Number(num) < 0) return this; //参数判断
+  
   function* flat(arr, n){
     for(let v of arr){
       if(Array.isArray(v) && n>0){
@@ -243,6 +254,8 @@ flatTestArray.myFlat('1w'); // [1, 2, 3, Array(4)]
 
 [1,2,[3,,4,5],6].myFlat(Infinity); // [1, 2, 3, 4, 5, 6]  reduce函数会跳过数组的空位
 ```
+
+
 
 ##  3. 参考文章
 
