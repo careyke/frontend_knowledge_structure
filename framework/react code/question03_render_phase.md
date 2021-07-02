@@ -1,6 +1,6 @@
 # 结合源码分析render阶段
 
-之所以先分析render阶段，也就是`Reconciler`的工作流程，而不是先分析`Scheduler`，是因为在React当前版本中，默认情况下还是使 `LegacyRoot`，这种模式下`Scheduler`并没有起作用，而`Reconciler`和`Renderer`是不管哪种模式下工作的流程基本都是一样的。后续会话专门的章节来介绍`Scheduler`
+之所以先分析render阶段，也就是`Reconciler`的工作流程，而不是先分析`Scheduler`，是因为在React当前版本中，默认情况下还是使 `LegacyRoot`，这种模式下`Scheduler`并没有起作用，而`Reconciler`和`Renderer`是不管哪种模式下工作的流程基本都是一样的。后续会有专门的章节来介绍`Scheduler`
 
 > 所以在下面的源码分析中，凡是包含lane的变量都是和优先级调度有关的，可以先不用考虑。
 
@@ -54,8 +54,14 @@ export function updateContainer(
 进入更新操作
 
 1. 如果是**异步更新**，则先**接入`Scheduler`**，然后调用`performConcurrentWorkOnRoot`方法进入`render`阶段；
-
 2. 如果是**同步更新**，则直接调用`performSyncWorkOnRoot`方法进入`render`阶段
+
+
+
+>
+> 下面以mount阶段为例来分析
+
+
 
 ## 2. render阶段工作流程
 
@@ -63,18 +69,20 @@ render阶段主要是Reconciler在工作，目的是**将新的`ReactElement`节
 
 遍历树时，一般会使用**递归**算法。但是前面讲Fiber架构的时候有提到，**Fiber架构为了实现时间切片，需要将原来递归的算法修改成循环的算法**。实际场景中，使用循环来替代递归的场景是很常见的，毕竟**递归算法除了无法中断的缺点之外还有爆栈的风险**。
 
-> Fiber节点的数据结构中加入`return`和`sibling`指针就是为了简单的使用循环来实现递归。
+> Fiber节点的数据结构中加入`return`和`sibling`指针感觉就是为了更简单的使用循环来实现递归。
 
 
 
 render阶段的工作可以分成两个部分：
 
 1. **”递“阶段** —— 从`workInProgress rootFiber`开始向下进行**深度优先遍历**，每遍历一个`Fiber节点`就调用一次`beginWork`方法，该方法会创建该`Fiber节点`的子节点。然后继续向下遍历并创建，直到遇到叶子节点的时候，进入”归“阶段。
-2. **”归“节点** —— 对当前节点执行`completeWork`方法，执行完之后如果存在兄弟节点，则会进入兄弟节点的”递“阶段。如果不存在兄弟节点，就会进入父节点的”归“阶段。
+2. **”归“节点** —— 对当前节点执行`completeWork`方法，执行完之后如果存在兄弟节点，则会进入**兄弟节点的”递“阶段**。如果不存在兄弟节点，就会进入父节点的”归“阶段。
 
 可以看出，”递“和”归“是**交错运行**的，直到`rootFiber`的“归”阶段执行完，整个`render`阶段才算完成。
 
 > React内部遍历Fiber Tree使用的算法是深度优先遍历。如果强行使用广度优先遍历，会非常麻烦，sibling指针不适合广度优先遍历
+
+
 
 ### 2.1 创建workInProgress rootFiber
 
@@ -115,7 +123,7 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes) {
 }
 ```
 
-> 对应的源码见[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1501)
+> 对应的源码见[这里](https://github.com/careyke/react/blob/08f393c93f260219d21a91aa7216fa0689c4fd97/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1557)
 
 
 
@@ -150,7 +158,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 }
 ```
 
-> 源码对应[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1569)
+> 源码对应[这里](https://github.com/careyke/react/blob/08f393c93f260219d21a91aa7216fa0689c4fd97/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1625)
 
 可以看出：
 
@@ -159,9 +167,11 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 
 后面主要是解析这两个方法，看看究竟做了哪些工作。
 
+
+
 ### 2.2 ”递“过程——beginWork
 
-> 该方法的源码看[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L3077)
+> 该方法的源码看[这里](https://github.com/careyke/react/blob/08f393c93f260219d21a91aa7216fa0689c4fd97/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L3035)
 
 ```javascript
 function beginWork(
@@ -173,7 +183,7 @@ function beginWork(
   
   if (current !== null) {
     // update阶段
-  	// 先判断优化路径是否匹配，如果不匹配就是需要新建Fiber节点
+  	// 先判断优化路径是否匹配，如果不匹配就需要新建Fiber节点
     
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;
@@ -283,7 +293,7 @@ function bailoutOnAlreadyFinishedWork(
 
 > 这里需要说明的一点是：**由于在commit阶段中，都会执行`workInProgress = null`这个操作，所以每次更新的时候，都会从rootFiber开始遍历生成新的`workInProgress Fiber Tree`，在遍历的过程中插入优化的环节**。
 >
-> 通过`currentFiber`来创建`workInProgressFiber`的时候，会执行`workInProgress.child = current.child`，所以才会产生前面复用整个`currentFiber`的情况。（创建函数见[这里](https://github.com/facebook/react/blob/8e5adfbd7e605bda9c5e96c10e015b3dc0df688e/packages/react-reconciler/src/ReactFiber.new.js#L252)）
+> 通过`currentFiber`来创建`workInProgressFiber`的时候，会执行`workInProgress.child = current.child`，所以才会产生前面复用整个`currentFiber`的情况。（创建函数见[这里](https://github.com/careyke/react/blob/08f393c93f260219d21a91aa7216fa0689c4fd97/packages/react-reconciler/src/ReactFiber.new.js#L248)）
 
 
 
@@ -302,7 +312,7 @@ function bailoutOnAlreadyFinishedWork(
 
 在进入创建子节点的流程之前，如果**同时满足**以下条件，会直接进入优化处理。
 
-1. `oldProps === newProps` — 即更新前后的`props`不变，默认情况下并**没有做对象的浅对比**，所以调用`render`新生成的`Fiber节点`都不满足该条件。
+1. `oldProps === newProps` — 即更新前后的`props`不变，默认情况下并**没有做对象的浅对比**，所以调用`render`新生成的`Fiber节点`都不满足该条件，因为`pendingProps`是新创建的对象。
 2. `!includesSomeLane(renderLanes, updateLanes)=== true`  — 即表示**当前节点的优先级不够**，不参与本次更新。后面优先级调度的章节再细讲。
 
 

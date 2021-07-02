@@ -45,7 +45,7 @@ function FiberNode(
   this.type = null;
   this.stateNode = null;
 
-  // 作用在Fiber Tree中的属性，用例描述自己的位置
+  // 作用在Fiber Tree中的属性，用来描述自己的位置
   this.return = null;
   this.child = null;
   this.sibling = null;
@@ -153,7 +153,7 @@ this.index = 0;
 
 ### 1.3 Fiber节点的工作单元属性
 
-Fiber节点作为Fiber架构中的最小工作单元，**更新的时候负责对比和收集对应`ReactElement`节点更新前后的变化，然后在`commit`节点将这些变化渲染到真实的DOM中**。
+Fiber节点作为Fiber架构中的最小工作单元，**更新的时候负责对比和收集对应`ReactElement`节点更新前后的变化，然后在`commit`阶段将这些变化渲染到真实的DOM中**。
 
 所以Fiber节点中保存了和本次更新相关的信息。
 
@@ -162,7 +162,7 @@ Fiber节点作为Fiber架构中的最小工作单元，**更新的时候负责�
 // 设置这个属性的时候，组件的更新流程还没有开始
 this.pendingProps = pendingProps;
 
-// 表示对应ReactElement当前的Props（单词好像拼错了，应该是memorizedProps）
+// 表示对应ReactElement当前的Props
 this.memoizedProps = null;
 
 // 表示本次更新中，对应组件的更新操作，是一个链表结构。后面更新流程时会详细说明
@@ -171,7 +171,7 @@ this.updateQueue = null;
 // 表示组件当前的state，FunctionComponent中是一个链表结构,ClassComponent是一个对象
 this.memoizedState = null;
 
-// 表示当前组件依赖的context，后续将上下文的时候会详细介绍
+// 表示当前组件依赖的context，后续讲上下文的时候会详细介绍
 this.dependencies = null;
 
 this.mode = mode;
@@ -260,9 +260,9 @@ workInProgressFiber.alternate === currentFiber
 
 #### 2.3.1 fiberRootNode
 
-既然React内部会创建两颗Fiber Tree，那么就一个根节点需要管理这两颗树。React内部通过 **`fiberRootNode` **来管理两颗Fiber树的切换。
+既然React内部会创建两颗Fiber Tree，那么就需要一个根节点需要管理这两颗树。React内部通过 **`fiberRootNode` **来管理两颗Fiber树的切换。
 
-fiberRootNode就是React应用的根节点，它通过**`current`**属性指向当前页面对应的Fiber树，这棵树就是`current Fiber Tree`
+fiberRootNode就是**React应用的根节点**，它通过**`current`**属性指向当前页面对应的Fiber树，这棵树就是`current Fiber Tree`
 
 ```javascript
 FiberRootNode.current === currentFiberTree
@@ -316,7 +316,7 @@ function FiberRootNode(containerInfo, tag, hydrate) {
   // 使用ReactDOM.Render创建的应用，默认是LegacyRoot
   this.tag = tag;
   
-  // 表示当前React应用挂在的DOM节点
+  // 表示当前React应用挂载的DOM节点
   this.containerInfo = containerInfo;
   this.pendingChildren = null;
   
