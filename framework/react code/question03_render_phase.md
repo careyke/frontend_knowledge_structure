@@ -666,7 +666,7 @@ updateHostComponent = function (
 
 ”归“阶段的流程：
 
-![render - 归过程](./flowCharts/render - 归过程.png)
+![render - 归过程](./flowCharts/render-归过程.png)
 
 
 
