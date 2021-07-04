@@ -402,6 +402,12 @@ function finishClassComponent(
 
 
 
+##### 2.2.2.3 优化路径流程图
+
+![递阶段-创建子节点优化路径](./flowCharts/递阶段-创建子节点优化路径.png)
+
+
+
 #### 2.2.3 创建子fiber节点
 
 **在创建子Fiber节点之前，先要获取当前ReactElement最新的子ReactElement**。不同类型的ReactElement生成children的方式不同，这里着重提一下ClassComponent。
@@ -467,6 +473,10 @@ function placeSingleChild(newFiber: Fiber): Fiber {
 
 > 后面会专门介绍diff算法的实现
 
+”递“阶段的流程图：
+
+<img src="./flowCharts/render-递阶段.png" alt="render-递阶段" />
+
 
 
 ### 2.3 “归”过程——completeWork
@@ -479,6 +489,7 @@ function completeWork(
   workInProgress: Fiber,
   renderLanes: Lanes,
 ): Fiber | null {
+  // 前置代码有修改memoizedProps
   // 此时workInProgress.memoizedProps === workInProgress.pendingProps
   // 对于update的节点来说 获取oldProps可以从current.memoizedProps中获取
   const newProps = workInProgress.pendingProps;
@@ -566,7 +577,7 @@ const instance = createInstance(
     workInProgress,
 );
 
-// 将子节点对应的真实DOM拼到当前节点的DOM节点中，行程一颗DOM subtree
+// 将子节点对应的真实DOM拼到当前节点的DOM节点中，形成一颗DOM subtree
 // 因为completeWork是从下到上的，所以当前节点的子节点对应的DOM节点此时已经创建好了
 appendAllChildren(instance, workInProgress, false, false);
 
@@ -576,7 +587,7 @@ workInProgress.stateNode = instance;
 // 结合HostComponent的props，给对应的真实DOM节点赋值属性，节点初始化
 // 当HostComponent的子节点是纯文本时，会在这里将文本设置在真实DOM节点中。
 
-// 初始化事件处理，给autoFocus===true的节点打一个update flag，聚焦需要更新UI页面
+// 初始化事件处理，给autoFocus===true的节点打一个update flag，聚焦需要更新UI
 if (
     finalizeInitialChildren(
         instance,
@@ -638,7 +649,7 @@ updateHostComponent = function (
 
 **对于`HostComponent`类型的Fiber节点来说，其中的`updateQueue`属性记录的是新旧`props`对比之后需要更新的部分**。
 
-**`updatePayload`的数据结构是一个数组，偶数索引表示变化的属性名`propKey`，基数索引表示变化的属性值`propValue`**
+**`updatePayload`的数据结构是一个数组，偶数索引表示变化的属性名`propKey`，奇数索引表示变化的属性值`propValue`**
 
 <img src="./images/updatePayload.jpg" alt="updatePayload" style="zoom:100%;" />
 
@@ -652,6 +663,12 @@ updateHostComponent = function (
 自此`render`阶段的绝大部分工作就已经完成了，`workInProgress Fiber Tree`创建完成，需要更新的节点也已经打上了`flag`，似乎就可以进入`commit`阶段开始渲染对应的更新了。
 
 但是这里有一个问题，commit阶段需要取到所有打了`flag` 的节点，如果重新遍历一次树的话，这样做显然是低效的。为了解决这个问题，React内部建立了一个**`effectList`链表**来解决这个问题。
+
+”归“阶段的流程：
+
+![render - 归过程](./flowCharts/render - 归过程.png)
+
+
 
 ### 2.4 effectList
 
@@ -687,7 +704,7 @@ if (flags > PerformedWork) {
 从上面的插入逻辑可以看出：
 
 1. effectList中每个节点都是一个**含有`flag`的Fiber节点**。
-2. **除去`Deletion flag`的节点，其他含有`flag`的节点插入`effectList`的顺序和执行`completeWork`方法的顺序相同。谁先执行谁先插入**。这个顺序很重要，涉及到后面副作用和生命周期的执行顺序
+2. **除去`Deletion flag`的节点，其他含有`flag`的节点插入`effectList`的顺序和执行`completeWork`方法的顺序相同。谁先执行谁先插入**。这个顺序很重要，涉及到后面嵌套副作用和生命周期的执行顺序
 3. **每个Fiber节点通过`firstEffect`和`lastEffect`来保存后代节点组成的`effectList`片段，所以`rootFiber`中保存了完整的effectList。**
 
 下面通过一个简单的例子来说明
@@ -729,6 +746,8 @@ function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
 
 至此，render阶段的工作已经完成了，下面来总结一下
 
+
+
 ## 3.总结
 
 **render过程中的主要工作**：
@@ -736,7 +755,7 @@ function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
 1. 在“递”阶段，利用`更新优化`和`diff算法`，根据`current Fiber Tree` 和最新的`ReactElment Tree`来生成`workInProgress Fiber Tree`。
 
 2. 在“归”阶段，提前创建`新增的DOM subtree`和找出需要`增量更新的DOM属性`，保存在Fiber节点中
-3. 在整个render过程中，对需要更新的节点，打上相应的`flag`并且组成`effectList`链表。
+3. 在整个render过程中，对需要更新的节点，打上相应类型的`flag`并且组成`effectList`链表。
 
 render阶段收集出了所有的变化，commit阶段来消费这些变化。
 
