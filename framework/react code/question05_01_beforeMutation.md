@@ -1,6 +1,6 @@
 # commit - before mutation
 
-前面的文章中已经介绍了`render`阶段的过程，应该render阶段之后，`workInProgress Fiber tree`和`effectList`都已经创建完成，接下来就是进入`commit`阶段来消费这些数据。
+前面的文章中已经介绍了`render`阶段的过程，render阶段之后，`workInProgress Fiber tree`和`effectList`都已经创建完成，接下来就是进入`commit`阶段来消费这些数据。
 
 在`performSyncWorkOnRoot`方法中，执行完`render`阶段之后，接下来进入`commit`阶段。
 
@@ -41,7 +41,7 @@ function performSyncWorkOnRoot(root) {
 ```javascript
 do {
     // 处理上一次更新中没有执行的useEffect
-  	// 由于useEffect里面可能会产生新的更新，所以需要循环遍历，直到执行完为止
+  	// 直到上一次更新产生的useEffect执行完成为止，也就是flushPassiveEffectsImpl调用完成为止
     flushPassiveEffects();
 } while (rootWithPendingPassiveEffects !== null);
 
@@ -58,7 +58,7 @@ if (finishedWork === null) {
 root.finishedWork = null;
 root.finishedLanes = NoLanes;
 root.callbackNode = null;
-// 优先级相关
+// 优先级相关, 剩余没有更新的lanes
 let remainingLanes = mergeLanes(finishedWork.lanes, finishedWork.childLanes);
 markRootFinished(root, remainingLanes);
 
@@ -100,13 +100,15 @@ if (finishedWork.flags > PerformedWork) {
 
 从代码中可以得知，在`before mutation之前`主要是做一些变量赋值和状态重置的工作。主要注意以下几个点：
 
-1. 当前更新的`commit`阶段开始之前，**会确保上一次更新中没有执行完的useEffect全部执行完**。也就是说`useEffect`的执行是一个**异步**的过程，也是可以被打断的。
+1. 当前更新的`commit`阶段开始之前，**会确保上一次更新中没有执行完的useEffect全部执行完**。也就是说`useEffect`的执行是一个**异步任务**，也是可以被打断的。
 2. `workInProgress`和`workInProgressRoot`全局变量会在`commit`阶段清空。
 3. `workInProgress rootFiber`如果有`flag`，会在`before mutation之前`加入`effectList`
 
 React中关于effect执行时机的[描述](https://zh-hans.reactjs.org/docs/hooks-reference.html#timing-of-effects)
 
-> 虽然 `useEffect` 会在浏览器绘制后延迟执行，但会保证在任何新的渲染前执行。React 将在组件更新前刷新上一轮渲染的 effect。
+> 虽然 `useEffect` 会在浏览器绘制后延迟执行，但会保证在任何新的渲染前执行。**React 将在组件更新前确保上一轮渲染的 effect执行完成**。
+
+
 
 ## 2. before mutation阶段
 
