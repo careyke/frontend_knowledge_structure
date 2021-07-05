@@ -8,6 +8,8 @@
 
 下面会详细介绍Diff算法的实现。
 
+
+
 ## 1. Diff算法的瓶颈和React做出的应对
 
 React文档中有提到，即使在最前沿的算法中，将前后两棵树完全对比的算法时间复杂度为`O(n^3)`，`n`表示树中的节点数。如果使用该算法，那么展示1000个节点的计算量将会达到十亿级别，所以这种做法是及其昂贵的。
@@ -31,7 +33,7 @@ React文档中有提到，即使在最前沿的算法中，将前后两棵树完
 
 在这个过程中，最重要的是第一步。
 
-在没有引入`key prop`的时候，寻找对应的currentFiber只能通过当前节点在**数组的索引**来寻找，这种方式对于单一节点或者是更新前后节点位置不变的情况是可行。但是对于**插入节点或者节点位置移动**的情况，这种做法是非常糟糕的。举个例子
+在没有引入`key prop`的时候，寻找对应的currentFiber只能通过当前节点在**数组的索引**来寻找，这种方式对于单一节点或者是更新前后节点位置不变的情况是可行的。但是对于**插入节点或者节点位置移动**的情况，这种做法是非常糟糕的。举个例子
 
 ```react
 // 之前
@@ -51,7 +53,7 @@ React文档中有提到，即使在最前沿的算法中，将前后两棵树完
 
 上面例子中，由于没有引入key prop，只能按照索引的方式来找对应的`currentFiber`，结果判断不能复用，会销毁重建对应的Fiber节点和对应的真实DOM。
 
-然而对于开发者来说，他是知道当前只是移动了一个节点的位置，是不需要销毁和重建的。React只是没有正确找到对应的`currentFiber`，所以**开发者需要一种机制来告诉React如果寻找当前节点对应的`currentFiber`，这个机制就是`key prop`。**
+然而对于开发者来说，他是知道当前只是移动了一个节点的位置，是不需要销毁和重建的。React只是没有正确找到对应的`currentFiber`，所以**开发者需要一种机制来告诉React如何寻找当前节点对应的`currentFiber`，这个机制就是`key prop`。**
 
 同样的例子加上key
 
@@ -75,8 +77,8 @@ React文档中有提到，即使在最前沿的算法中，将前后两棵树完
 
 然而**key作为寻找`currentFiber`的唯一标识**，有两点需要注意：
 
-1. 唯一性：同层节点中，key值需要保持唯一。
-2. 稳定性：更新前后，同一节点的key值不能变化。所以不推荐使用数组索引或随机数来作为key值
+1. **唯一性**：同层节点中，key值需要保持唯一。
+2. **稳定性**：更新前后，同一节点的key值不能变化。所以不推荐使用数组索引或随机数来作为key值
 
 **key值的作用是在`Diff`的过程中，告诉React如何精准找到与当前节点对应的currentFiber**，避免找到错误的`currentFiber`而导致多余的DOM操作。
 
@@ -211,7 +213,7 @@ function reconcileSingleElement(
 
 对于这种情况，一般的做法是采用**空间换时间**的方式，先遍历一次`currentFiber链表`，生成一个**`{key:currentFiber}`的映射表**，然后在遍历`children`的时候根据`key`值从映射表中寻找对应的`currentFiber`。
 
-> 注意：这里生成映射表的时候，需要使用到currentFiber的key，但是有些节点是没有key的，这是可以使用index属性的值作为key。
+> 注意：这里生成映射表的时候，需要使用到currentFiber的key，但是有些节点是没有key的，这时可以使用index属性的值作为key。
 
 
 
@@ -226,7 +228,7 @@ function reconcileChildrenArray(
     newChildren: Array < * > ,
     lanes: Lanes,
 ): Fiber | null {
-    let resultingFirstChild: Fiber | null = null;
+    let resultingFirstChild: Fiber | null = null; // 返回值，指向第一个子fiber
     let previousNewFiber: Fiber | null = null;
 
     let oldFiber = currentFirstChild;
@@ -332,7 +334,7 @@ function reconcileChildrenArray(
     }
 
     if (shouldTrackSideEffects) {
-      	// 有没有参与复用的currentFiber要标记删除
+      	// 对没有参与复用的currentFiber要标记删除
         existingChildren.forEach(child => deleteChild(returnFiber, child));
     }
 
@@ -351,7 +353,7 @@ React将寻找`currentFiber`的过程分成**两个部分**来处理
    - 长度不变，节点位置发生调换
    - 在数组前面或者中间插入节点或者删除节点
 
-React之所以将寻找的过程分成两个部分来处理，出了纯算法层面的优化之外。更重要的一点React团队发现，在日常的开发中，**相对于`节点移动`情况，`节点更新`的情况发生的频率要高得多**。所以分成两个部分来处理，可以将算法优化的收益放到最大。
+React之所以将寻找的过程分成两个部分来处理，除了纯算法层面的优化之外。更重要的一点React团队发现，在日常的开发中，**相对于`节点移动`情况，`节点更新`的情况发生的频率要高得多**。所以分成两个部分来处理，可以将算法优化的收益放到最大。
 
 节点更新过程和节点移动过程这两个部分是如何分割的？
 
@@ -384,7 +386,8 @@ function placeChild(
     if (current !== null) {
         const oldIndex = current.index;
         if (oldIndex < lastPlacedIndex) {
-            // 表示节点发生移动，标记移动flag
+            // 表示节点发生移动，标记Placement flag
+          	// commit阶段会重新插入
             newFiber.flags = Placement;
             return lastPlacedIndex;
         } else {
@@ -439,6 +442,12 @@ dabc
 > 这显然不是最优的移动，最优的移动是将`d`向左移动即可，但是算法无法实现，这和**遍历newChildren的顺序**有关。
 
 所以在日常的开发中，应该**尽量减少将后面的节点移动到前面的操作**。
+
+
+
+#### 2.2.3 多节点diff算法图解
+
+![多节点diff算法图解](./flowCharts/多节点diff算法图解.png)
 
 
 
