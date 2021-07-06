@@ -205,3 +205,26 @@ Questions and answers about front-end
 22. [结合源码分析useTransition](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question13_useTransition.md)
 23. [结合源码分析useDeferredValue](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react%20code/question14_useDeferredValue.md)
 
+
+
+### 4.2 React应用相关
+
+1. [react-hook-form 源码解析](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react/question01_react-hook-form.md)
+
+2. [结合React源码谈谈虚拟列表的实现和优化思路](https://github.com/careyke/frontend_knowledge_structure/blob/master/framework/react/question02_virtualized_list.md)
+
+
+
+## 5. 微前端
+
+1. [微前端（MicroFrontEnd） - 分而治之](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question01_microFrontend.md)
+
+2. [结合qiankun源码分析基本执行流程](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question02_01_qiankun_workflow.md)
+
+3. [qiankun中CSS沙箱的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question02_02_css_sandbox.md)
+4. [qiankun中JS沙箱的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question02_03_js_sandbox.md)
+
+5. [qiankun中应用之间的通信方案](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question02_04_communication.md)
+
+6. [qiankun多实例模式的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question02_05_multi_apps.md)
+
