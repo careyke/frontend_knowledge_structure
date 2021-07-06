@@ -100,10 +100,12 @@ function commitMutationEffects(root: FiberRoot, renderPriorityLevel) {
 上面代码可以看出，针对`effectList`中的每个节点做了如下三个操作：
 
 1. **根据`ContentReset flag`重置子文本节点**
-2. **根据`Ref flag`重置通过`currentFiber`中`ref`属性获取到的`Ref`**
+2. **根据`Ref flag`重置通过`currentFiber`中`ref`属性获取到的`Ref`值**
 3. **执行对应的`DOM`操作**
 
 下面我们重点分析执行的`DOM`操作，包括`Placement`、`Update`和`Deletion`，分别对应插入、更新和删除。（和SSR相关的操作先跳过）
+
+
 
 ### 2.1 Placement - 插入
 
@@ -322,12 +324,7 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
         enableProfilerCommitHooks &&
         finishedWork.mode & ProfileMode
       ) {
-        try {
-          startLayoutEffectTimer();
-          commitHookEffectListUnmount(HookLayout | HookHasEffect, finishedWork);
-        } finally {
-          recordLayoutEffectDuration(finishedWork);
-        }
+        // ...省略
       } else {
         // 执行useLayoutEffect的销毁函数
         commitHookEffectListUnmount(HookLayout | HookHasEffect, finishedWork);
@@ -560,7 +557,9 @@ function unmountHostComponents(
 2. 对于**`HostComponent`**，需要执行`DOM API`删除对应的真实`DOM`节点（对**最上层**的DOM节点操作即可）
 3. 对于**被销毁的节点**，需要执行节点销毁前的操作（**每个节点**都需要执行）
 
-被删除的子树中，每个节点都需要执行一些销毁前的操作，对应的函数是`commitUnmount`。
+被删除的子树中，每个节点都需要执行一些销毁前的操作，对应的函数是`commitUnmount`。对于`HostComponent subtree`，内部同样需要对每个后代节点执行销毁前操作，`commitNestedUnmounts`方法内部也有类似递归过程。
+
+
 
 #### 2.3.1 节点销毁前的操作
 
@@ -598,9 +597,7 @@ function commitUnmount(
                   enableProfilerCommitHooks &&
                   current.mode & ProfileMode
                 ) {
-                  startLayoutEffectTimer();
-                  safelyCallDestroy(current, destroy);
-                  recordLayoutEffectDuration(current);
+                  // ...省略
                 } else {
                   // 执行useLayoutEffect的销毁函数
                   safelyCallDestroy(current, destroy);
@@ -650,13 +647,15 @@ function commitUnmount(
 
 
 
-> 这里会有一个误区：`ClassComponent`组件中先清空了`Ref`然后再执行`componentWillUnmount`，那为什么还能再`willUnmount`中获取去到`Ref`呢？
+> **这里会有一个误区**：`ClassComponent`组件中先清空了`Ref`然后再执行`componentWillUnmount`，那为什么还能再`willUnmount`中获取去到`Ref`呢？
 >
 > 这里之所以想不通是因为把这两个`Ref`弄混淆了。清空是当前`Fiber`节点`Ref`属性获取的值，但是`willUnmount`中获取的是后代节点的`Ref`，而且子树销毁的时候，`willUnmount`执行的顺序是**从父到子**的。
 
 
 
 > **`FunctionComponent`之所以不需要清空`Ref`，是因为`FunctionComponent`通过`Ref`获取到的值都是`null`，因为对应的`Fiber`节点中`stateNode`属性值为`null`。**
+
+
 
 ## 2. 总结
 

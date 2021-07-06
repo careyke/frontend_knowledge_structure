@@ -173,7 +173,7 @@ function commitBeforeMutationEffects() {
 
 1. 执行节点添加或者删除之后的`autoFocus`和`blur`的逻辑
 2. 对于更新阶段的ClassComponent，调用`getSnapshotBeforeUpdate`生命周期函数
-3. **调度**本次更新中的所有`useEffect`
+3. **调度**本次更新中的所有`useEffect`（在scheduler中注册一个任务）
 
 我们主要分析第2、3点。
 
@@ -210,7 +210,7 @@ if (shouldUpdate) {
         workInProgress.flags |= Snapshot;
     }
 } else {
-  	// 从源码中看，就算shouldUpdate放回false也是有可能执行后续的生命周期的
+  	// 从源码中看，就算shouldUpdate返回false也是有可能执行后续的生命周期的
   	// 但是具体的场景笔者还不没有想到
     if (typeof instance.componentDidUpdate === 'function') {
         if (
@@ -250,7 +250,7 @@ if (shouldUpdate) {
 >
 > 所以有可能会导致前一次更新的`useEffect`，在下一次更新的`commit`阶段开始前执行。刚好呼应前面`before mutation之前`中执行上一次更新的所有`useEffect`。
 >
-> (这种情况笔者也没有遇到过)
+> 在concurrent mode中，这种情况是有可能出现的
 
 
 
@@ -333,7 +333,7 @@ function flushPassiveEffectsImpl() {
   }
 	// ...省略
   
-  // 执行useEffect创建方法导致的同步任务
+  // 执行useEffect创建方法导致的同步更新任务
   flushSyncCallbackQueue();
   
   // ...省略
@@ -388,7 +388,7 @@ export function renderWithHooks<Props, SecondArg>(
 
 这里有两个**关键点**：
 
-1. 将`workInProgress Fiber`保存在全局变量中，其他方法会消费这个变量。
+1. 将`workInProgress Fiber`保存在全局变量`currentlyRenderingFiber`中，其他方法会消费这个变量。
 2. 执行`FunctionComponent`函数本身生成子`ReactElement`
 
 在调用`FunctionComponent`函数的时候，如果当前组件有`useEffect`钩子，会调用`useEffect`方法。
@@ -430,6 +430,6 @@ function mountEffectImpl(fiberFlags, hookFlags, create, deps): void {
 `before mutation`阶段的**主要工作**是：
 
 1. 处理`DOM`节点新增或删除之后的`autoFocus`、`blur`的逻辑。
-2. 对应有`Snapshot flag`的节点，执行`getSnapshotBeforeUpdate`生命周期函数
+2. 对于有`Snapshot flag`的节点，执行`getSnapshotBeforeUpdate`生命周期函数
 3. **异步调度**本次更新的`useEffect`中的销毁函数和创建函数
 

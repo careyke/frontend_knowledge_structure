@@ -23,6 +23,8 @@ do {
 nextEffect = null;
 ```
 
+
+
 ## 1. commitLayoutEffects
 
 直接`commitLayoutEffects`方法的代码。
@@ -223,12 +225,7 @@ function commitAttachRef(finishedWork: Fiber) {
         enableProfilerCommitHooks &&
         finishedWork.mode & ProfileMode
       ) {
-        try {
-          startLayoutEffectTimer();
-          ref(instanceToUse);
-        } finally {
-          recordLayoutEffectDuration(finishedWork);
-        }
+        // ...省略
       } else {
         ref(instanceToUse);
       }
@@ -241,7 +238,9 @@ function commitAttachRef(finishedWork: Fiber) {
 
 从上面代码可以看出，**节点的`Ref`值取的就是对应`Fiber`节点的`stateNode`的值，所以`FunctionComponent`类型的节点给`Ref`赋值为`null`**
 
-### 1.3 节点销毁和更新情况下`useEffect`的执行顺序
+
+
+### 1.3 节点销毁和更新情况下`useEffect`的执行顺序（*）
 
 #### 1.3.1 执行的操作
 
@@ -265,13 +264,13 @@ function commitAttachRef(finishedWork: Fiber) {
 
 所以在一次更新中，**会优先执行销毁节点的`useEffect`逻辑，执行的方向是先父后子。然后执行更新节点的`useEffect`逻辑，执行的顺序是先子后父。**
 
-同理，对应`useLayoutEffect`和`componentWillUnmount、componentDidMount`是执行顺序也是一样的。
+同理，对应`useLayoutEffect`和`componentWillUnmount、componentDidMount`是执行顺序也是一样的。（）
 
 
 
 ## 2. 切换`current tree`
 
-在前面讲`Fiber`架构的时候讲过，`Fiber`架构使用*双缓存**的机制来更新`Fiber Tree`。`workInProgress FIber Tree`会在`commit`阶段变成`current Fiber Tree`。
+在前面讲`Fiber`架构的时候讲过，`Fiber`架构使用**双缓存**的机制来更新`Fiber Tree`。`workInProgress FIber Tree`会在`commit`阶段变成`current Fiber Tree`。
 
 看上面`layout`阶段的入口代码，**切换`Fiber Tree`的具体时机就是在`mutation`阶段之后、`layout`阶段之前。**
 
@@ -336,7 +335,15 @@ return null;
 1. **判断`layout`阶段中是否调度了`useEffect`**，如果调度了，则为`useEffect`的执行准备一些条件。
 2. **执行本次更新中产生的同步更新任务，主要是生命周期中执行`setState`触发的更新**。（后面讲更新阶段的时候会详细介绍）
 
+> **重要补充**
+>
+> `useLayoutEffect` 和 `DidMount/Update` 中产生同步更新的原因是执行`commitRootImpl`方法是以`ImmediateSchedulerPriority`优先级来执行的。内部产生的更新会被这个优先级影响。
+>
+> useEffect由于是**异步执行**的，所以不会被影响
+
 下面我们来总结一下`useEffect`的执行过程。
+
+
 
 ### 3.1 总结useEffect的执行过程
 
@@ -391,13 +398,17 @@ function flushPassiveEffectsImpl() {
 }
 ```
 
-
-
 可以看到这三个过程是环环相扣的，**通过全局变量来控制下一个阶段是否开启**。
 
 
 
-## 4. 总结
+## 4. commit阶段流程图
+
+![commit阶段流程图](./flowCharts/commit阶段流程图.png)
+
+
+
+## 5. 总结
 
 至此，commit阶段的工作算是分析玩了，React的渲染流程也基本都已经讲完了。
 
