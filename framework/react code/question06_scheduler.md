@@ -6,6 +6,8 @@
 
 至于为什么不直接使用`requestIdleCallback`，前面也介绍过主要是因为`requestIdleCallback`**触发的频率很不稳定**而且还有**兼容性**问题。
 
+
+
 ## 1. MessageChannel模拟实现requestIdleCallback
 
 在`Scheduler`源码中是使用`MessageChannel`来**异步调度任务，确保触发频率的稳定性**。
@@ -34,6 +36,12 @@ channel.port1.onmessage = performWorkUntilDeadline;
 
 1. 每帧中的宏任务执行完成之后，如果需要，会执行一次UI渲染
 2. 每帧中利用`5ms`的时间来执行任务，时间用完之后会尝试将主线程交给UI渲染线程，未执行的任务会在下一个宏任务来执行
+
+> 注意：
+>
+> 这里的宏任务可以理解为`MessageChannel.postMessage`注册的宏任务。
+>
+> 因为本质上UI渲染也属于一次宏任务
 
 ### 1.2 模拟实现的优点
 
@@ -288,12 +296,13 @@ function workLoop(hasTimeRemaining, initialTime) {
     if (typeof callback === 'function') {
       currentTask.callback = null;
       currentPriorityLevel = currentTask.priorityLevel;
+      // 任务是否过期
       const didUserCallbackTimeout = currentTask.expirationTime <= currentTime;
       // 执行任务的回调函数
       const continuationCallback = callback(didUserCallbackTimeout);
       currentTime = getCurrentTime();
       if (typeof continuationCallback === 'function') {
-        // 任务执行中断，下次调度
+        // 关键实现：任务执行中断，下次调度
         currentTask.callback = continuationCallback;
       } else {
         if (currentTask === peek(taskQueue)) {
@@ -306,7 +315,7 @@ function workLoop(hasTimeRemaining, initialTime) {
     }
     currentTask = peek(taskQueue);
   }
-  // Return whether there's additional work
+  // 判断当前任务队列是否还有任务
   if (currentTask !== null) {
     return true;
   } else {
@@ -459,11 +468,24 @@ function unstable_runWithPriority(priorityLevel, eventHandler) {
 }
 ```
 
+从上面方法的实现上可以看出，**这个优先级上下文只对当前回调函数起作用，属于临时修改，执行完成之后立马会恢复，不会影响全局的优先级**。
+
 这个方法在`React`中多处会使用到，创建`Update`的时候需要根据当前优先级上下文来确定`Update`的优先级（`lane`）。后面会详细介绍
 
 
 
-## 4. Scheduler与React
+## 4. Scheduler调度的流程图
 
-在`React FIber`架构加入了`Scheduler`，在`ConcurrentMode`中完全开启了`Scheduler`的功能，实现了**时间切片**和**优先级调度**的特性。`Scheduler`在`React`中扮演的是一个大脑的角色，每一次更新都需要先经过`Scheduler`，由`Scheduler`来统一调度执行，调度的过程中会优先执行高优先级的更新任务，达到最好的用户体验。
+![Scheduler的调度流程](./flowCharts/Scheduler的调度流程.png)
 
+
+
+## 5. Scheduler与React
+
+React在`React FIber`架构加入了`Scheduler`，在`ConcurrentMode`中完全开启了`Scheduler`的功能，实现了**时间切片**和**优先级调度**的特性。`Scheduler`在`React`中扮演的是一个大脑的角色，每一次更新都需要先经过`Scheduler`，由`Scheduler`来统一调度执行，调度的过程中会优先执行高优先级的更新任务，达到最好的用户体验。
+
+> 补充：
+>
+> React内部有一套自己有优先级模型，称为lane模型。在内部对更新的优先级进一步细分，两者共同来实现优先级调度的特性。
+>
+> 后续的文章中会详细讲解

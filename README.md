@@ -70,7 +70,7 @@ Questions and answers about front-end
 
 5. [隐式转换 : ==号两边的数据的类型转换规则](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/js_type/question05_typeConversionWith%3D%3D.md)
 
-6. [==、===和Object.is()有什么区别？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/js_type/question06_%3D%3D%3Dvs%3D%3Dvsis.md)
+6. [`==、===和Object.is()`有什么区别？](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/js_type/question06_%3D%3D%3Dvs%3D%3Dvsis.md)
 
 7. [JS中的位运算](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/js_type/question07_weiyunsuan.md)
 
@@ -227,4 +227,96 @@ Questions and answers about front-end
 5. [qiankun中应用之间的通信方案](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question02_04_communication.md)
 
 6. [qiankun多实例模式的实现](https://github.com/careyke/frontend_knowledge_structure/blob/master/microFrontend/question02_05_multi_apps.md)
+
+
+
+## 6. Javascript宿主环境
+
+### 6.1 浏览器
+
+#### 6.1.1 跨域
+
+1. [什么是跨域？](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/crossDomain/question01_crossDomain.md)
+2. [实现跨域请求的方法](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/crossDomain/question02_cross_method.md)
+
+
+
+#### 6.1.2 前端安全
+
+1. [谈谈XSS攻击](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/security/question01_XSS.md)
+
+2. [谈谈CSRF](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/security/question02_CSRF.md)
+
+
+
+#### 6.1.3 渲染原理
+
+1. [浏览器中的进程和线程](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/rendering/question01_process_thread.md)
+
+2. [谈谈复合图层](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/rendering/question02_compound_layer.md)
+3. [浏览器帧和EventLoop](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/rendering/question03_frameAndEventLoop.md)
+
+6. [详细分析页面首次渲染和JS、CSS资源的关系](https://github.com/careyke/frontend_knowledge_structure/blob/master/environment/browser/rendering/question06_first_render.md)
+
+
+
+### 6.2 V8
+
+
+
+## 7. 前端工程化
+
+### 7.1 webpack
+
+1. [打包速度的优化策略](https://github.com/careyke/frontend_knowledge_structure/blob/master/engineering/webpack/question01_speedOptimization.md)
+2. [体积优化策略](https://github.com/careyke/frontend_knowledge_structure/blob/master/engineering/webpack/question01_volumeOptimization.md)
+3. [webpack如何实现懒加载](https://github.com/careyke/frontend_knowledge_structure/blob/master/engineering/webpack/question03_async_import.md)
+
+
+
+## 8. 性能优化
+
+1. [从URL到页面输出中间经历了哪些过程？](https://github.com/careyke/frontend_knowledge_structure/blob/master/performance/question01_rendering_process.md)
+2. [性能优化—网络层面](https://github.com/careyke/frontend_knowledge_structure/blob/master/performance/question02_performance_network.md)
+3. [性能优化—渲染层面](https://github.com/careyke/frontend_knowledge_structure/blob/master/performance/question03_performance_render.md)
+4. [性能优化—应用层优化](https://github.com/careyke/frontend_knowledge_structure/blob/master/performance/question04_performance_application.md)
+
+
+
+## 9. 数据结构和算法
+
+### 9.1 数组和字符串
+
+1. [常用的排序算法](https://github.com/careyke/frontend_knowledge_structure/blob/master/algorithm/arrayAndString/question01_algorithm_sort.md)
+
+
+
+### 9.2 堆
+
+1. [堆和堆的经典场景](https://github.com/careyke/frontend_knowledge_structure/blob/master/algorithm/heap/question01_heap.md)
+
+
+
+## 10. 计算机基础
+
+### 10.1 tcp
+
+1. [谈谈TCP协议](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/tcp/question01_tcp.md)
+2. [TCP协议对比UDP协议](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/tcp/question02_tcp_vs_udp.md)
+
+
+
+### 10.2 http
+
+1. [谈谈http协议](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/http/question01_http.md)
+2. [http请求的方法对比](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/http/question02_http_method.md)
+3. [常见的http响应状态码](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/http/question03_http_statusCode.md)
+4. [常见的请求头和响应头](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/http/question04_http_headers.md)
+5. [谈谈http缓存](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/http/question05_http_cache.md)
+6. [http各版本之间的差异](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/http/question06_http_version.md)
+7. [http与https之间的对比](https://github.com/careyke/frontend_knowledge_structure/blob/master/computerBasic/http/question07_httpVShttps.md)
+
+
+
+## 11. 设计模式
 
