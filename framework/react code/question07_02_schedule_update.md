@@ -63,6 +63,8 @@ export const NoLanePriority: LanePriority = 0;
 
 31条轨道对应16种优先级，也就是说某些`lanePriority`会对应多条轨道，**这表示这些轨道中的`Update`是同一个优先级的，可以考虑一起批量执行。**
 
+> 注意：
+>
 > 同一个`lanePriority`中不同`lane`中的`Update`并不是一定会批量执行，在某些特性的场景下会批量执行。后面会详细介绍
 
 每种`lanePriority`对应的轨道分布可以看这里，根据变量名可以进行一一对应
@@ -103,7 +105,7 @@ export const OffscreenLane: Lane = /*                   */ 0b1000000000000000000
 
 这里有一个有意思的现象，就是**优先级越低，占有的轨道就越多**。
 
-**这个是因为优先级越低的任务越容易被打断，更新对象`Update`越容易造成积压，所以需要分配更多的轨道，用来保存Update。但是如果当前优先级中所有的`lane`都在使用的时候，那么就会对下一个同优先级的`Update`进行降级处理。**这个后面会详细讲解
+**这个是因为优先级越低的任务越容易被打断，更新对象`Update`越容易造成积压，所以需要分配更多的轨道，用来保存Update。但是如果当前优先级中所有的`lane`都被占用的时候，那么就会对下一个同优先级的`Update`可能会进行降级处理。**这个后面会详细讲解
 
 
 
@@ -220,11 +222,13 @@ export function findUpdateLane(
 
 1. 从当前`lanePriority`对应的`lanes`中剔除正在被执行的`lanes`
 2. 然后在剩余闲置的`lanes`中获取**位数最小的`lane`**，作为当前`Update`的`lane`
-3. 如果当前优先级没有闲置的lanes，则会采取**降级处理**，继续递归寻找。
+3. 如果当前优先级没有闲置的lanes，则会采取**降级处理**，继续向下寻找。
 
-这个有一个细节要注意一下，`workInProgressRootIncludedLanes`这个变量是在每次**`执行update`**的时候才会赋值的，然后更新任务是异步执行的，可能会导致**多个Update的lane是一样的**，这些`Update`会批量执行。
+这个有一个细节要注意一下，**`workInProgressRootIncludedLanes`这个变量是在每次`执行update`的时候才会赋值的，然后更新任务是异步执行的，可能会导致多个Update的lane是一样的，这些`Update`会批量执行**。
 
-> （？？？）笔者觉得这里应该用`workInProgressRootRenderLanes`来剔除正在被执行的lanes，而不是用`workInProgressRootIncludedLanes`。
+> ？？？
+>
+> 笔者觉得这里应该用`workInProgressRootRenderLanes`来剔除正在被执行的lanes，而不是用`workInProgressRootIncludedLanes`。
 >
 > 因为`workInProgressRootRenderLanes`在每次更新完成之后会清空，但是`workInProgressRootIncludedLanes`在更新完成之后并不会清空。
 
@@ -260,7 +264,7 @@ componentDidMount(){
 
 #### 2.1.1 获取fiberRootNode
 
-在进行优先级调度之前，React应用需要收集所有的更新，统一管理起来。在React应用运行的过程中，只有`fiberRootNode`节点是保存不变的，所以把管理所有更新的对象挂载在这个节点上是一个不错的选择。
+在进行优先级调度之前，React应用需要收集所有的更新，统一管理起来。在React应用运行的过程中，只有`fiberRootNode`节点是保持不变的，所以把管理所有更新的对象挂载在这个节点上是一个不错的选择。
 
 所以先要获取`fiberRootNode`，通过调用`markUpdateLaneFromFiberToRoot`来获取
 
@@ -299,10 +303,11 @@ function markUpdateLaneFromFiberToRoot(
 }
 ```
 
-这个方法做了两个事情：
+这个方法做了三个事情：
 
 1. 向上遍历寻找`fiberRootNode`
-2. **在遍历的过程中，将当前节点的更新记录在父节点中**，在后面`beginWork`阶段可以起到**优化**的作用
+2. 将当前更新的lane保存在`currentFiber`和`workInProgressFiber`中
+3. **在遍历的过程中，将当前节点的更新记录在父节点的`childLanes`中**，在后面`beginWork`阶段可以起到**优化**的作用
 
 之前在节点`Fiber`节点的数据结构的时候，跳过了优先级相关的属性，这里我们来介绍一下
 
@@ -328,14 +333,14 @@ this.childLanes = NoLanes;
    }
    ```
 
-2. 判断当前节点的`subtree`本次是否需要更新，如果不需要，之前复用整颗`subtree`
+2. 判断当前节点的后代节点本次是否需要更新，如果不需要，复用对应的所有后代节点
 
    ```javascript
    if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
-     	// 复用整颗subtree
+     	// 复用所有后代节点
        return null;
      } else {
-       // 复用子节点
+       // 复用子节点这一层
        cloneChildFibers(current, workInProgress);
        return workInProgress.child;
      }
@@ -378,13 +383,13 @@ export function markRootUpdated(
 
 
 
-### 2.2 优先级调度—ensureRootIsScheduled
+### 2.2 优先级调度—ensureRootIsScheduled（*）
 
 在调度之前的准备工作完成之后，`fiberRootNode.pendingLanes`上保存了所有`Update`的`lane`值，然后会执行`ensureRootIsScheduled`方法开始优先级调度。
 
 > `ensureRootIsScheduled`方法对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L707)
 
-整个优先级调度的过程都是在`ensureRootIsScheduled`方法中完成，可以分成以下四个部分
+整个优先级调度的过程都是在`ensureRootIsScheduled`方法中完成，可以分成以下**四个部分**
 
 1. 标记每个`lane`的过期时间，记录过期`Update`的`lane`
 
@@ -441,9 +446,9 @@ export function markStarvedLanesAsExpired(
 1. 给`pendingLanes`中每个`lane`标记一个过期时间
 2. 将过期的`lane`记录在`root.expiredLanes`中
 
-> 上面代码中可以看出，`root`中出了`pendingLanes`和`expiredLanes`之外，还存储了其他类型的`lanes`。
+> 上面代码中可以看出，`root`中出了`pendingLanes`和`expiredLanes`之外，还存储了其他类型的`lanes`，和Suspense相关。
 >
-> 我们暂时不用考虑其他的，只需要弄懂`pendingLanes`和`expiredLanes`的含义即可
+> 我们暂时不用考虑其他的，目前只需要弄懂`pendingLanes`和`expiredLanes`的含义即可
 
 
 
@@ -590,6 +595,8 @@ export function getNextLanes(root: FiberRoot, wipLanes: Lanes): Lanes {
 
 当`DefaultLanePriority`和`TransitionLanePriority`中的轨道都被占满的时候，会重新使用`DefaultLanePriority`中的轨道。就相当于将最新的`Update`合并到了当前`update`，所以需要**重新生成**整个`workInProgress Fiber tree`
 
+
+
 React中使用了全局变量`workInProgressRootUpdatedLanes`来记录`update`执行过程中新创建`Update`的`lane`
 
 > 对应的代码片段在`scheduleUpdateOnFiber`方法中
@@ -631,6 +638,10 @@ if (
 
 在获取到当前最高的优先级和对应的`renderLanes`之后，就需要和当前`update`的优先级作比较，判断是否打断执行。
 
+> 注意：
+>
+> **这里对比的是lanePriority，而不是lanes**
+
 对应的代码片段
 
 ```javascript
@@ -646,7 +657,7 @@ if (existingCallbackNode !== null) {
   }
 ```
 
-**至于低优先级的任务会继续保存在`root.pendingLanes`中，每个update执行完之后会在调用一次`ensureRootIsScheduled`方法，确保所有的更新都能执行。**
+**至于低优先级的任务会继续保存在`root.pendingLanes`中，每个update执行完之后会再调用一次`ensureRootIsScheduled`方法，确保所有的更新都能执行。**
 
 > 高优先级打断低优先级任务的[demo](https://codesandbox.io/s/sameprioritynotmerge-el2gu?file=/src/HighPriority.js)
 
@@ -691,4 +702,16 @@ if (existingCallbackNode !== null) {
 ## 3. 总结
 
 从上面的分析中我们可以知道，**优先级调度中的优先级定义、比较和打断的过程都是由React自主来完成的，获取到最高的优先级之后才会在`Scheduler`中注册一个任务**。通常情况下，`Sheduler`的任务列表中只会存在一个有效的任务。
+
+
+
+### 3.1 lane模型设计的意义
+
+> 个人分析
+
+在lane模型之前，React内部使用的是`expiredTime`来表示当前`Update`的优先级。
+
+使用时间戳来表示`Update`的优先级有一个比较不好的点就是**无法体现出”批“的概念**，也就是本来是相同优先级的Update，但是`expiredTime`的值是不一样的，所以无法一次批量执行多个`Update`。
+
+**lane模型的好处是既实现了”批“的概念，又让同一”批“的`Update`之间有所差别。既实现了`Update`的批量执行，也可以使`Update`之间相互区分**。
 

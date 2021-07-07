@@ -8,7 +8,7 @@
 2. 调度update
 3. 执行update
 
-这边文章中我们主要分析`创建update`阶段
+这篇文章中我们主要分析`创建update`阶段
 
 
 
@@ -67,6 +67,7 @@ function adoptClassInstance(workInProgress: Fiber, instance: any): void {
   instance.updater = classComponentUpdater;
   workInProgress.stateNode = instance;
   // 组件实例和fiber之间建立引用关系，方便更新的时候获取对应的fiber节点
+  // findDOMNode也会使用到这个映射关系
   setInstance(instance, workInProgress);
 }
 ```
@@ -82,6 +83,7 @@ function adoptClassInstance(workInProgress: Fiber, instance: any): void {
 ```javascript
 enqueueSetState(inst, payload, callback) {
   	// 通过实例和fiber之间的索引关系来获取对应的fiber
+  	// 这里获取到的不一定的current Fiber 有可能是workInProgress Fiber
     const fiber = getInstance(inst);
     const eventTime = requestEventTime();
   	// 获取本次更新的优先级
@@ -162,9 +164,9 @@ export function initializeUpdateQueue<State>(fiber: Fiber): void {
 
 - baseState：表示更新之前的`state`，在执行`Update`的时候会基于`baseState`来计算更新之后的`state`
 
-- `firstBaseUpdate`和`lastBaseUpdate`：表示本次更新之前`Fiber`节点中已经存在的`Update`。是一个链表，`firstBaseUpdate`表示第一个节点，`lastBaseUpdate`表示最后一个节点。
+- **`firstBaseUpdate`和`lastBaseUpdate`**：表示本次更新之前`Fiber`节点中已经存在的`Update`。是一个链表，`firstBaseUpdate`表示第一个节点，`lastBaseUpdate`表示最后一个节点。
 
-  > 这里之所以在更新产生之前`Fiber`节点中就存在`Update`，是**因为上一次执行`Update`链表的时候，有一些`Update`因为优先级低会被跳过执行**。
+  > 这里之所以在本次更新产生之前`Fiber`节点中就存在`Update`，是**因为上一次执行`Update`链表的时候，有一些`Update`因为优先级低会被跳过执行**。
 
 - `shared.pending`：本次更新产生的`Update`会以一个**单向环状链表**的形式保存在`shared.pending`中。在**执行`Update`的时候，这个环状链表会被剪开拼接在`lastBaseUpdate`后面。**
 
@@ -207,12 +209,16 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
 >
 > 这里介绍一种常见会产生多个`Update`的更新
 >
-> ```
+> ```jsx
 > onClick=()=>{
 > 	this.setState({a:1});
 > 	this.setState({b:2});
 > }
 > ```
+
+图解单向环状链表的形成流程：
+
+![ClassComponent-pendingQueue单向环状链表](./flowCharts/ClassComponent-pendingQueue单向环状链表.png)
 
 
 
