@@ -10,7 +10,7 @@
 
 ## 1. Hook的数据结构
 
-前面我们提到过吗，`Hooks`是出现可以将复杂的`state`切分成多个简单的`state`，`Hooks`和`FunctionComponent`是相互独立的，所以每个`Hook`中需要维护自己的`state`。
+前面我们提到过，`Hooks`是出现可以将复杂的`state`切分成多个简单的`state`，`Hooks`和`FunctionComponent`是相互独立的，所以每个`Hook`中需要维护自己的`state`。
 
 看一下`Hook`的数据结构：
 
@@ -40,9 +40,9 @@ export type Hook = {|
 |};
 ```
 
-> 一眼看过去，结构体中有一些对于React使用者来说非常熟悉的单词：`action、reducer和dispatch`，这些都是`Redux`中的概念。`Redux`的作者`Dan`在加入`React`研发团队之后，将`Redux`优秀的设计思想也加入了`Hooks`的设计中。
+> 一眼看过去，结构体中有一些对于Redux使用者来说非常熟悉的单词：`action、reducer和dispatch`，这些都是`Redux`中的概念。`Redux`的作者`Dan`在加入`React`研发团队之后，将`Redux`优秀的设计思想也加入了`Hooks`的设计中。
 >
-> **可以将每个Hook看成是一个简化的Redux**，这也是后面为什么一会`useReducer`为例来分析`Hook`的更新流程
+> **可以将每个Hook看成是一个简化的Redux**，这也是后面为什么会以`useReducer`为例来分析`Hook`的更新流程的原因
 
 上面代码中包含三个数据结构，下面分别解释一下三个结构体中的字段：
 
@@ -70,8 +70,8 @@ export type Hook = {|
 
    - memoizedState：当前`Hook`对应的`state`
    - baseState：待更新队列执行前的基本状态，`Update`相互依赖时发挥作用
-   - baseQueue：上次更新中遗留的未执行`Update`，也是一个**单选环状链表**
-   - queue: `Hook`对应的更新队列
+   - baseQueue：上次更新中遗留的未执行`Update`，也是一个**单向环状链表**
+   - queue: `Hook`本次更新对应的更新队列
    - next：连接下一个`Hook`
 
 
@@ -92,7 +92,7 @@ export type Hook = {|
 
 
 
-这个依靠调用顺序来保证一一对应的机制明显是不够可靠的，所以在用法上`Hook方法`有一些限制，不能使用在条件语句中，不能使用在`useEffect`中等。总结起来就是：**在`FunctionComponent`函数体执行的时候，所有的`Hook方法`都必须要执行，一旦有某个方法不执行，更新就会出错。**
+这个依靠调用顺序来保证一一对应的机制明显是不够可靠的，所以在用法上`Hook方法`有一些限制，不能使用在条件语句中，不能使用在`useEffect`中等。总结起来就是：**在`FunctionComponent`函数体执行的时候，所有的`Hook方法`都必须要按固定顺序执行，一旦有某个方法不执行，更新就会出错。**
 
 
 
@@ -184,7 +184,7 @@ export function renderWithHooks<Props, SecondArg>(
 }
 ```
 
-上面方法中有一个重要的全局变量`ReactCurrentDispatcher`，**这个变量用来保存当前时期对应的`HookDispatcher`，执行Hook函数的时候会调用`HookDispatcher`中对应的处理函数。**
+上面方法中有一个重要的全局变量`ReactCurrentDispatcher`，**这个变量用来保存当前时期对应的`HookDispatcher`，执行Hook函数的时候会调用`HookDispatcher`中对应的处理函数**
 
 `HookDispatcher`的结构，列举两个常用的`HookDispatcher`
 
@@ -299,7 +299,7 @@ function mountWorkInProgressHook(): Hook {
 }
 ```
 
-这里主要是想介绍一个全局变量`workInProgressHook`，这个变量用来**保存`workInProgressFiber`中挂载的`Hook`对象**，对应的还有一个`currentHook`来**保存`currentFiber`中挂载的`Hook`对象**。
+这里主要是想介绍一个全局变量`workInProgressHook`，这个变量用来**保存`workInProgressFiber`中当前正在执行的`Hook`对象**，对应的还有一个`currentHook`来**保存`currentFiber`中对应的当前正在执行的`Hook`对象**。
 
 这两个变化在遍历`Hooks链表`的时候会使用上，在`render函数`执行完成之后会清空。
 
@@ -355,6 +355,7 @@ function dispatchAction<S, A>(
     fiber === currentlyRenderingFiber ||
     (alternate !== null && alternate === currentlyRenderingFiber)
   ) {
+    // 说明当前在render时执行了dispatch操作
     // render过程中有更新操作
     didScheduleRenderPhaseUpdateDuringThisPass = didScheduleRenderPhaseUpdate = true;
   } else {
@@ -362,10 +363,12 @@ function dispatchAction<S, A>(
       fiber.lanes === NoLanes &&
       (alternate === null || alternate.lanes === NoLanes)
     ) {
+      // 当前节点没有遗留Update时
       // 尝试优化本次update
       const lastRenderedReducer = queue.lastRenderedReducer;
       if (lastRenderedReducer !== null) {
         try {
+          // 预更新
           const currentState: S = (queue.lastRenderedState: any);
           const eagerState = lastRenderedReducer(currentState, action);
           update.eagerReducer = lastRenderedReducer;
