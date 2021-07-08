@@ -286,11 +286,12 @@ if (!isSubsetOfLanes(renderLanes, updateLane)) {
     };
     if (newLastBaseUpdate === null) {
         newFirstBaseUpdate = newLastBaseUpdate = clone;
-      	// 防止baseUpdate不正确
+      	// 防止下一次更新的baseState不正确
         newBaseState = newState;
     } else {
         newLastBaseUpdate = newLastBaseUpdate.next = clone;
     }
+  	// 保存被跳过的Update的lane
     newLanes = mergeLanes(newLanes, updateLane);
 }
 ```
@@ -379,6 +380,8 @@ if (callback !== null) {
 
 但是`newState`需要实时拿到最新的执行结果，对用户的操作做出反应，保证最后的状态是对的即可。
 
+> **所以对于高优任务打断低优任务的场景，用户可能会看到错误的中间状态，但是最终的状态是正确的**。
+
 
 
 #### 1.2.4 举个例子
@@ -396,7 +399,7 @@ A1 - B2 - C1 - D2
 ```javascript
 {
   baseState: 'A',
-  UpdateS: [B2,C1,D2],
+  Updates: [B2,C1,D2],
   state: 'AC'
 }
 // 中间过程baseState和state可能值不一样
@@ -407,7 +410,7 @@ A1 - B2 - C1 - D2
 ```javascript
 {
   baseState: 'ABCD',
-  UpdateS: [],
+  Updates: [],
   state: 'ABCD'
 }
 // 最终情况下，baseState和state值是一样的
@@ -417,11 +420,11 @@ A1 - B2 - C1 - D2
 
 ## 2. 更新`root.pendingLanes`和`root.expiredLanes`
 
-在完成本次`update`之后，需要将本次`update`对应的`renderLanes`从`root.pendingLanes`中去除，否则会导致重复调度的情况。
+在完成本次`update`之后，需要将本次`update`对应的`renderLanes`从`root.pendingLanes`中去除，否则会导致重复调度执行的情况。
 
 React使用了一个比较巧妙（比较绕）的思路来解决这个问题：
 
-上一节我们讲过，每个`Fiber`节点中包含两个和优先级相关的属性，分别是`lanes`和`childLanes`，lanes保存当前节点中`未执行Update`的`lane`，`childLanes`保存`subtree`中`未执行Update`的`lane`。**所以`workInProgress rootFiber`节点的`lanes和childLanes`中包含的就是整个React应用所有未执行`Update`的`lane`**。
+上一节我们讲过，每个`Fiber`节点中包含两个和优先级相关的属性，分别是`lanes`和`childLanes`，lanes保存当前节点中`未执行Update`的`lane`，`childLanes`保存后代节点中`未执行Update`的`lane`。**所以`workInProgress rootFiber`节点的`lanes和childLanes`中包含的就是整个React应用所有未执行`Update`的`lane`**。
 
 所以可以直接从`workInProgress rootFiber`节点中获取最新的`pendingLanes`，对应的代码在`commitRootImpl`方法中。
 
@@ -470,7 +473,7 @@ export function markRootFinished(root: FiberRoot, remainingLanes: Lanes) {
 
 ### 2.1 `fiber.lanes和fiber.childLanes`的更新流程
 
-下面我们结合整个`update`流程来分析一下`fiber.lanes`和`fiber.childLanes`的更新流程，看React如何更新的闭环。
+下面我们结合整个`update`流程来分析一下`fiber.lanes`和`fiber.childLanes`的更新流程，看React如何实现更新lanes的闭环。
 
 **第一步**：**初始化`fiber.lanes和fiber.childLanes`**。这个操作发生在`markUpdateLaneFromFiberToRoot`方法中。这个方法上一节我们详细的讲过，这里不再赘述。
 
@@ -486,7 +489,7 @@ export function markRootFinished(root: FiberRoot, remainingLanes: Lanes) {
 
    > 其实感觉这一步有点多余
 
-2. 执行完`Update`之后，更新`fiber.lanes`。上面代码中有
+2. 执行完`Update`之后，更新`fiber.lanes`，此时已经剔除了已经执行的`lane`。上面代码中有
 
 
 

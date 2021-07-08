@@ -715,3 +715,8 @@ if (existingCallbackNode !== null) {
 
 **lane模型的好处是既实现了”批“的概念，又让同一”批“的`Update`之间有所差别。既实现了`Update`的批量执行，也可以使`Update`之间相互区分**。
 
+
+
+### 3.2 lane模型与优先级调度的流程图
+
+![React-lane模型与优先级调度](./flowCharts/React-lane模型与优先级调度.png)
