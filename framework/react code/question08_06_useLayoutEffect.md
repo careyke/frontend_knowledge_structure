@@ -62,5 +62,5 @@ function updateLayoutEffect(
 | 产生的副作用(Fiber flag) | Update \| Passive                                            | Update                                                       |
 | Effect的类型             | Passive                                                      | Layout                                                       |
 | Effect执行的方式         | 异步执行                                                     | 同步执行                                                     |
-| Effect执行的时机         | 在`commit-layout`阶段收集激活的Effect，异步执行destory和create函数 | 在`commit-mutation`阶段执行destory函数，在`commit-layout`阶段执行create函数 |
+| Effect执行的时机         | 主要在`commit-layout`阶段收集激活的Effect，异步执行destory和create函数（组件销毁时commit-mutation也会收集） | 在`commit-mutation`阶段执行destory函数，在`commit-layout`阶段执行create函数 |
 

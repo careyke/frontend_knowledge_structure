@@ -136,7 +136,7 @@ function updateEffect(
 ): void {
   return updateEffectImpl(
     UpdateEffect | PassiveEffect,
-    HookPassive, // 这里没有直接加上HookHasEffect
+    HookPassive, // 这里没有直接加上HookHasEffect，表示update节点effect不一定会触发
     create,
     deps,
   );
@@ -160,7 +160,7 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
         // 非激活状态Effect
         pushEffect(hookFlags, create, destroy, nextDeps);
         
-        // 应该要改成下面，需要effect在Hook和updateQueue中保持一致
+        // 应该要改成下面，需要effect在Hook和updateQueue中状态保持一致
         // hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
         
         return;
@@ -188,7 +188,7 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
 
 #### 2.2.1 rerender阶段的兼容处理（*）
 
-在`rerender`阶段中执行`useEffect`的时候，调用的方法也是`updateEffect`。**在`rerender`阶段中，由于`useEffect`之前执行过一次，`workInProgress Fiber`中对应的`Effect`很可能已经发生改变，尤其是`deps`。所以再次执行的是需要使用`currentHook`中保存的`Effect`来对比。**
+在`rerender`阶段中执行`useEffect`的时候，调用的方法也是`updateEffect`。**在`rerender`阶段中，由于`useEffect`之前执行过一次，`workInProgress Fiber`中对应的`Effect`很可能已经发生改变，尤其是`deps`。所以再次执行的时候需要使用`currentHook`中保存的`Effect`来对比。**
 
 上面代码中有注释出来关键的代码。
 
@@ -224,11 +224,11 @@ function App() {
 
 **这里感觉是React代码中出现了一个`bug`**
 
-产生的原因是：**当`deps`没有发生修改的时候，`React`只更新了`updateQueue`，并没有更新对应`Hook`中的`memoizedState`，会导致两边状态不对应。正常情况下并没有问题，因为两边的`deps`至少是相同的，但是`rerender`阶段的介入，可能会导致两边的`deps`不对应，从而出现例子中的异常**。
+产生的原因是：**当`deps`没有发生修改的时候，`React`只将新的`Effect`对象更新到了`updateQueue`，并没有更新到对应`Hook`中的`memoizedState`，会导致两边状态不对应。正常情况下并没有问题，因为两边的`deps`至少是相同的，但是`rerender`阶段的介入，可能会导致两边的`deps`不对应，从而出现例子中的异常**。
 
 > （?）这里的逻辑应该不是故意为之吧，打算去提一个`issue`看看
 >
-> 已经提了一个[issue](https://github.com/facebook/react/issues/20675)，官方也接收了这个bug，还得到了大佬`Dan`的回复!
+> 已经提了一个[issue](https://github.com/facebook/react/issues/20675)，官方也接收了这个bug
 >
 > 官方的修复代码：
 >
@@ -274,7 +274,7 @@ export function renderWithHooks<Props, SecondArg>(
       // 清空状态
       currentHook = null;
       workInProgressHook = null;
-      workInProgress.updateQueue = null;
+      workInProgress.updateQueue = null; // 清空 rerender阶段从头开始重新生成
 
       // 切换处理器
       ReactCurrentDispatcher.current = __DEV__
@@ -329,6 +329,12 @@ function schedulePassiveEffects(finishedWork: Fiber) {
   }
 }
 ```
+
+
+
+#### 2.2.3 Effect更新流程图
+
+<img src="./flowCharts/Hook-Effect更新流程.png" alt="Hook-Effect更新流程" />
 
 
 
