@@ -465,7 +465,7 @@ function updateReducer<S, I, A>(
       } else {
         if (newBaseQueueLast !== null) {
           const clone: Update<S, A> = {
-            lane: NoLane, // 优先级最该，后续每次都需要执行
+            lane: NoLane, // 优先级最高，后续每次都需要执行
             action: update.action,
             eagerReducer: update.eagerReducer,
             eagerState: update.eagerState,
@@ -489,10 +489,12 @@ function updateReducer<S, I, A>(
       // baseState和state取值逻辑不同
       newBaseState = newState;
     } else {
+      // 形成环
       newBaseQueueLast.next = (newBaseQueueFirst: any);
     }
 
     if (!is(newState, hook.memoizedState)) {
+      // 表示状态更新
       markWorkInProgressReceivedUpdate();
     }
 
@@ -607,6 +609,8 @@ workInProgress.lanes = NoLanes;
 
 **在高优先级打断低优先级任务的场景下，使用共享的数据是有问题的**。由于是共享的数据结构，会**导致低优先级任务更新的状态会保存在`currentFiber`中，所以在执行高优任务的时候，会把低优任务会顺带执行了**，从而失去了优先级调度的意义。
 
+也就是说**`baseQueue、queue`可以共用，但是`memoizedState和baseState`不能共用**，否则会导致更新出错
+
 所以克隆Hook是非常有必要的。
 
 
@@ -616,7 +620,20 @@ workInProgress.lanes = NoLanes;
 在`updateReducer`方法中还有两个细节：
 
 1. **`dispatch`方法保持不变，只在`mount`阶段赋值，后续`update`阶段直接继续使用这个值**。所以**`dispatchAction`方法中的`fiber和queue`参数也是一直不变的**，就是`mount`阶段设置的值。乍一看可能会觉得有点问题，每次更新时应该使用最新的值才是合理的，但是其实仔细分析下来，也确实没有影响。（感觉是个优化操作）
+
+   > **补充**
+   >
+   > currentFiber和workInProgressFiber在很多状态上保持一致的，很多数据结构也是共享的。比如memoizedState、hook和lanes等等
+   >
+   > 所以Update对象添加在哪个节点，都是**共享**的。
+
 2. `useReducer`中，**`reducer`是可以变化的**，每次执行的时候可以传入新的`reducer`。
+
+
+
+##### 3.2.2.3 Update执行流程图
+
+<img src="./flowCharts/Hook-Update执行流程.png" alt="Hook-Update执行流程" style="zoom:60%;" />
 
 
 
@@ -692,6 +709,7 @@ function rerenderReducer<S, I, A>(
   queue.lastRenderedReducer = reducer;
 
   const dispatch: Dispatch<A> = (queue.dispatch: any);
+	// pending中应该只有render阶段创建的Update，之前的Update拼接在了baseUpdate中
   const lastRenderPhaseUpdate = queue.pending;
   let newState = hook.memoizedState;
   if (lastRenderPhaseUpdate !== null) {
@@ -712,6 +730,7 @@ function rerenderReducer<S, I, A>(
 
     hook.memoizedState = newState;
     if (hook.baseQueue === null) {
+      // 没有跳过Update时才更新
       hook.baseState = newState;
     }
 
@@ -723,9 +742,8 @@ function rerenderReducer<S, I, A>(
 
 这个执行过程和update阶段执行过程有以下不同：
 
-1. 没有拼接操作。也就是说**这个`Update`不会依赖之前产生的`Update`，只依赖当前的状态。**
-
-2. 没有优先级判断。也就是说**这个`Update`本次更新会执行，不会被闲置。**
+1. **没有拼接操作**。也就是说**这个`Update`不会依赖之前产生的`Update`，只依赖当前的状态。**
+2. **没有优先级判断**。也就是说**这个`Update`本次更新会执行，不会被闲置。**
 
 优化的效果：**`render`函数执行两次，但是只执行一次`update`**
 
@@ -792,7 +810,7 @@ scheduleUpdateOnFiber(fiber, lane, eventTime);
 
 这里有两个点需要**注意**：
 
-1. 虽然预执行`Update`不会调度`update`，但是这个`Update对象`还是会挂载在`Fiber`节点中，意味着**后续的更新中还是会执行这些`Update`**。
+1. 虽然预执行`Update`不会调度`update`，但是这个`Update对象`还是会挂载在`Fiber`节点中，意味着**后续的更新中还是会执行这个`Update`**。
 2. `预执行Update`的时候使用的是`lastRenderedReducer`，但是**`reducer`是可以更改的**。
 
 这里之所以所有的Update仍然会挂载在Fiber节点中，是为了**防止状态更新错误**。
@@ -822,7 +840,7 @@ if (update.eagerReducer === reducer) {
 
 ### 3.5 不规范使用Hook报错
 
-上面我们提到，在`Hook`函数必须要在r`ender函数`执行的期间来执行，否则就会导致状态对应错误。React为了防止这种使用不规范的错误，运行时抛出了相应的错误提示。
+上面我们提到，在`Hook`函数必须要在`render函数`执行的期间来执行，否则就会导致状态对应错误。React为了防止这种使用不规范的错误，运行时抛出了相应的错误提示。
 
 在`renderWithHooks`函数中，当`render函数`执行完成之后，会**切换`HookDispatcher`**
 

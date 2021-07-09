@@ -14,6 +14,7 @@ function mountState<S>(
 ): [S, Dispatch<BasicStateAction<S>>] {
   const hook = mountWorkInProgressHook();
   if (typeof initialState === 'function') {
+    // 这个函数只在mount阶段执行一次
     initialState = initialState();
   }
   hook.memoizedState = hook.baseState = initialState;
