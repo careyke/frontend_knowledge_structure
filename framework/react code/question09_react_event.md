@@ -36,6 +36,8 @@
 
 React事件系统的实现就是使用了事件委托的方案，**将React应用中所有节点的事件都委托在`root`节点上（也就是应用挂载节点）。在`17.0.0`版本之前是委托在`document`节点上。**
 
+> React为了兼容挂载在shadow DOM的情况，将事件挂载的节点由document修改成了root
+
 因为React应用是一个多层级的应用，如果想要**像原生事件一样来使用`React`事件**，不另外增加学习成本，就需要实现自己的**事件捕获**和**事件冒泡**等一系列原生事件中常用的特性。这些特点的实现也会在后面代码分析中来详细分析。
 
 
@@ -321,6 +323,7 @@ export function createEventListenerWrapperWithPriority(
   domEventName: DOMEventName,
   eventSystemFlags: EventSystemFlags,
 ): Function {
+  // 事件系统初始化的时候，有给每个事件分配优先级
   const eventPriority = getEventPriorityForPluginSystem(domEventName);
   let listenerWrapper;
   switch (eventPriority) {
@@ -345,6 +348,10 @@ export function createEventListenerWrapperWithPriority(
 ```
 
 这个方法中根据每个事件的优先级创建了不同的回调函数。
+
+> **补充**
+>
+> **回调函数的优先级决定了在内部触发更新时，对应的`Update`的优先级**，不同类型的事件触发的更新优先级不一样
 
 `dispatchDiscreteEvent`和`dispatchUserBlockingUpdate`函数中最终调用的都是`dispatchEvent`方法。`dispatchDiscreteEvent`和`dispatchUserBlockingUpdate`中设置了Scheduler中的优先级上下文。
 
@@ -396,10 +403,10 @@ runWithPriority(
 
 事件执行的过程主要分成以下几个阶段：
 
-1. 获取触发React事件元素对应的Fiber节点
-2. 收集捕获或者冒泡事件队列
-3. 创建合成事件对象
-4. 依次触发队列中的回调函数
+1. **获取触发React事件元素对应的Fiber节点**
+2. **收集捕获或者冒泡事件队列**
+3. **创建合成事件对象**
+4. **依次触发队列中的回调函数**
 
 
 
@@ -466,7 +473,7 @@ export function getClosestInstanceFromNode(targetNode: Node): null | Fiber {
 }
 ```
 
-可以看到，在**创建真实DOM节点的时候会在每个DOM对象中应用对应的Fiber节点**
+可以看到，在**创建真实DOM节点的时候会在每个DOM对象中引用对应的Fiber节点**
 
 
 
@@ -684,7 +691,7 @@ export function accumulateSinglePhaseListeners(
 {
   instance: // 当前回调函数对应的Fiber节点
   listener： // React事件回调函数
-  currentTarget： // 当前回调函数中事件对象中的currentTarget属性
+  currentTarget： // 当前回调函数中事件对象中的currentTarget属性，添加事件监听的DOM
 }
 ```
 
@@ -860,11 +867,17 @@ function executeDispatch(
   event.currentTarget = currentTarget;
   // 内部会执行回调函数
   invokeGuardedCallbackAndCatchFirstError(type, listener, undefined, event);
-  event.currentTarget = null; // 执行完成之后需要清空 应为对象共用
+  event.currentTarget = null; // 执行完成之后需要清空 因为对象共用
 }
 ```
 
 这里需要提一下对于合成事件对象的处理，一个回调函数执行完成之后需要清空`currentTarget`属性
+
+
+
+### 2.4 React事件系统执行流程
+
+<img src="./flowCharts/React-EventSystem流程.png" alt="React-EventSystem流程" />
 
 
 

@@ -6,7 +6,7 @@
 
 那么Context内部是如何实现的呢？下面我们就结合源码来详细分析Context的实现
 
-> 这里我们只会分析新型的`Context`，老版的`Context`会直接跳过
+> 这里我们只会分析新版的`Context`，老版的`Context`会直接跳过
 
 
 
@@ -65,6 +65,8 @@ export function createContext<T>(
 > `context`对象中有两个字段用来保存值。其中`_currentValue`用来保存主渲染器的值，`_currentValue2`用来保存副渲染器的值。
 >
 > 这个涉及到同时使用多个渲染器的问题，暂时不需要了解，我们只看主渲染器
+>
+> （React未来的发展路径）
 
 
 
@@ -89,6 +91,7 @@ function updateContextProvider(
   workInProgress: Fiber,
   renderLanes: Lanes,
 ) {
+  // Provider对象
   const providerType: ReactProviderType<any> = workInProgress.type;
   // 获取context对象
   const context: ReactContext<any> = providerType._context;
@@ -139,11 +142,11 @@ function updateContextProvider(
 
 2. **update阶段**：判断`context`的值是否发生变化
 
-   - **如果值没有发生变化**，而且`children`也没有发生变化，会进入优化处理，复用`current Fiber Tree`中的节点
+   - **如果值没有发生变化，而且`children`也没有发生变化**，会进入优化处理，复用`current Fiber Tree`中的节点
 
      > 在`render`阶段的文章中介绍过：
      >
-     > 这里对比`children`使用的是**全等`===`**，如果执行了`render`函数，生成的`children`必要是一个新对象
+     > 这里对比`children`使用的是**全等`===`**，如果执行了`render`函数，生成的`children`必然是一个新对象
      >
      > 可以看看`babel`转换之后的`React`代码，线上[试试](https://www.babeljs.cn/repl#?browsers=&build=&builtIns=false&spec=false&loose=false&code_lz=JYWwDg9gTgLgBAJQKYEMDG8BmUIjgcilQ3wG4AoctAGxQGc64ARJECOJADxiQDsATRsnQwAdAGFckXnxgBvcgEg0EXnRhQArhmgAKMDjB0AlArjm4iuprBIo-wyYoW4AX3LnFRAXd2mPLnBEMJpQvHAAPPzAAG4AfBF0YCi8CQD0SSnp0fEB5u6uQA&debug=false&forceAllTransforms=false&shippedProposals=false&circleciRepo=&evaluate=false&fileSize=false&timeTravel=false&sourceType=module&lineWrap=true&presets=es2015%2Creact&prettier=false&targets=&version=7.6.2&externalPlugins=)
 
@@ -177,7 +180,7 @@ export function pushProvider<T>(providerFiber: Fiber, nextValue: T): void {
 }
 ```
 
-其中`push`方法用来记录`Provider`的嵌套堆栈，暂时没看出其具体作用，感觉是用在开发阶段。
+其中`push`方法用来记录`Provider`的嵌套堆栈，暂时没看出其具体作用，感觉是用在开发阶段，方便调试。
 
 
 
@@ -439,6 +442,8 @@ export function prepareToReadContext(
 1. 清空依赖链表，后面读取context值的时候会重新赋值
 2. 如果依赖链表中的context有更新，需要修改`didReceiveUpdate`的值。这个值在`beginWork`中会用到，通常是`FunctionComponent`
 
+> `FunctionComponent`在渲染的时候也会执行这个方法，可以看[updateFunctionComponent](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L700)
+
 
 
 ### 3.2 读取context的值并更新依赖链表
@@ -525,3 +530,8 @@ contextItem：
 
 **调用`useContext`时，实际上调用的就是上面的`readContext`方法**
 
+
+
+## 5. context的更新流程图
+
+![React-Context更新流程](./flowCharts/React-Context更新流程.png)

@@ -2,9 +2,9 @@
 
 React技术栈的小伙伴在面试的时候应该都有遇到过这样一个问题：**多个setState是同步执行还是异步执行？**
 
-大家在网上搜索答案的时候，往往都能搜索到这样的答案：**在React事件或者React生命周期方法中直接调用多个`setState`的时候，是批量执行，其他情况下是一个个执行。**
+大家在网上搜索答案的时候，往往都能搜索到这样的答案：**在React事件或者React生命周期方法中直接调用多个`setState`的时候，是批量更新，其他情况下是一个个更新**
 
-实际上这只是对于`Legacy模式`而言的，换一个更全面的说话是：**在React应用的执行上下文中调用多个`setState`会批量执行，脱离了执行上下文的`setState`会一个个同步执行。**
+实际上这只是对于`Legacy模式`而言的，换一个更全面的说话是：**在React应用的执行上下文中调用多个`setState`会批量更新，脱离了执行上下文的`setState`会一个个同步更新**
 
 常见的**脱离执行上下文**的情况
 
@@ -178,7 +178,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 
 当收集完成之后，会借助`Scheduler`来异步批量执行同一优先级中所有的`Update`。`Concurrent`模式中加入了优先级调度的逻辑
 
-如此就实现了多用调用setState的**批量更新**
+如此就实现了多次调用setState的**批量更新**
 
 
 
@@ -205,6 +205,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 
 ```javascript
 export function scheduleSyncCallback(callback: SchedulerCallback) {
+  // sync优先级的update 会进入这个方法
   if (syncQueue === null) {
     syncQueue = [callback];
     immediateQueueCallbackNode = Scheduler_scheduleCallback(
@@ -218,7 +219,7 @@ export function scheduleSyncCallback(callback: SchedulerCallback) {
 }
 ```
 
-上面代码中可以看出，**在`Legacy`模式下默认也会使用`Scheduler`来异步调度更新**。
+上面代码中可以看出，**在`Legacy`模式下默认也会使用`Scheduler`来异步调度更新，在下一个tick来执行更新**
 
 同时也有一个**同步执行**的方法`flushSyncCallbackQueue`
 
@@ -273,13 +274,17 @@ function flushSyncCallbackQueueImpl() {
 
 这里有一个细节需要**注意**一下：
 
-React将所有同步的更新都收集保存在`syncQueue`中，然后提供了一个执行所有同步更新的方法`flushSyncCallbackQueue`。
+React将所有**同步的更新**都收集保存在`syncQueue`中，然后提供了一个执行所有同步更新的方法`flushSyncCallbackQueue`。
 
-> `flushSyncCallbackQueue`这个方法在很多地方都有使用，目的就是用来**同步执行所有的同步更新**
+> `flushSyncCallbackQueue`这个方法在很多地方都有使用，目的就是用来**同步执行所有的同步更新（sync）**
+
+> 补充：
+>
+> **这里同步的更新只的就是`SyncLanePriority`优先级的`update`，其他优先级的`update`并不能被`flushSyncCallbackQueue`方法执行**
 
 
 
-对于同步的更新，React有两种处理方式：
+对于**同步的更新，React有两种处理方式**：
 
 1. 默认情况下和其他优先级的更新一样，借助`Scheduler`来异步调度，在下一个`tick`执行
 
@@ -333,7 +338,7 @@ export function scheduleUpdateOnFiber(
 
 
 
-`Legacy`模式中，React事件处理中也是使用`flushSyncCallbackQueue`来同步执行，但是执行的时机是在事件回调函数完成之后再执行，所以可以达到批量执行的效果。
+`Legacy`模式中，**React事件处理中也是使用`flushSyncCallbackQueue`来同步执行，但是执行的时机是在事件回调函数完成之后再执行，所以可以达到批量执行的效果**
 
 > 对应的代码在 [discreteUpdates](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1188) 中
 
@@ -346,9 +351,10 @@ React内部对于批量更新的实现步骤如下：
 1. **根据`Update`的优先级来收集`Update`，暂存起来**
 2. **根据优先级调度来批量执行相同优先级的`Update`**
 
-但是其中有一个特例：
+但是其中有两个特例：
 
 1. 在`Legacy`模式下，如果`Update`脱离执行上下文，会**立即同步执行**
+2. React事件回调中创建的**同步`Update`**，会在当前tick执行
 
 
 
