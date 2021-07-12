@@ -28,13 +28,13 @@
 
 
 
-> Suspense出了以上两个优点之外，还可以去除掉传统模式中的React请求导致的大量**样板代码**
+> Suspense除了以上两个优点之外，还可以去除掉传统模式中的React请求导致的大量**样板代码**
 
 
 
 ## 2. Suspense组件的渲染流程
 
-尝试过使用`Suspense`的小伙伴应该知道，在官方给出的例子中，使用Suspense之前需要修改一下和发起请求相关的代码。类似于下面
+尝试过使用`Suspense`的小伙伴应该知道，在官方给出的例子中，使用Suspense之前需要修改一下**和发起请求相关**的代码。类似于下面
 
 ```js
 export const wrapPromise = (promise: Promise<unknown>) => {
@@ -75,8 +75,8 @@ export const wrapPromise = (promise: Promise<unknown>) => {
 
 > 这里我们将Suspense组件的子节点分成两类：
 >
-> 1. **fallbackChildren** : Suspense`组件处于suspended状态时渲染的子节点
-> 2. **primaryChildren** : Suspense`组件处于unsuspended状态时渲染的子节点
+> 1. **fallbackChildren** : Suspense组件处于suspended状态时渲染的子节点
+> 2. **primaryChildren** : Suspense组件处于unsuspended状态时渲染的子节点
 
 
 
@@ -388,7 +388,7 @@ function handleError(root, thrownValue): void {
 这个方法中主要做了两个操作：
 
 1. 调用`throwException`方法来处理错误
-2. 调用`completeUnitOfWork`表示当前节点已经是叶子节点，需要进入`“归”`过程。因为当前节点对应的组件在执行的时候抛出错误，所以不会产生子节点。
+2. **调用`completeUnitOfWork`表示当前节点已经是叶子节点，需要进入`“归”`过程**。因为当前节点对应的组件在执行的时候抛出错误，所以不会产生子节点。
 
 
 
@@ -565,7 +565,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
       // ...省略 这里的处理过程在前面讲“归”过程的时候介绍过
     } else {
       // 当前节点没有完成时
-      
+      // legacy模式下 next为null
       const next = unwindWork(completedWork, subtreeRenderLanes);
       if (next !== null) {
         // 带有ShouldCapture的Suspense组件会走到这里
@@ -577,6 +577,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
 
       if (returnFiber !== null) {
         // 给父节点标记未完成
+        // 一直标记到Suspense节点
         returnFiber.firstEffect = returnFiber.lastEffect = null;
         returnFiber.flags |= Incomplete;
       }
@@ -667,7 +668,9 @@ function unwindWork(workInProgress: Fiber, renderLanes: Lanes) {
 
    当`showFallback`为`true`的时候，会消耗掉`DidCapture flag`，所以每次React应用更新的时候，第一次执行`updateSuspenseComponent`方法时`suspenseWorkInProgress`是没有`DidCapture flag`的，所以会尝试渲染primaryChildren，然后在渲染子节点的过程中，如果抛出`promise`错误，会给`suspenseWorkInProgress`加上`DidCapture flag`，所以再次执行`updateSuspenseComponent`时会渲染`fallbackChildren`。
 
-   > 这里之所以将流程介绍这么详细，其实就像想说明一点：**`suspenseFiber`自身没有办法判断本次更新需要渲染哪个children，需要由后代节点来判断，所以每次更新的时候会尝试执行`primaryChildren`，然后如果判断是`suspended`状态，会重新执行`beginWork`来重新渲染`fallbackChildren`节点**
+   > 这里之所以将流程介绍这么详细，其实就想说明一点：**`suspenseFiber`自身没有办法判断本次更新需要渲染哪个children，需要由后代节点来判断，所以每次更新的时候会尝试执行`primaryChildren`，然后如果判断是`suspended`状态，会重新执行`beginWork`来重新渲染`fallbackChildren`节点**
+   >
+   > 这里通过`memoizedState`是无法判断处于哪一个状态的
 
 
 
@@ -755,15 +758,20 @@ function unwindWork(workInProgress: Fiber, renderLanes: Lanes) {
    这个方法中有几个细节需要注意一下：
 
    1. `fallbackChildren`被包裹在`Fragment`节点中
+   
    2. `legacy`模式下，之前创建的`primaryChildren`对应的`fiber`节点并不会销毁；但是在`非legacy`模式下会**销毁**，重新创建一个`Offscreen`节点
-
    
-
-   再生成了`fallbackChildFragment`之后，`suspenseFiber`本次执行`beginWork`返回的节点是`fallbackChildFragment`，**因为`Offscreen fiber`是`suspenseFiber`的第一个子节点，而这里返回的是第二个节点，所以本次更新`render`阶段不会执行`Offscreen fiber`的`beginWork`**，也就是说mount阶段并不会渲染出`primaryChildren`对应的真实节点。
-
+      > 这里没有想通为什么要这么做
    
-
+   
+   
+   在生成了`fallbackChildFragment`之后，`suspenseFiber`本次执行`beginWork`返回的节点是`fallbackChildFragment`，**因为`Offscreen fiber`是`suspenseFiber`的第一个子节点，而这里返回的是第二个节点，所以本次更新`render`阶段不会执行`Offscreen fiber`的`beginWork`**，也就是说mount阶段并不会渲染出`primaryChildren`对应的真实节点。
+   
+   
+   
    这里一个细节需要注意：**当`Suspense`处于`suspended`状态的时候，除了给`suspenseWorkInProgress`加上`memoizedState`标记之外，还会在`OffScreenFiber`也加上`memoizedState`标记**
+   
+   这些标记在后面都会用上
 
 
 
@@ -788,13 +796,13 @@ function completeWork(
       const nextState: null | SuspenseState = workInProgress.memoizedState;
 
       if ((workInProgress.flags & DidCapture) !== NoFlags) {
-        // legacy模式下，触发Suspense重新执行beginWork会这里
+        // legacy模式下，触发Suspense重新执行beginWork会走这里
         workInProgress.lanes = renderLanes;
         return workInProgress;
       }
 
-      const nextDidTimeout = nextState !== null; // 本次更新中当前Suspense的是否是suspended状态
-      let prevDidTimeout = false; // 上次更新中当前Suspense的是否是suspended状态
+      const nextDidTimeout = nextState !== null; // 本次更新中当前Suspense是否是suspended状态
+      let prevDidTimeout = false; // 上次更新中当前Suspense是否是suspended状态
       if (current === null) {
         if (workInProgress.memoizedProps.fallback !== undefined) {
           popHydrationState(workInProgress);
@@ -805,6 +813,7 @@ function completeWork(
       }
 
       if (nextDidTimeout && !prevDidTimeout) {
+        // unsuspended -> suspended
         if ((workInProgress.mode & BlockingMode) !== NoMode) {
           // 非legacy模式
           const hasInvisibleChildContext =
@@ -845,7 +854,7 @@ function completeWork(
 }
 ```
 
-前面在捕获`promise`那段有讲过，`legacy`模式下节点不会走`unwindWork`来触发重新执行`beginWork`，而且直接在执行`completeWork`时返回`suspenseWorkInProgress`来触发重新执行。（上面代码中有提供注释）
+前面在捕获`promise`那段有讲过，`legacy`模式下节点不会走`unwindWork`来触发重新执行`beginWork`，而是直接在执行`completeWork`时返回`suspenseWorkInProgress`来触发重新执行。（上面代码中有提供注释）
 
 这里我们现在需要关注的是会给`suspenseWorkInProgress`加上一个`Update flag`，会在`commit-mutation`阶段来处理
 
@@ -879,7 +888,8 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
 function attachSuspenseRetryListeners(finishedWork: Fiber) {
   const wakeables: Set<Wakeable> | null = (finishedWork.updateQueue: any);
   if (wakeables !== null) {
-    // updateQueue不为空，所以当Suspense处于unsuspended状态的时候，updateQueue为null，不会执行
+    // updateQueue不为空
+    // 所以当Suspense处于unsuspended状态的时候，updateQueue为null，不会执行
     finishedWork.updateQueue = null; // 清空updateQueue
     let retryCache = finishedWork.stateNode;
     if (retryCache === null) {
