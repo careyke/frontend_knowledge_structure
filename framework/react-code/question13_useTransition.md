@@ -29,7 +29,7 @@ function mountTransition(): [(() => void) => void, boolean] {
 
 这个hook内部调用了一次`useState`，创建了一个`state`用来**标识当前过渡的状态**。该hook中创建了一个start方法并且抛出，用户可以调用该方法开启更新的过渡。
 
-这里有一个细节：`start`方法会保存在`hook.memoizedState`，所以这个方法是保持不变的。
+这里有一个细节：**`start`方法会保存在`hook.memoizedState`，update阶段直接从memoizedState中获取，所以这个方法是保持不变的**
 
 下面看一下`startTransition`方法内部的逻辑
 
@@ -72,7 +72,7 @@ function startTransition(setPending, callback) {
 1. 以**不小于`UserBlockingPriority`的优先级**更新过渡的状态，开启过渡
 2. 以**不大于`NormalPriority`的优先级**执行传入的更新，更新完成之后关闭过渡
 
-在创建`Update`对象的时候，会**根据当前优先级的上下文来给`Update`分配对应的`lane`**。这里`setPending(false)`和`callback()`中创建的更新优先级是一样的，而且是同步创建的，所以**只会触发一次更新**
+在创建`Update`对象的时候，会**根据当前优先级的上下文来给`Update`分配对应的`lane`**。这里`setPending(false)`和`callback()`中创建的`Update`优先级是一样的，而且是同步创建的，所以**只会触发一次更新**
 
 
 
@@ -135,7 +135,7 @@ export function findTransitionLane(wipLanes: Lanes, pendingLanes: Lanes): Lane {
 }
 ```
 
-上面方法中可以看到，在获取`Update`对应的`lane`时，对于在过渡阶段中创建的`Update`有特殊的处理。`requestCurrentTransition`方法的返回值就是前面`startTransition`方法中设置的 `ReactCurrentBatchConfig.transition` 的值。
+上面方法中可以看到，在获取`Update`对应的`lane`时，对于在过渡阶段中创建的`Update`有特殊的处理。**`requestCurrentTransition`方法的返回值就是前面`startTransition`方法中设置的 `ReactCurrentBatchConfig.transition` 的值**。
 
 所以在过渡阶段调度的更新，对应的优先级是`TransitionPriority`，从而实现了延迟更新的目的。
 
@@ -182,7 +182,7 @@ function updateTransition(): [(() => void) => void, boolean] {
 
 在分析具体的实现之前，我们先结合一个例子来分析一下优化的思路
 
-> 我们切换页签的例子来分析，对应的demo可以看[这里](https://codesandbox.io/s/usetransition-switchtab-7xgxi?file=/src/App.js)
+> 我们以切换页签的例子来分析，对应的demo可以看[这里](https://codesandbox.io/s/usetransition-switchtab-7xgxi?file=/src/App.js)
 
 #### 2.1.1 默认情况下
 
@@ -194,7 +194,7 @@ function updateTransition(): [(() => void) => void, boolean] {
 
 > 区别 Receded 和 Skeleton 阶段：
 >
-> Receded感觉是面向用户”后退“了一步，页面从完整页面到降级页面；Skeleton感觉是面向用户”前进“了一步，慢慢渲染成更多内容
+> **Receded感觉是面向用户”后退“了一步，页面从完整页面到降级页面；Skeleton感觉是面向用户”前进“了一步，慢慢渲染成更多内容**
 
 对于用户来说Receded阶段的交互是不友好的，用户能够接受在旧页面显示`pending`状态，但是无法接受页面直接回退到空白。
 
@@ -218,7 +218,7 @@ function updateTransition(): [(() => void) => void, boolean] {
 
 ![cm-steps-simple](./images/cm-steps-simple.png)
 
-> 注意：
+> **注意：**
 >
 > 上面图对应的React版本比较老，在当前版本中React将其中的`timeout`处理去掉了。
 >
@@ -242,7 +242,7 @@ function finishConcurrentRender(root, exitStatus, lanes) {
       markRootSuspended(root, lanes);
 
       if (includesOnlyTransitions(lanes)) {
-        // 本次更新试一次过渡更新
+        // 本次更新是一次过渡更新
         // 本次更新取消，不进入commit阶段
         break;
       }
