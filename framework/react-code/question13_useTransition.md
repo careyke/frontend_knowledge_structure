@@ -206,7 +206,7 @@ function updateTransition(): [(() => void) => void, boolean] {
 
 加入`useTransition`优化处理之后，当请求更新时Suspense组件树会经历以下三个阶段：
 
-1. **Pending**: 停留在当前页面，等待新页面必要数据返回，不会退
+1. **Pending**: 停留在当前页面，等待新页面必要数据返回，不回退
 2. **Skeleton**: 嵌套的Suspense对应的请求陆续完成，`Suspense`陆续渲染对应的`primaryChildren`
 3. **Complete**: 所有的Suspense都渲染对应的`primaryChildren`，新页面渲染完成
 
@@ -274,17 +274,21 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 }
 ```
 
-上一篇文章中我们分析Suspense的时候有提到：**在`update`阶段，当`Suspense`由`unsuspended`状态切换成`suspended`状态的时候，会给`workInProgressRootExitStatus`赋值`RootSuspendedWithDelay`。如果当前更新被`startTransition`包裹时，就会命中`includesOnlyTransitions(lanes)`，会抛弃掉当前更新，等`promise`完成之后再出发新的更新。**
+上一篇文章中我们分析Suspense的时候有提到：**在`update`阶段，当`Suspense`由`unsuspended`状态切换成`suspended`状态的时候，会给`workInProgressRootExitStatus`赋值`RootSuspendedWithDelay`。如果当前更新被`startTransition`包裹时，就会命中`includesOnlyTransitions(lanes)`，会抛弃掉当前更新，等`promise`完成之后再触发新的更新。**
 
 如此就实现了期望中的优化，等数据加载完成之后再进去下一个页面。
 
 这里有几个点需要**注意**一下：
 
-1. 优化的过程可能发生在`Suspense`组件`update`阶段
+1. **优化的过程只可能发生在`Suspense`组件`update`阶段，状态由unsuspended变成suspended**
 
 2. 当命中`useTransition`优化的时候，会抛弃掉当前`render`阶段创建的`workInProgress tree`，下次更新时会重新创建
 
-3. 当命中`useTransition`优化的时候，不会走commit阶段，也就是promise不能在commit阶段注册回调函数。前面分析Suspense时讲过，在`Concurrent`模式中，`promise`会在是`render`阶段注册一个回调函数，在当前优化命中的情况下，promise完成之后就是调用在这个回调函数来触发更新的。
+   > 对这源码分析：
+   >
+   > `workInProgressRoot`会被重置
+
+3. **当命中`useTransition`优化的时候，不会走commit阶段，也就是promise不能在commit阶段注册回调函数**。前面分析Suspense时讲过，在`Concurrent`模式中，`promise`会在是`render`阶段注册一个回调函数，**在当前优化命中的情况下，promise完成之后就是调用这个回调函数来触发更新的**。
 
    > 这种情况在分析Suspense时没有提到，这里补充一下
 
@@ -374,7 +378,7 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 
    这里点击按钮的时候，**等待user数据加载完成之后才会切换到下一个页面，但是并不会等待`age`数据也加载完成**。
 
-   因为`age`对应的`Suspense`组件是新创建的，处于`mount`状态，所以达不到`useTransition`优化的条件。
+   因为`age`对应的`Suspense`组件是**新创建**的，处于`mount`状态，所以达不到`useTransition`优化的条件。
 
 
 
@@ -422,7 +426,7 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 
 
 
-在多个Suspense嵌套时，useTransition优化之后，有些场景下过渡的时间长，有些场景下过渡的时间短。当我们了解useTransition优化Suspense的原理之后，就可以准确判断过渡的时间长短，可能更好的使用`Suspense`和`useTransition`
+在多个Suspense嵌套时，useTransition优化之后，有些场景下过渡的时间长，有些场景下过渡的时间短。当我们了解useTransition优化Suspense的原理之后，就可以准确判断过渡的时间长短，可以更好的使用`Suspense`和`useTransition`
 
 
 
