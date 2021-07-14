@@ -298,6 +298,304 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 
 
 
+#### 2.2.1 suspendedLanes 和 pingedLanes （***）
+
+我们先来看一下`performConcurrentWorkOnRoot`方法
+
+```js
+function performConcurrentWorkOnRoot(root) {
+  // ...省略
+
+  // Determine the next expiration time to work on, using the fields stored
+  // on the root.
+  let lanes = getNextLanes(
+    root,
+    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes,
+  );
+  if (lanes === NoLanes) {
+    // Defensive coding. This is never expected to happen.
+    return null;
+  }
+
+  let exitStatus = renderRootConcurrent(root, lanes);
+
+  if (
+    includesSomeLane(
+      workInProgressRootIncludedLanes,
+      workInProgressRootUpdatedLanes,
+    )
+  ) {
+    // ...省略
+  } else if (exitStatus !== RootIncomplete) {
+    // ...省略
+    
+    const finishedWork: Fiber = (root.current.alternate: any);
+    root.finishedWork = finishedWork;
+    root.finishedLanes = lanes;
+    finishConcurrentRender(root, exitStatus, lanes);
+  }
+
+  ensureRootIsScheduled(root, now());
+  if (root.callbackNode === originalCallbackNode) {
+    // The task node scheduled for this root is the same one that's
+    // currently executed. Need to return a continuation.
+    return performConcurrentWorkOnRoot.bind(null, root);
+  }
+  return null;
+}
+```
+
+结合上面优化的代码，这里不禁会产生一个疑问：**在`finishConcurrentRender`方法执行之后，虽然没有执行`commitRoot`，但是后面又执行了一次`ensureRootIsScheduled`方法，为什么这里不会继续触发更新呢？**
+
+这里其实就是`suspendedLanes`和`pingedLanes`在发挥作用
+
+##### 2.2.1.1 suspendedLanes
+
+我们先来看一下添加`suspendedLanes`的方法`markRootSuspended`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1010)
+
+```js
+function markRootSuspended(root, suspendedLanes) {
+  suspendedLanes = removeLanes(suspendedLanes, workInProgressRootPingedLanes);
+  suspendedLanes = removeLanes(suspendedLanes, workInProgressRootUpdatedLanes);
+  markRootSuspended_dontCallThisOneDirectly(root, suspendedLanes);
+}
+
+export function markRootSuspended(root: FiberRoot, suspendedLanes: Lanes) {
+  root.suspendedLanes |= suspendedLanes;
+  root.pingedLanes &= ~suspendedLanes;
+
+  // The suspended lanes are no longer CPU-bound. Clear their expiration times.
+  /**
+   * 这个将suspendedLanes中每个lane对应的过期时间去掉了
+	 * 表示suspendedLanes中的lanes不会自动调度执行，需要借助于pingedLanes来执行
+	 * 所以不需要过期时间
+   */
+  const expirationTimes = root.expirationTimes;
+  let lanes = suspendedLanes;
+  while (lanes > 0) {
+    const index = pickArbitraryLaneIndex(lanes);
+    const lane = 1 << index;
+
+    expirationTimes[index] = NoTimestamp;
+
+    lanes &= ~lane;
+  }
+}
+```
+
+这个方法中一个重要的操作就是将`suspendedLanes`中lane对应的过期时间去掉，也就是不会因为过期而强制被执行。
+
+这里理解起来似乎有点困难，我们来看一下调度更新时获取当前最高优先级的方法`getNextLanes`
+
+> 对应的源代码可以看[这里](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberLane.js#L249)
+
+```js
+export function getNextLanes(root: FiberRoot, wipLanes: Lanes): Lanes {
+  // Early bailout if there's no pending work left.
+  const pendingLanes = root.pendingLanes;
+  if (pendingLanes === NoLanes) {
+    return_highestLanePriority = NoLanePriority;
+    return NoLanes;
+  }
+
+  let nextLanes = NoLanes;
+  let nextLanePriority = NoLanePriority;
+
+  const expiredLanes = root.expiredLanes;
+  const suspendedLanes = root.suspendedLanes;
+  const pingedLanes = root.pingedLanes;
+
+  // Check if any work has expired.
+  if (expiredLanes !== NoLanes) {
+    nextLanes = expiredLanes;
+    nextLanePriority = return_highestLanePriority = SyncLanePriority;
+  } else {
+    // Do not work on any idle work until all the non-idle work has finished,
+    // even if the work is suspended.
+    const nonIdlePendingLanes = pendingLanes & NonIdleLanes;
+    if (nonIdlePendingLanes !== NoLanes) {
+      const nonIdleUnblockedLanes = nonIdlePendingLanes & ~suspendedLanes;
+      if (nonIdleUnblockedLanes !== NoLanes) {
+        // 先处理非suspended的任务
+        nextLanes = getHighestPriorityLanes(nonIdleUnblockedLanes);
+        nextLanePriority = return_highestLanePriority;
+      } else {
+        // suspendedLanes中的任务 只能通过pingedLanes来调度
+        const nonIdlePingedLanes = nonIdlePendingLanes & pingedLanes;
+        if (nonIdlePingedLanes !== NoLanes) {
+          nextLanes = getHighestPriorityLanes(nonIdlePingedLanes);
+          nextLanePriority = return_highestLanePriority;
+        }
+      }
+    } else {
+      // The only remaining work is Idle.
+      // ...省略
+    }
+  }
+
+  if (nextLanes === NoLanes) {
+    // This should only be reachable if we're suspended
+    // TODO: Consider warning in this path if a fallback timer is not scheduled.
+    return NoLanes;
+  }
+
+  // ...省略
+
+  return nextLanes;
+}
+```
+
+上面代码中可以看到，在获取下一次更新的优先级时，会跳过suspendedLanes中包含的lane。也就是说**suspendedLanes对应的lanes默认是不会执行的，除非标记成pingedLanes**
+
+也就是说，**pingedLanes是动态构建用来执行suspendedlanes对应的更新的**
+
+**suspendedLanes和pingedLanes会在commit执行时进行销毁**，可以看[markRootFinished](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberLane.js#L762) 方法，也就是说suspendedLanes和pingedLanes只在当前render阶段产生作用
+
+
+
+##### 2.2.1.2 pingedLanes
+
+设置pingedLanes的方法`markRootPinged`
+
+> 对应的方法可以看[这里](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberLane.js#L733)
+
+```js
+export function markRootPinged(
+  root: FiberRoot,
+  pingedLanes: Lanes,
+  eventTime: number,
+) {
+  root.pingedLanes |= root.suspendedLanes & pingedLanes;
+}
+```
+
+上面代码中可以看到，pingedLanes和suspendedLanes是紧密关联在一起的，**pingedLanes是suspendedLanes的子集**。
+
+suspendedLanes中的lanes需要依赖pingedLanes才能够被调度执行。
+
+
+
+##### 2.2.1.3 总结
+
+1. **suspendedLanes对应的lanes在优先级调度的时候会被跳过，而且每个lane对应的过期时间也被销毁，所以默认suspendedLanes中包含的更新不会被调度执行**
+
+2. **pingedLanes是suspendedLanes的子集，pingedLanes中包含的lanes会被调度执行，优先级小于`pendingLanes & ~suspendedLanes`。如果suspendedLanes中某些lanes需要调度执行，必须先将这个lanes合并到pingedLanes中**
+3. suspendedLanes是pendingLanes的子集，pingedLanes是suspendedLanes的子集
+
+也就是说，**suspendedLanes是用来标记当前pendingLanes中某些lanes为暂停状态，不参与优先级调度。pingedLanes用来尝试恢复suspendedLanes中某些lanes的调度执行**。
+
+
+
+#### 2.2.2 结合suspendedLanes和pingedLanes来详细分析优化代码的实现
+
+前面我们提过，单纯的跳过`commitRoot`执行并不能起到优化的作用，在`performConcurrentWorkOnRoot`中会重新调度一次更新。所以在
+
+`finishConcurrentRender`方法中调用了`markRootSuspended`方法，将当前lanes合并到suspendedLanes中，所以**在`ensureRootIsScheduled`方法中调度时会跳过suspendedLanes**
+
+```js
+function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
+  const existingCallbackNode = root.callbackNode;
+
+  // Check if any lanes are being starved by other work. If so, mark them as
+  // expired so we know to work on those next.
+  // 给当前更新标记过期时间，如果过期了，当前更新被中断会将当前更新保存在expiredLane中，会后面消费
+  markStarvedLanesAsExpired(root, currentTime);
+
+  // Determine the next lanes to work on, and their priority.
+  const nextLanes = getNextLanes(
+    root,
+    root === workInProgressRoot ? workInProgressRootRenderLanes : NoLanes,
+  );
+  // This returns the priority level computed during the `getNextLanes` call.
+  const newCallbackPriority = returnNextLanesPriority();
+
+  if (nextLanes === NoLanes) {
+    if (existingCallbackNode !== null) {
+      // 会走到这里
+      // 情况状态
+      cancelCallback(existingCallbackNode);
+      root.callbackNode = null;
+      root.callbackPriority = NoLanePriority;
+    }
+    return;
+  }
+  
+  // ...省略
+}
+```
+
+上述代码中，重置了`root.callbackNode`，所以不会调度一次新的更新。
+
+
+
+**那么当promise完成之后又是如何更新的呢？**
+
+前面我们提过，当命中`useTransition`优化的时候，不会走commit阶段，所以promise只在render阶段注册了一个回调函数`pingSuspendedRoot`，由这个方法来触发更新
+
+```js
+export function pingSuspendedRoot(
+  root: FiberRoot,
+  wakeable: Wakeable,
+  pingedLanes: Lanes,
+) {
+  const pingCache = root.pingCache;
+  if (pingCache !== null) {
+    // The wakeable resolved, so we no longer need to memoize, because it will
+    // never be thrown again.
+    pingCache.delete(wakeable);
+  }
+
+  const eventTime = requestEventTime();
+  // add pingedLanes
+  markRootPinged(root, pingedLanes, eventTime);
+
+  if (
+    workInProgressRoot === root &&
+    isSubsetOfLanes(workInProgressRootRenderLanes, pingedLanes)
+  ) {
+    // 这种请你情况不会命中
+    // 不是在render阶段 workInProgressRoot === null
+    if (
+      workInProgressRootExitStatus === RootSuspendedWithDelay ||
+      (workInProgressRootExitStatus === RootSuspended &&
+        includesOnlyRetries(workInProgressRootRenderLanes) &&
+        now() - globalMostRecentFallbackTime < FALLBACK_THROTTLE_MS)
+    ) {
+      // Restart from the root.
+      /**
+       * 1. 在update阶段，Suspense由primary变成suspended的时候。
+       * 2. 在retry过程中，在loading节流限制时间之内触发了 Suspense loading 
+       */
+      prepareFreshStack(root, NoLanes);
+    } else {
+      // Even though we can't restart right now, we might get an
+      // opportunity later. So we mark this render as having a ping.
+      workInProgressRootPingedLanes = mergeLanes(
+        workInProgressRootPingedLanes,
+        pingedLanes,
+      );
+    }
+  }
+  
+  ensureRootIsScheduled(root, eventTime);
+  schedulePendingInteractions(root, pingedLanes);
+}
+```
+
+上面代码中可以看到，这里**动态合并了之前的renderLanes到pingedLanes中**，然后开启了调度器。所以**本次可以开启一次新的更新直接渲染promise完成之后的内容，完美的跳过了Suspense组件的Receded阶段**
+
+至此，useTransition优化Suspense的实现原理就分析完了。
+
+
+
+### 2.3 useTransition优化Suspense的实现流程
+
+![React-useTransition优化Suspense实现流程](./flowCharts/React-useTransition优化Suspense实现流程.png)
+
+
+
 ## 3. 版本迭代
 
 这里笔者还是想再强调一下，当前分析的React版本和官方文档中例子对应的React版本是有较大的差别的。其中对于`useTransition`的功能和实现就发生了比较大的变化。

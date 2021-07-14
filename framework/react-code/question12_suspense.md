@@ -1509,7 +1509,7 @@ if (nextDidTimeout && !prevDidTimeout) {
 2. 场景二：
 
    - `workInProgressRootExitStatus = RootSuspended`：本次更新中存在Suspense变成suspended状态，去除场景一的情况
-   - **本次更新是promise完成触发的更新（应用处于update阶段）**，对应的是`includesOnlyRetries(workInProgressRootRenderLanes)`
+   - **本次更新是promise完成触发的更新（Suspense处于update阶段）**，对应的是`includesOnlyRetries(workInProgressRootRenderLanes)`
    - 对应的`promise`请求在`render`阶段就完成
    - **当前`loading`状态在节流时间间隔内，可以被优化掉**。这里不在设置在节流时间间隔内，则表示`render`阶段已经执行了很长时间，无法接受重新执行一遍之后再进入`commit`阶段
 
@@ -1517,7 +1517,7 @@ if (nextDidTimeout && !prevDidTimeout) {
 
 > **补充**
 >
-> **上面两种优化的场景只会在应用`update`阶段才会发生**
+> **上面两种优化的场景只会在Suspense组件`update`阶段才会发生**
 
 
 
@@ -1626,7 +1626,7 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes) {
 
 这里有两个点需要注意一下：
 
-1. **这两种优化方案只会发生在应用`update`阶段**，上面判断条件分析可知
+1. **这两种优化方案只会发生在Suspense组件`update`阶段**，上面判断条件分析可知
 2. 在第一种方案中，promise在`commit`阶段注册的回调函数会触发一次新的更新，但是对于页面来说并没有什么影响。
 
 

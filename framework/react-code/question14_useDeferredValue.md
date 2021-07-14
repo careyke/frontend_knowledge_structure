@@ -1,10 +1,10 @@
 # 结合源码分析useDeferredValue
 
-这篇文章我们来分析Concurrent模式中提出的另一个Hook —— `useDeferredValue`
+这篇文章我们来分析Concurrent模式中提供的另一个Hook —— `useDeferredValue`
 
 `useDeferredValue`的主要功能是**返回一个延迟更新的值**。
 
-从功能上来看感觉和useTransition有一些类似，两者之后见关系后面我们也会讲到
+从功能上来看感觉和useTransition有一些类似，两者之间的关系后面我们也会讲到
 
 首先来分析一下源码中是如何实现的
 
@@ -66,8 +66,6 @@ function updateDeferredValue<T>(value: T): T {
 
 基本没有什么变化，不需要额外分析
 
-
-
 可以看到这个Hook的源码实现是比较简单的，功能的本质就是**延时更新一个值**。
 
 
@@ -79,21 +77,18 @@ function updateDeferredValue<T>(value: T): T {
 > 对应的Demo在[这里](https://codesandbox.io/s/usedeferredvalue-4m6ph?file=/src/App.js)
 
 ```react
-const getLis = (key) => {
-  const arr = [];
-  for (let i = 0; i < 100000; i++) {
-    if (String(i).includes(key)) {
-      arr.push(<li key={i}>{i}</li>);
-    }
-  }
-  return arr;
-};
+// index.tsx
+import React, { useState } from "react";
 
-export default function App() {
+import List from "./List";
+
+export default function UseDeferredValueProcess() {
   const [value, setValue] = useState("");
-  const deferredValue = React.unstable_useDeferredValue(value);
+  const deferredValue = (React as CommonObject).unstable_useDeferredValue(
+    value
+  );
 
-  const handleChange = (e) => {
+  const handleChange = (e: CommonObject) => {
     setValue(e.target.value);
   };
 
@@ -103,11 +98,35 @@ export default function App() {
         <input onChange={handleChange} />
       </div>
       <div>
-        <ul>{deferredValue ? getLis(deferredValue) : null}</ul>
+        <List value={deferredValue} />
       </div>
     </div>
   );
 }
+
+
+// List.tsx
+import React, { FC, memo } from "react";
+
+const getLis = (key: string) => {
+  const arr = [];
+  for (let i = 0; i < 10000; i++) {
+    arr.push(<li key={i}>{key}</li>);
+  }
+  return arr;
+};
+
+interface ListProps {
+  value: string;
+}
+
+const List: FC<ListProps> = (props) => {
+  const { value } = props;
+
+  return <ul>{value ? getLis(value) : null}</ul>;
+};
+
+export default memo(List);
 ```
 
 当用户在输入的时候，下面列表的内容也需要更新。
@@ -120,23 +139,21 @@ export default function App() {
 
 1. **Debounce/Throttle**: 在`legacy`模式下，开发者通常使用`debounce`或者`threttle`的方式来延迟更新并减少列表的更新次数。
 
-2. **useDeferredValue**：在`concurrent`模式下，由于存在时间切片和优先级调度的特性，可以修改列表更新的优先级，从而来延迟更新列表并减少更新的次数。
-
-   
-
-> 在concurrent模式中，还有另一种解决方案。对应的Demo可以看[这里](https://github.com/careyke/hello-react-code/blob/master/src/useDeferredValue/ConcurrentListNotUseDeferredValue.tsx)
->
-> 和`useDeferredValue`原理是一样的，可以看做是`useDeferredValue`实现的前身
+2. **useDeferredValue**：在`concurrent`模式下，由于存在时间切片和优先级调度的特性，可以修改列表更新的优先级，从而来延迟更新列表并减少更新的次数，而且还可以打断更新，让高优先级的更新先渲染出来
 
 
 
-从上面的描述中，似乎`useDeferredValue`和`debounce/throttle`的效果是一样的，那么其中的区别是什么？
+从上面的描述中，似乎`useDeferredValue`和`debounce/throttle`的效果是类似的，那么其中的区别是什么？
 
-其中最大的区别是**延迟的时间**。
+1. 第一个区别是**延迟的时间**
+   - `debounce/throttle`方案中，延迟的时间是一个固定值，不管在什么性能的机器上，延迟的时间都是一样的
+   - `useDeferredValue`方案中，其延迟的时间长短取决于电脑的性能，在性能好的电脑中可能感觉不到延迟
 
-- `debounce/throttle`方案中，延迟的时间是一个固定值，不管在什么性能的机器上，延迟的时间都是一样的。
+2. 第二个区别是**延迟的更新执行时是否可以被打断**
 
-- `useDeferredValue`方案中，其延迟的时间长短取决于电脑的性能，在性能好的电脑中可能感觉不到延迟。
+   - `debounce/throttle`方案中，一旦延迟的更新开始执行，就会一直执行完成，不能被打断，而且这个过程中也会阻塞用户输入。
+
+   - `useDeferredValue`方案中，**当延时的更新在执行时，如果用户继续输入，因为优先级高可以打断这个延迟的更新，所以用户的输入不会阻塞**。
 
 
 
