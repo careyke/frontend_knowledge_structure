@@ -1386,7 +1386,7 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
 
 前面我们在分析捕获`promise`错误的时候，提到了在`非legacy`模式下，会给`promise`注册回调函数。
 
-也就是说，在`非legacy`模式中，promise会调用两次`then`注册两个回调函数，其中**在`render`阶段注册的回调函数就是用来优化这种场景的**。
+也就是说，**在`非legacy`模式中，promise会调用两次`then`注册两个回调函数，其中在`render`阶段注册的回调函数就是用来优化这种场景的**。
 
 > **为什么只能在非legacy模式下优化呢？**
 >
@@ -1627,7 +1627,8 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes) {
 这里有两个点需要注意一下：
 
 1. **这两种优化方案只会发生在Suspense组件`update`阶段**，上面判断条件分析可知
-2. 在第一种方案中，promise在`commit`阶段注册的回调函数会触发一次新的更新，但是对于页面来说并没有什么影响。
+2. **第一种方案中，如果命中优化，会重新执行render阶段。这时在completeWork阶段不会给`Suspense` 打上`Update flag`，所以不会在commit阶段注册promise的回调函数，避免多更新一次**
+3. **第二种方案中，如果promise在节流时间内resolve，也不会在`commit`阶段注册`promise`回调函数**
 
 
 
