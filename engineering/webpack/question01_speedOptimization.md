@@ -67,7 +67,7 @@ module.exports=smp.wrap({
 
 ```js
 resolve:{
-  modules:[path.resolve(__dirname, 'node_modules')], //减少模块搜索的层级，默认请客下会一层层去node_modules中查找
+  modules:[path.resolve(__dirname, 'node_modules')], //减少模块搜索的层级，默认情况下会一层层向上去node_modules中查找
   extensions:[.js], //准确匹配文件后缀，确保没有后缀的模块是js文件
   mainFields:['main'], //匹配第三包时，只搜索其中的main.js文件。默认情况下会有多个匹配方案
   alias:{
@@ -225,6 +225,10 @@ optimization:{
      
    //效果特别明显
    ```
+   
+   > 补充：
+   >
+   > 
 
 
 
