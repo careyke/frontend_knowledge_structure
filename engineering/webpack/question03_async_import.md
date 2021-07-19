@@ -1,6 +1,8 @@
 # webpack如何实现懒加载
 
-在现实场景中，可能会有一些组件比较复杂，其渲染的过程会阻塞后面内容的渲染，从而导致首屏的卡顿。这时可以使用懒加载的方式来**异步引入这些组件代码**，使得页面渲染不卡顿。
+在现实场景中，可能会有一些组件比较复杂，其渲染的过程会阻塞后面内容的渲染，从而导致首屏的卡顿。这时可以使用懒加载的方式来**异步引入这些组件代码**，优化页面渲染的卡顿情况。
+
+
 
 ## 1. 懒加载的方式
 
@@ -9,6 +11,8 @@
 2. ES Module中使用动态的import方法
 
 推荐使用动态import方法来实现，但是现在很多浏览器还没有实现，需要借助babel来实现
+
+
 
 ## 2. webpack如何实现动态import
 
@@ -36,6 +40,8 @@ import(`./section-modules/${someVariable}.js`)
 
 1. 可以在条件语句中动态引入模块
 2. 引入模块的方式是**异步引入**的，返回一个Promise对象
+
+
 
 ### 2.2 webpack中的实现
 
@@ -183,7 +189,7 @@ __webpack_require__.e = function requireEnsure(chunkId) {
 
 
 
-##### 2.2.2.3 （*）JSONP请求返回的代码
+##### 2.2.2.3 JSONP请求返回的代码（*）
 
 ```js
 (window["webpackJsonp"] = window["webpackJsonp"] || []).push([[0], {
@@ -239,7 +245,7 @@ function webpackJsonpCallback(data) {
 			if(Object.prototype.hasOwnProperty.call(installedChunks, chunkId) && installedChunks[chunkId]) {
 				resolves.push(installedChunks[chunkId][0]);
 			}
-			installedChunks[chunkId] = 0;
+			installedChunks[chunkId] = 0; // 表示模块已经完成
 		}
   	// 将动态引入模块也加到模块系统中，方便缓存
 		for(moduleId in moreModules) {
@@ -259,7 +265,7 @@ function webpackJsonpCallback(data) {
 
 1. 标记当前chunk为已经加载的chunk
 2. 将动态引入的模块也加入到模块系统中，可以使用缓存，避免二次加载
-3. 执行Promise的resolve函数，执行动态加载完的回调函数函数
+3. 执行Promise的resolve函数，执行动态模块加载完的回调函数
 
 ##### 2.2.2.4 加载完成的模块代码如何引用
 
@@ -269,6 +275,17 @@ __webpack_require__.e(0).then(__webpack_require__.bind(null,"./src/list1/import.
 
 then的回调函数调用的是`__webpack_require__`，和正常模块一样的引用方式。
 
+##### 2.2.2.5 installedChunks的数据结构
+
+```typescript
+type UnresolvedModule = [Function,Function,Promise<any>];
+
+type InstalledChunksType = (0 | UnresolvedModule)[];
+```
+
+1. **当模块没有加载完成时，在`installedChunks`中保存的就是`[resolve, reject, promise]`**
+2. **当模块加载完成时，在`installedChunks`中保存的就是`0`**
+
 
 
 ### 2.3 总结
@@ -276,7 +293,7 @@ then的回调函数调用的是`__webpack_require__`，和正常模块一样的�
 **webpack实现动态import的流程**：
 
 1. 打包的时候，将动态import的模块单独打成一个chunk
-2. 运行时在使用的时候，通过jsonp的方式动态引入这个chunk
-3. 引入完成之后执行chunk中的代码，最终执行`webpackJsonpCallback`方法，**将chunk中的模块也加入到模块系统中**
+2. 运行时在使用的时候，通过jsonp的方式动态加载这个chunk
+3. 加载完成之后执行chunk中的代码，最终执行`webpackJsonpCallback`方法，**将chunk中的模块也加入到模块系统中**
 4. 最后使用模块系统中提供的引入方法来引用这个模块
 
