@@ -642,11 +642,11 @@ new Promise((resolve, reject)=>{
 
 
 
-### 2.7 使用动态的polyfill服务
+### 2.7 使用动态的polyfill服务（deprecated）
 
 上面的polyfill优化方案中还是存在一些问题，就是上面的方法中，判断是否需要引入某个属性的polyfill是根据后面代码是否有引用来判断的。而不是根据js宿主环境的版本来判断的。
 
-**如果代码中使用到了Promise这个特性，就会将这个特性对应的polyfill引入进去，但是实际上很多浏览器是一家支持了Promise的，所以在很多的情况下，也会造成无意义的引入。**
+**如果代码中使用到了Promise这个特性，就会将这个特性对应的polyfill引入进去，但是实际上很多浏览器是已经支持了Promise的，所以在很多的情况下，也会造成无意义的引入。**
 
 **动态的polyfill指的就是根据当前的浏览器UA动态请求需要的polyfill特性。**
 
@@ -655,6 +655,12 @@ Polyfill.io官方提供的服务
 ```html
 <script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
 ```
+
+> **补充：**
+>
+> `useBuiltIns: usage`不仅会根据是否使用到，还会根据目标环境的情况来补齐模块，不需要使用动态polyfill
+>
+> @babel/preset-env常用参数的解析可以看[这里](https://www.jiangruitao.com/babel/babel-preset-env/)
 
 
 
