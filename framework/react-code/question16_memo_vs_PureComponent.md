@@ -1,0 +1,2 @@
+# React.Memo VS PureComponent
+
