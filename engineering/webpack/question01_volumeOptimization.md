@@ -211,6 +211,12 @@ var sum = add(1, 2);
 
 可以选择**将这些共用的基础包打成一个单独的包，然后在每个html页面中引用，这样公共的基础包只需要下载一次，避免了重复下载。**
 
+> 补充：
+>
+> webpack内部已经支持`externals`属性，感觉可以替换`html-webpack-externals-plugin`插件
+
+
+
 #### 2.3.1 使用`html-webpack-externals-plugin`提供公共资源
 
 使用这个插件可以将一些公共基础库分离出来，不打入bundle中去，使用cdn的方法引入到页面中

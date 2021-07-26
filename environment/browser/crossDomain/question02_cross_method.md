@@ -93,13 +93,13 @@ function jsonpPromise(url){
 
 ## 2. postMessage + iframe
 
-postMessage是html5提出的，用力解决不同源页面之间的通信的问题。
+postMessage是html5提出的，用来解决不同源页面之间的通信的问题。
 
 ```js
 otherWindow.postMessage(message, targetOrigin, [transfer]);
 ```
 
-- otherWindow：**指的就是要接受消息的那个窗口**。这个目标窗口通常是以iframe或者window.open()的形式嵌套在当前窗口，使得当前窗口能够获得目标窗口的引用，从而像目标窗口发送消息
+- otherWindow：**指的就是要接受消息的那个窗口**。这个目标窗口通常是以iframe或者window.open()的形式嵌套在当前窗口，使得当前窗口能够获得目标窗口的引用，从而向目标窗口发送消息
 
 - message：指的是发送给目标窗口的消息，通常是String或者Object
 - targetOrigin：**通过窗口的origin属性来指定哪些窗口能接收到消息事件，如果目标窗口的协议、主机或端口有一个和origin不相同，则消息就不会发送**。origin可以是具体的url或者`'*'`，`*`表示所以的窗口都可以接收到消息，及目标窗口肯定可以接收到消息。
@@ -146,7 +146,7 @@ window.addEventListener('message',(event)=>{
 
 ## 3. CORS
 
-CORS全称是**跨域资源共享**（Cross-Origin-Resource-Share）。它允许浏览器想跨域的服务器发请求。
+CORS全称是**跨域资源共享**（Cross-Origin-Resource-Share）。它允许浏览器向跨域的服务器发请求。
 
 CORS的方案**主要是服务端支持**，前端使用起来和普通的ajax请求基本是一样的
 
@@ -183,6 +183,10 @@ CORS请求中，如果需要携带Cookie，除了响应头中携带`Access-Contr
 
 如果需要发Cookie到后端，则`Access-Control-Allow-Origin`字段不能为`*` ，必须是明确的地址。**此外Cookie是遵循同源策略的，请求哪个源就只能携带该源下的Cookie，而不能携带其他源的Cookie。**
 
+> 补充：
+>
+> 这里需要描述一下同站和同源的区别
+
 
 
 ### 3.2 非简单请求
@@ -217,7 +221,6 @@ CORS请求中，如果需要携带Cookie，除了响应头中携带`Access-Contr
 预检请求通过之后，浏览器会发送一个主请求，携带需要发到后端的数据。
 
 > 主请求和简单请求是一样的
->
 
 
 
@@ -268,7 +271,7 @@ console.log('Proxy server is listen at port 3000...');
 
 ## 5. Nginx代理层
 
-这也是一种方案，通过配置就可以实现。暂时还没有玩过~
+这个方案本质上也是通过中间层代理服务来实现跨域
 
 
 

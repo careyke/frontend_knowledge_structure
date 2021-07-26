@@ -18,9 +18,11 @@ CSRF全称是Cross-site request forgery，也就是跨域请求伪造。
 
 1. 攻击一般发生在第三方的网站，也就是说，基本上都是**跨域**的请求。
 2. 攻击者**无法获取**被攻击网站的Cookie，只能利用请求会携带当前域的Cookie这一特点来**冒用**Cookie
-3. 攻击利用受害者在被攻击网站的登录凭证，冒充受害者提交操作；而不是直接窃取数据。
+3. 攻击者利用受害者在被攻击网站的登录凭证，冒充受害者提交操作；而不是直接窃取数据。
 
 CSRF攻击通常都是跨域的请求，因为外域更容易被攻击者掌握。但是**有些场景下CSRF攻击会发生在同域中，例如一个可以发图和链接的论坛和评论区，攻击者可以在img点击的时候发动攻击请求，这时候的请求是一个同源的请求，危害会更大。**
+
+> 这里更像是XSS攻击，注入了一段攻击脚本
 
 
 
@@ -87,7 +89,7 @@ CSRF的特点：
 1. **阻止不明外域的访问**
    - 请求的同源检测
    - Samesite Cookie
-2. **提交是要求带上只有本域获取到的信息**
+2. **提交时要求带上只有本域才能获取到的信息**
    - Token验证
    - 双重Cookie验证
 
@@ -111,11 +113,11 @@ CSRF的特点：
 
 ### 4.2 Samesite Cookie
 
-在Cookie中有一个新的属性叫做Samesite，如果Cookie在创建的时候设置了这个属性，则表示这个Cookie是一个同站的Cookie。Samesite属性有两个值：Strict和Lax
+在Cookie中有一个新的属性叫做Samesite，如果Cookie在创建的时候设置了这个属性，则表示这个Cookie是一个**同站**的Cookie。Samesite属性有两个值：Strict和Lax
 
 #### 4.2.1 Samesite = Strict
 
-这种称为严格模式，表明这个 Cookie 在任何情况下都不可能作为第三方 Cookie，绝无例外。比如说 [b.com](http://b.com/) 设置了如下 Cookie：
+这种称为严格模式，表明这个 Cookie 在任何情况下都不可能作为**跨站请求**的 Cookie，绝无例外。比如说 [b.com](http://b.com/) 设置了如下 Cookie：
 
 ```js
 Set-Cookie: foo=1; Samesite=Strict
@@ -127,7 +129,7 @@ Set-Cookie: baz=3
 
 #### 4.2.2 Samesite = Lax
 
-这种称为宽松模式，比 Strict 放宽了点限制：**假如这个请求是这种请求（改变了当前页面或者打开了新页面）且同时是个GET请求**，则这个Cookie可以作为第三方Cookie。比如说 b.com设置了如下Cookie：
+这种称为宽松模式，比 Strict 放宽了点限制：**假如这个请求是这种请求（改变了当前页面或者打开了新页面）且同时是个GET请求**，则这个Cookie可以作为跨站请求的Cookie。比如说 b.com设置了如下Cookie：
 
 ```js
 Set-Cookie: foo=1; Samesite=Strict
@@ -135,7 +137,7 @@ Set-Cookie: bar=2; Samesite=Lax
 Set-Cookie: baz=3
 ```
 
-当用户从 [a.com](http://a.com) 点击链接进入 [b.com](http://b.com) 时，foo 这个 Cookie 不会被包含在 Cookie 请求头中，但 bar 和 baz 会，也就是说用户在不同网站之间通过链接跳转是不受影响了。但假如这个请求是从 [a.com](http://a.com) 发起的对 [b.com](http://b.com) 的异步请求，或者页面跳转是通过表单的 post 提交触发的，则bar也不会发送
+当用户从 [a.com](http://a.com) 点击链接进入 [b.com](http://b.com) 时，foo 这个 Cookie 不会被包含在 Cookie 请求头中，但 bar 和 baz 会，也就是说用户在不同网站之间通过链接跳转是不受影响的。但假如这个请求是从 [a.com](http://a.com) 发起的对 [b.com](http://b.com) 的异步请求，或者页面跳转是通过表单的 post 提交触发的，则bar也不会发送
 
 #### 4.2.3 总结
 
