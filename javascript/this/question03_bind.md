@@ -46,13 +46,15 @@ Function.prototype.myBind = function(context, ...params){
   const fn = this;
   function bind(...args){
     // 处理new操作符，这一步很关键，需要结合new操作符的内部实现来理解
-    return fn.apply(this instanceof bind ? this:context, params.concat(args));
+    // this instanceof bind 可以替换成 this instanceof fn
+    return fn.apply(this instanceof bind ? this : context, params.concat(args));
   }
   //设置__proto__
   const proto = Object.getPrototypeOf(this);
   Object.setPrototypeOf(bind, proto);
   
-  //设置prototype
+  // 设置prototype
+  // 这里是判断是否是new操作符的关键
   bind.prototype = Object.create(this.prototype);
   return bind;
 }
