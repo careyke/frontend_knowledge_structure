@@ -102,7 +102,14 @@ Number.MIN_SAFE_INTEGER | -(2^53 - 1) | number类型**整数**的最小值
 
 js中number类型的数据占用的是4个字节，也就是32位二进制位。所以**对于位运算来说，数字的安全范围会缩小到(-2)^31 ~ 2^31-1**，因为对于位运算来说，超过32位的数字会忽略。 
 
+> **为什么负数会比正数多一个？**
+>
+> 以一个字节整数为例来分析，00000000表示的是十进制的0，但是10000000理论上表示的也是十进制的0。这样就会导致一定的空间浪费，所以将10000000用来表示最小的负数-128
+
+
+
 #### 4.3 number类型中特殊的值
+
 1. NaN：如果数学运算的操作数不是数字类型，就会返回一个NaN。**NaN表示一个无效数值，它不等于任何数值，包括本身。NaN是js中唯一一个不等于自身的值**
 ```js
 let a = 2/'b';
@@ -171,8 +178,10 @@ function equal(a,b){
 equal(0.1+0.2,0.3);  // true
 ```
 
+> 详细的原因可以看[这里](https://segmentfault.com/a/1190000012175422)
 
 ### 5.bigint
+
 **由于number类型能表示的数字范围有限，超出范围的值可能会失去精度，出现异常的值**。
 ```js
 Number.MAX_SAFE_INTEGER // 9007199254740991
@@ -234,12 +243,12 @@ js中使用boolean类型来表示逻辑上的真假。boolean类型只有两个�
 symbol类型是es6新增的基本类型，用来表示一个**唯一**的数据，这个数据只与本身相等。
 
 #### 7.1 symbol数据的创建
-**创建symbol类型的数据之后一种方式，使用Symbol来创建。**
+**创建symbol类型的数据只有一种方式，使用Symbol来创建。**
 
 **Symbol()方法和其他原生函数不同的是，这个函数不能使用new来操作，也就是说Symbol()不能做为构造函数使用。**
 
 #### 7.2 使用场景
-symbol常用来设置对象中独一无二的属性名。常见的有[Symbol.hasInstance], [Symbol. iterator]等
+symbol常用来设置对象中独一无二的属性名。常见的有[Symbol.hasInstance], [Symbol.iterator]等
 
 当其他对象使用instanceof运算符，判断是否为该对象的实例时，会调用[Symbol.hasInstance]方法。比如，foo instanceof Foo在语言内部，实际调用的是Foo[Symbol.hasInstance] (foo)。
 

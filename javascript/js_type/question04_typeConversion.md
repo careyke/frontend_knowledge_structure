@@ -206,8 +206,8 @@ parseInt('123.44') //123
 #### 2.2.1 parseInt() VS Number()
 1. parseInt()可以转换**非纯数字**字符串，但是Number只能转换**纯数字**字符串
 ```js
-parseInt('12.45') //12
-Number('12.45') //NaN
+parseInt('12.45b') //12
+Number('12.45b') //NaN
 ```
 
 2. **parseInt()是针对字符串的方法，如果要强行传非字符串的参数进去，函数内部会先将参数转换成string，然后才开始解析**。而且可能会产生意想不到的结果。

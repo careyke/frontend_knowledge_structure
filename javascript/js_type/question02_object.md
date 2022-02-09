@@ -8,17 +8,17 @@ js中一共有3种方式创建对象：
 1. 字面量方式
 ```js
 let obj = {a:1,b:2}
-```  
+```
 
 2. 构造函数的方式
 ```js
 let obj = new Object({a:1,b:2});
-```  
+```
 
 3. Object.create(proto,[propertiesObject])的方式
 ```js
 let obj = Object.create(Object.prototype,{a:{value:1},b:{value:2}});
-```  
+```
 
 对比这三种创建方式可以看出，**字面量的创建方式是最优的**。
 
@@ -29,7 +29,7 @@ let obj = {1:2}
 
 obj['1'] = 2;
 obj[1] = 2; //之所以可以这样使用，因为内部有一个隐式类型转化将数字1转化成'1'
-```  
+```
 **在堆内存中，对象中的属性值一般不会存放在对象容器内部，存在对象容器内部的是属性名，它们就像指针一样，指向属性值真正存储的位置。**
 
 ### 3.属性描述对象
@@ -47,9 +47,9 @@ Object.defineProperty(obj,'a',{
 })
 
 obj.a  //2
-```  
+```
 
-#### 3.2 writable
+#### 3.2 writable - 默认为false
 决定属性是否可写，也就是是否可以修改属性的值。
 ```js
 let obj={};
@@ -60,11 +60,11 @@ Object.defineProperty(obj,'a',{
 
 obj.a = 3;
 obj.a // 2
-```  
+```
 可以看出当writable为false时，无法修改属性的值。
 
-#### 3.3 configurable
-只要属性是可配置的，就可以使用 defineProperty(..) 方法来修改属性描述对象。放过来如果属性是不可配置的，那么就不能使用defineProperty来修改属性描述对象。
+#### 3.3 configurable - 默认为false
+只要属性是可配置的，就可以使用 defineProperty(..) 方法来修改属性描述对象。反过来如果属性是不可配置的，那么就不能使用defineProperty来修改属性描述对象。
 ```js
 let obj={};
 Object.defineProperty(obj,'a',{
@@ -84,15 +84,16 @@ Object.defineProperty(obj,'a',{
 
 obj.a = 10;
 obj.a //2
-```  
+```
 configurable:false的属性的特点：
 - configurable:false是一个**不可逆**的操作
 - **可以将属性的writable由true设置成false，反向则不行。如果writable是true，则可以修改属性的值**。
 - **delete该属性会失效，无法删除。**
 
-#### 3.4 enumerable
+#### 3.4 enumerable - 默认为false
 描述属性是否可以枚举。**普通方式定义的变量，enumerable默认是true。通过defineProperty定义的变量，enumerable默认是false**
 可枚举属性的特点：
+
 - **可以使用Object.keys()获取当前属性值**
 ```js
 let obj={};
@@ -105,7 +106,7 @@ Object.defineProperty(obj,'b',{
   enumerable: false
 })
 Object.keys(obj); // ['a']
-```  
+```
 - **可以使用for..in遍历到该属性**
 ```js
 let obj={};
@@ -121,7 +122,7 @@ for(let k in obj){
   console.log(k);
 }
 //a  没有b 
-```  
+```
 
 #### 3.5 getter和setter
 js中可以使用getter和setter来修改对象属性的默认读写操作。在读取属性的时候调用getter函数，在写入属性的时候调用setter函数。
@@ -137,20 +138,20 @@ Object.defineProperty(obj,'a',{
 
 obj.a = 3;
 obj.a //3
-```  
+```
 
 ### 4.冻结属性和对象
 #### 4.1 常量对象 —— 不能配置、不能写
 使用writable:false 和 configurable:false 可以创建常量属性
 
 #### 4.2 禁止扩展 —— 不能增加
-使用 Object.prevent Extensions(..)可以使一个对象禁止扩展新属性
+使用 Object.preventExtensions(..)可以使一个对象禁止扩展新属性
 ```js
 var myObject = {a:2};
 Object.preventExtensions( myObject );
 myObject.b = 3; 
 myObject.b; // undefined
-```  
+```
 
 #### 4.3 密封 —— 不能增加、不能配置、可写
 Object.seal(..) 会创建一个“密封”的对象，**这个方法实际上会在一个现有对象上调用 Object.preventExtensions(..) 并把所有现有属性标记为 configurable:false。**
@@ -161,6 +162,8 @@ Object.seal(..) 会创建一个“密封”的对象，**这个方法实际上�
 bject.freeze(..) 会创建一个冻结对象，**这个方法实际上会在一个现有对象上调用 Object.seal(..) 并把所有“数据访问”属性标记为 writable:false，这样就无法修改它们 的值。**
 
 这里讲的所有冻结对象的方法都是浅层的，如果需要深层冻结，可以是使用递归的形式。
+
+
 
 
 ### 5.判断属性是否在对象中
@@ -177,7 +180,6 @@ bject.freeze(..) 会创建一个冻结对象，**这个方法实际上会在一�
 2. forEach
 3. for..of 
 4. for..in
-
 
 
 

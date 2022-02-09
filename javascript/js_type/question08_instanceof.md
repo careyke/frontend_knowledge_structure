@@ -33,5 +33,5 @@ function myInstanceof(left,right){
 }
 
 
-myInstanceof(1,Number); //
-```  
+myInstanceof(1,Number); // false
+```
