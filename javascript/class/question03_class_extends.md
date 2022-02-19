@@ -166,7 +166,7 @@ s2.info.hands // 2  互不影响
 
 s1.constructor === Son  //true
 ```
-咋一看这种方式是完美的，综合了上面两种方式的优点，而且解决了缺点。
+乍一看这种方式是完美的，综合了上面两种方式的优点，而且解决了缺点。
 
 但是实际上并没有那么完美，可以将Son.prototype打印出来看看
 
@@ -277,7 +277,7 @@ function _possibleConstructorReturn(self, call) {
 }
 
 function _assertThisInitialized(self) {
-  // 确保super方法在构造函数的最前面调用
+  // 确保this已经初始化
   if (self === void 0) {
     throw new ReferenceError(
       "this hasn't been initialised - super() hasn't been called"
@@ -396,7 +396,10 @@ function (_Parent) {
 
     _classCallCheck(this, Son);
 
-    _this = _possibleConstructorReturn(this, _getPrototypeOf(Son).call(this, height)); // super调用父类构造函数只能在使用this之前调用
+    // super调用父类构造函数只能在使用this之前调用
+    // 可以看到，对于继承的类来说。this是通过父类的构造函数加工过的（_this），不一定等于原来的this。
+   	// 所以在访问属性的时候，需要等this加工完成。
+    _this = _possibleConstructorReturn(this, _getPrototypeOf(Son).call(this, height)); 
 
     _this.name = name;
     return _this;
@@ -422,27 +425,59 @@ function (_Parent) {
 
 2. 调用Parent的构造函数继承父类的实例属性
 
+3. **子类的this是由父类构造函数加工之后生成，不一定和原来this是同一个对象**。这也是**super()**方法必须要在子类构造函数第一个调用的原因
 
 
-> **super方法之所以放在构造函数的在最前面调用，就是防止构造函数中代码访问父类的实例属性不存在的情况**。
+
+> **super方法之所以放在构造函数的在最前面调用，就是在访问this之前确保当前this已经被父类构造函数加工完成**。
 >
 > ```js
 > class Person {
->   constructor(name) {
->     this.name = name;
->   }
+> 	constructor(name) {
+>  		this.name = name;
+> 	}
 > }
->  
+> 
 > class PolitePerson extends Person {
->   constructor(name) {
->     this.greetColleagues(); //这是不允许的
->     super(name);
->   }
->  
->   greetColleagues() {
->     alert('Good morning folks!');
->     alert('My name is ' + this.name + ', nice to meet you!');
->   }
+> 	constructor(name) {
+>  		this.greetColleagues(); //这是不允许的
+>  		super(name);
+> 	}
+> 
+> 	greetColleagues() {
+>  		alert('Good morning folks!');
+>  		alert('My name is ' + this.name + ', nice to meet you!');
+> 	}
 > }
+> ```
+>
+> ```js
+> // babel转化之后的代码
+> var PolitePerson = /*#__PURE__*/function (_Person) {
+>   _inherits(PolitePerson, _Person);
+> 
+>   var _super = _createSuper(PolitePerson);
+> 
+>   function PolitePerson(name) {
+>     var _this;
+> 
+>     _classCallCheck(this, PolitePerson);
+> 
+>     _this.greetColleagues(); //这是不允许的（_this还没有赋值！！！）
+> 
+> 
+>     return _this = _super.call(this, name);
+>   }
+> 
+>   _createClass(PolitePerson, [{
+>     key: "greetColleagues",
+>     value: function greetColleagues() {
+>       alert('Good morning folks!');
+>       alert('My name is ' + this.name + ', nice to meet you!');
+>     }
+>   }]);
+> 
+>   return PolitePerson;
+> }(Person);
 > ```
 

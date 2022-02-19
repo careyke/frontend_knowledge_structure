@@ -35,29 +35,43 @@ obj.a //undefined 说明new的优先级高于bind
 ### 实现一个myBind
 
 ```js
-Function.prototype.myBind = function(context, ...params){
-  if(typeof this !== 'function'){
-    throw new Error('only function has bind');
+Function.prototype.myBind = function (context, ...params) {
+  if (typeof this !== "function") {
+    throw new Error("only function has bind");
   }
   // 当context为undefined或null时，this取默认的window
-  if(context == null){
+  if (context == null) {
     context = window;
   }
   const fn = this;
-  function bind(...args){
+  function bind(...args) {
+    const currentArgs = params.concat(args);
+
     // 处理new操作符，这一步很关键，需要结合new操作符的内部实现来理解
-    // this instanceof bind 可以替换成 this instanceof fn
-    return fn.apply(this instanceof bind ? this : context, params.concat(args));
+    // !!!!注意：这里判断条件可以用 [this instanceof bound] 来代替
+    const thisArg = new.target ? this : context;
+    return fn.apply(thisArg, currentArgs);
+    
+    // if (new.target) {
+    //   const result = fn.apply(this, currentArgs);
+    //   if (Object(result) === result) {
+    //     return result;
+    //   } else {
+    //     return this;
+    //   }
+    // } else {
+    //   return fn.apply(context, currentArgs);
+    // }
   }
   //设置__proto__
   const proto = Object.getPrototypeOf(this);
   Object.setPrototypeOf(bind, proto);
-  
+
   // 设置prototype
   // 这里是判断是否是new操作符的关键
   bind.prototype = Object.create(this.prototype);
   return bind;
-}
+};
 ```
 
 
