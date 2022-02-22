@@ -147,7 +147,7 @@ node中，将事件循环的过程分成6个阶段。按照执行的顺序依次
      - **如果Poll Queue为空**
        - **如果Check Queue中存在回调函数**，eventLoop结束poll阶段，进入check阶段执行Check Queue中的回调函数
        - **如果Check Queue为空**，event loop将阻塞在这个阶段，等待callback被添加到队列并且立即执行。
-   - **当event loop进入poll阶段而且Timer Queue不为空的时候。如果Poll Queue为空的话**，eventLoop会**按照循环的顺序**进去timers阶段，执行Timer Queue中的回调函数。（如果Poll Queue和Timer Queue都不为空的时候，应该会向执行Poll Queue）
+   - **当event loop进入poll阶段而且Timer Queue不为空的时候。如果Poll Queue为空的话**，eventLoop会**按照循环的顺序**进去timers阶段，执行Timer Queue中的回调函数。（如果Poll Queue和Timer Queue都不为空的时候，应该会先执行Poll Queue）
 
 5. check阶段：这个阶段对应的宏任务队列是**Check Queue**，存储的是setImmediate的callback。如果Check Queue不为空，则执行其中的回调函数
 
@@ -157,7 +157,7 @@ node中，将事件循环的过程分成6个阶段。按照执行的顺序依次
 从上面的分析中可以看出，Node环境中存在**4个宏任务队列**，分别是：
 1. Timers Queue
 2. Poll Queue
-3. Chech Queue
+3. Check Queue
 4. Close Queue
 
 Node中还存在**两个微任务队列：**
@@ -200,7 +200,7 @@ setTimeout(()=>{
 
 #### 2.4.5 setTimeout vs setImmediate
 ##### 2.4.5.1 分析之前，首先要明白
-1. 不管在浏览器还是node环境中，**setTimeout和setInterval中的延时，指的是在一段时间之后将对应的回调函数添加到对于的任务队列中，而不是一段时间之后直接执行**。也就是说这个时间是不准确的，如果之前有比较耗时的任务阻塞住eventLoop，那么就会比设定的延时更久才能执行。
+1. 不管在浏览器还是node环境中，**setTimeout和setInterval中的延时，指的是在一段时间之后将对应的回调函数添加到对于的任务队列中，而不是一段时间之后直接执行**。也就是说这个执行时间是不准确的，如果之前有比较耗时的任务阻塞住eventLoop，那么就会比设定的延时更久才能执行。
 
    > 这里实际上**对于setTimeout这类的延时异步任务，是直接放在延时队列中。每次执行完宏任务之后会检验延时队列中是否有到期的任务，有的话就执行**。
 

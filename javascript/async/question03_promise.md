@@ -157,7 +157,7 @@ promise
   });
 ```
 
-第二种方式比第一种更好。因为第二种方式中 catch 还能捕获前面then中抛出的错误。
+第二种方式比第一种更好。因为第二种方式中 catch 还能捕获前面then中抛出的错误。（更加语义化）
 
 **因为Promsie内部的异常具有冒泡的特性，所以只需要在链式调用的最后一个环节添加一个catch方法即可。它可以捕获之前没有被捕获的异常。**
 
@@ -525,7 +525,7 @@ MyPromise.race = function(promiseArr){
 
 ### 2.6 实现Promise.allSettled() 和 Promise.any()
 
-**Promise.allSettled()**：判断所有的Promise是否都完成，all 和 race 都无法办到，ES2020引入
+**Promise.allSettled()**：判断所有的Promise是否都完成（无论成功或失败），all 和 race 都无法办到，ES2020引入
 
 1. 参数和all(...)方法是一样的
 2. **allSettled()方法返回一个新的Promise对象，等参数中所有的Promise都完成之后，这个Promise才完成，而且状态只会是fulfilled。和参数Promise的成功还是失败无关，只看是否完成。**
