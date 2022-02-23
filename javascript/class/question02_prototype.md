@@ -6,14 +6,15 @@
 ## 1.原型和原型对象
 
 ### 1.1 原型对象
-**每一个函数都有一个prototype属性，它表示的是这个函数的原型对象。当使用new操作符来调用这个函数的时候（其实也就是实例化这个类），对应的实例会关联这个原型对象，可以访问原型对象中的属性。这个原型对象就是这个实例的原型**
+**每一个函数都有一个prototype属性（箭头函数除外），它表示的是这个函数的原型对象。当使用new操作符来调用这个函数的时候（其实也就是实例化这个类），对应的实例会关联这个原型对象，可以访问原型对象中的属性。这个原型对象就是这个实例的原型（__proto__）**
 
 **默认情况下，构造函数的原型对象中有一个constructor属性指向对应的构造函数**。但是实际运用中常常手动修改构造函数的prototype属性，但是**忽略了constructor的指向**，会造成关联丢失。
 
 ```js
 function Foo(){}
 Foo.prototype = {
-  a:23
+  a:23,
+  constructor:Foo
 }
 let obj1 = new Foo();
 let obj2 = new Foo();
@@ -176,7 +177,7 @@ obj // {a:1}
 
 2. **默认情况下，所有的函数原型链上都有Function.prototype**。也就是说，所有的函数都继承Function，**其中Object构造函数也属于函数，所以Object函数也继承自Function**。
 
-3. **Function函数的原型对象和原型相同**，比较特殊
+3. **<u>Function函数的原型对象和原型相同</u>**，比较特殊
 
    ```js
    Function.__proto__ === Function.prototype  // true
