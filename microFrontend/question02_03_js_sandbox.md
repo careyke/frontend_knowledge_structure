@@ -324,7 +324,7 @@ export function nextTick(cb: () => void): void {
 }
 ```
 
-> **注意：**这里还原的方案是一个临时方案，某些场景无法覆盖。
+> **注意**：这里还原的方案是一个临时方案，某些场景无法覆盖。
 >
 > 考虑一种情况：当子应用和主应用同步创建`script`标签的时候，主应用创建的`script`标签对应的代码会运行在沙箱环境中。这个是不合适的。（qiankun团队暂时还没有解决这个问题）
 
@@ -616,7 +616,7 @@ function patchDocumentCreateElement() {
 
 代码逻辑比较简单，采用**重写**的形式来劫持`createElement`方法。
 
-针对动态创建的`hijackingTag`元素做的额外操作就是**记录新元素`element`和子应用配置信息`containerConfig`之间的映射关系，**后面插入元素时需要使用。
+针对动态创建的`hijackingTag`元素做的额外操作就是 记录新元素`element`和子应用配置信息`containerConfig`之间的映射关系，后面插入元素时需要使用。
 
 > **注意：**
 >

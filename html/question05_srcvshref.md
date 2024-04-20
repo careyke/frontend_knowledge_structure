@@ -34,7 +34,7 @@ src(source)表示引用外部资源来**替换**当前元素。在请求src资�
 ```
 这里看到的现象就是两个div一开始就渲染出来，图片缓慢的渲染出来。
 
-**script标签中的src指向的脚本资源，如果没有设置defer和async,js文件的加载和执行确实会阻塞dom的构建。**但是这应该是浏览器的策略，而不是src的功能。
+**script标签中的src指向的脚本资源，如果没有设置defer和async，js文件的加载和执行确实会阻塞dom的构建**。但是这应该是浏览器的策略，而不是src的功能。
 
 ```js
 <div style="height: 100px;background-color:aquamarine"></div>

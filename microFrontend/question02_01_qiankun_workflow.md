@@ -270,7 +270,7 @@ function prefetch(entry: Entry, opts?: ImportEntryOpts): void {
 
 ## 3. 加载子应用资源 — import-html-entry
 
-和**`single-spa`的`JS Entry`不一样，`qiankun`加载资源的方式是`HTML Entry`**。
+和`single-spa`的`JS Entry`不一样，`qiankun`加载资源的方式是`HTML Entry`。
 
 对应的方法是`loadApp`，这个方法内容比较多，大致可以分成两个部分：
 
@@ -602,7 +602,7 @@ export async function loadApp<T extends ObjectType>(
 
 上面代码中可以看出，`render`方法在子应用的`single-spa-mount`阶段会被调用。
 
-> `single-spa-moun`t 表示的是single-spa中定义的子应用的mount阶段
+> `single-spa-mount` 表示的是single-spa中定义的子应用的mount阶段
 
 > 对应的源代码可以看[这里](https://github.com/careyke/qiankun/blob/35c354cf137adc1eb159caee7d0bb042ec42edda/src/loader.ts#L166)
 
