@@ -61,7 +61,7 @@ Object.defineProperty(obj,'a',{
 obj.a = 3;
 obj.a // 2
 ```
-可以看出当writable为false时，无法修改属性的值。
+可以看出当 writable为false 时，无法修改属性的值。
 
 #### 3.3 configurable - 默认为false
 只要属性是可配置的，就可以使用 defineProperty(..) 方法来修改属性描述对象。反过来如果属性是不可配置的，那么就不能使用defineProperty来修改属性描述对象。
@@ -85,7 +85,7 @@ Object.defineProperty(obj,'a',{
 obj.a = 10;
 obj.a //2
 ```
-configurable:false的属性的特点：
+configurable:false 的属性的特点：
 - configurable:false是一个**不可逆**的操作
 - **可以将属性的writable由true设置成false，反向则不行。如果writable是true，则可以修改属性的值**。
 - **delete该属性会失效，无法删除。**
@@ -140,9 +140,39 @@ obj.a = 3;
 obj.a //3
 ```
 
+#### 3.6 各个属性的默认值
+
+对象中新增属性的方式有两种：
+
+1. 字面量方式新增
+   - **writable、configurable 和 enumerable 默认值都是 true**
+2. 通过 ```Object.defineProperty``` api来新增
+   - **writable、configurable 和 enumerable 默认值都是 false**。也就是上面各个属性标题中标出来的默认值
+
+这两种方式新增属性时，对应的属性描述对象中各个属性默认值不同。
+
+``````js
+const obj = {}
+
+// 1. 字面量方式
+obj.a = 1;
+console.log(Object.getOwnPropertyDescriptor(obj,'a'));
+// {"value":1,"writable":true,"enumerable":true,"configurable":true}
+
+
+// 2. API方式
+Object.defineProperty(obj,'b',{value:2})
+console.log(Object.getOwnPropertyDescriptor(obj,'b'));
+// {"value":2,"writable":false,"enumerable":false,"configurable":false}
+
+``````
+
+
+
 ### 4.冻结属性和对象
+
 #### 4.1 常量对象 —— 不能配置、不能写
-使用writable:false 和 configurable:false 可以创建常量属性
+使用 writable:false 和 configurable:false 可以创建常量属性。
 
 #### 4.2 禁止扩展 —— 不能增加
 使用 Object.preventExtensions(..)可以使一个对象禁止扩展新属性
@@ -156,7 +186,7 @@ myObject.b; // undefined
 #### 4.3 密封 —— 不能增加、不能配置、可写
 Object.seal(..) 会创建一个“密封”的对象，**这个方法实际上会在一个现有对象上调用 Object.preventExtensions(..) 并把所有现有属性标记为 configurable:false。**
 
-密封之后不仅不能添加新属性，也不能重新配置或者删除任何现有属性(虽然可以 修改属性的值)
+密封之后不仅不能添加新属性，也不能重新配置或者删除任何现有属性（虽然可以修改属性的值）。
 
 #### 4.4 冻结 —— 不能增加、不能配置、不能写
 bject.freeze(..) 会创建一个冻结对象，**这个方法实际上会在一个现有对象上调用 Object.seal(..) 并把所有“数据访问”属性标记为 writable:false，这样就无法修改它们 的值。**
@@ -167,13 +197,13 @@ bject.freeze(..) 会创建一个冻结对象，**这个方法实际上会在一�
 
 
 ### 5.判断属性是否在对象中
-1. in操作符 —— **会将原型链上对象的属性也包含进去。**
+1. in操作符 —— **会将原型链上对象的属性也包含进去**。无论是否可枚举
 2. hasOwnProperty —— 判断属性是否在当前对象上，不包含原型链
 3. Object.keys() —— 获取对象上所有**可枚举**的属性
 4. Object.getOwnPropertyNames(..) —— 获取对象上**所有的**属性，无论是否可枚举
 
 ### 6.遍历对象
-普通对象的遍历：只能使用for..in来遍历**可枚举的**属性名。但是需要注意的是，**for..in会遍历原型链上对象的可枚举属性，所以需要使用hasOwnProperty()方法过滤。**
+普通对象的遍历：只能使用 for..in 来遍历**可枚举的**属性名。但是需要注意的是，**for..in会遍历原型链上对象的可枚举属性，所以需要使用hasOwnProperty()方法过滤。**
 
 对于数组来说，遍历的方式有很多种：
 1. for循环

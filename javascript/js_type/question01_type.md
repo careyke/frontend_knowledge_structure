@@ -33,7 +33,7 @@ typeof null; //"object"
 但是实际上这个是js存在的一个历史遗留bug，修复它会带来更多的bug。可以使用复合条件来准确检测null类型
 ```js
 let t = null;
-console.log(!t && (typeod null === "object")); //true
+console.log(!t && (typeof null === "object")); //true
 ```
 
 ### 2.undefined
@@ -43,7 +43,7 @@ undefined类型表示的是**没有值**，undefined类型也只有一个值，�
 - undefined 指的是从未赋值
 - null 指的是曾赋过值，但是现在没有值
 
-**undefined是一个标识符而不是关键字，所以undefined是可以被当做变量来使用的，是可以重新赋值的，但是是一种很糟糕的用法**。
+**undefined是一个标识符而不是关键字，所以 undefined 是可以被当做变量来使用的，是可以重新赋值的，但是是一种很糟糕的用法**。
 
 **undefined是内置的标识符，它的值为undefined**。可以通过void操作符来得到该值，所以在某些情况下需要使用undefined值的时候，可以用void操作符获取。
 
@@ -168,7 +168,7 @@ if(!Number.isNaN){
 ```js
 0.1 + 0.2  // 0.30000000000000004 不是0.3
 ```
-但是这种精度误差在js上是可以接受的，**在比较很小的值的大小的时候，可以考虑将误差范围考虑进去。**这个精度值是 2^-52，保存在Number.EPSILON中。
+但是这种精度误差在js上是可以接受的，**在比较很小的值的大小的时候，可以考虑将误差范围考虑进去**。这个精度值是 2^-52，保存在Number.EPSILON中。
 ```js
 // 在误差范围内，比较0.1+0.2 和 0.3
 function equal(a,b){
