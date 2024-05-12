@@ -21,11 +21,11 @@ Symbol.toPrimitive对应的值的形式是：`function(hint){}`。
 
 1. 如果对象中**存在Symbol.toPrimitive**方法，就直接执行该方法。
 2. 如果对象中没有定义这个方法，会默认去调用内置的**[[DefaultValue]] (hint)**方法
-  - **如果传入的hint是string**，就执行toString()方法，如果返回值是基本类型就直接返回；如果没有toString()方法或者toString()返回的不是基本类型，就继续执行valueOf()方法
+  - **如果传入的hint是string**，就执行 toString() 方法，如果返回值是基本类型就直接返回；如果没有toString()方法或者toString()返回的不是基本类型，就继续执行 valueOf() 方法
     - 如果valueOf()返回的是基本类型，就直接放回。否则就抛出错误。
   - **如果传入的hint值是number**，就会先执行valueOf()方法，如果返回值是基本类型就直接返回；如果没有valueOf()方法或者valueOf()返回的不是基本类型，就继续执行toString()方法
     - 如果toString()返回的是基本类型，就直接放回。否则就抛出错误。
-  - **当hint的值是default的时候**，对于普通对象，**默认用hint为number的规则执行**。对于Date类型的对象，则使用hint为string的规则执行。
+  - **当hint的值是default的时候**，对于普通对象，**默认用hint为number的规则执行**。对于 Date 类型的对象，则使用hint为string的规则执行。
 
 看图说话：
 ![Jietu20200214-185603.jpg](./images/Jietu20200214-185603.jpg)
@@ -139,7 +139,7 @@ args type | result
 null | false 
 undefined | false
 number | +0,-0,NaN为false,其余都是true
-string | ''为false，其余都是true
+string | ''（空字符串）为false，其余都是true 
 symbol | true
 object | true
 
@@ -190,7 +190,7 @@ Object(123) //Number {123}
  + {a:1} //NaN
 ```
 
-2. 使用parseInt()和parseFloat(),将字符串转化成数字
+2. 使用parseInt()和parseFloat()，将字符串转化成数字
 ```js
 parseInt('123') //123
 parseInt('123ff') // 123
