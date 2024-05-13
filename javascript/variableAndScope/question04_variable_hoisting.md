@@ -107,9 +107,9 @@ b = undefined; //initialize  初始化过程没有被提升
 所以说，**暂时性死区出现的根本原因是变量只经过的创建，还没有初始化，所以无法访问变量**。
 
 ##### 4.1.3 对于const定义的变量来说
-**因为const定义的变量是不可以修改的，所以const定义的变量只有create和initialize的过程，没有assign过程。**
+**因为 const 定义的变量是不可以修改的，所以const定义的变量只有create和initialize的过程，没有assign过程。**
 
-也就是说const定义的变量只能初始化的时候赋值，不会有其他的赋值操作。
+也就是说 const 定义的变量只能初始化的时候赋值，不会有其他的赋值操作。
 
 一张图来解释这几种现象：
 ![hoist01.jpg](./images/hoist01.jpg)
@@ -188,9 +188,9 @@ foo();  //'ok'
 > ```js
 > console.log(foo);  //undefined
 > if(true){
->   var foo = function(){
->     console.log('ok');
->   }
+>     var foo = function(){
+>       console.log('ok');
+>     }
 > }
 > foo();  //'ok'
 > ```
@@ -201,11 +201,11 @@ foo();  //'ok'
 > 'use strict';
 > console.log(foo);  //Uncaught ReferenceError: foo is not defined
 > if(true){
->   function foo(){
->     console.log('ok');
->   }
+>     function foo(){
+>       console.log('ok');
+>     }
 > }
-> foo();  //'ok'
+> foo();  // Uncaught ReferenceError: foo is not defined
 > ```
 
 不同的浏览器对于块中定义函数声明的处理方式是不一样的，很有可能会有**兼容性的问题**。所以很不推荐在块中定义函数声明。而且**目前也没有哪个场景，非要把函数声明在块中**，所以凡是定义在块中的函数声明，都是可以替换掉的，而且会更好。

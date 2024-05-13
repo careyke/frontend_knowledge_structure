@@ -170,6 +170,8 @@ var arrLike={
 
 但是我们常见的**类数组对象 `argument` 是一个迭代器对象**，是可以用扩展运算符转化成数组的。
 
+> 迭代器相关的可以看[深入理解迭代器和Generator](https://github.com/careyke/frontend_knowledge_structure/blob/master/javascript/iterator/question01_generator_iterator.md)
+
 ```js
 function foo(){
   console.log([...arguments]);
