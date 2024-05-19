@@ -70,7 +70,7 @@ o.__proto__ === obj; //true
 o.a; // 2
 ```
 
-3. Object.setPrototypeOf(obj,______proto______)
+3. Object.setPrototypeOf(obj, ______proto______)
 ```js
 var obj = {
      a:2
@@ -98,6 +98,9 @@ o.a; // 2
 
 注意：
 **对象的______proto______属性并不是存放在对象上的属性，而是对象原型链上的属性**，具体是**Object.prototype对象上的getter和setter属性**。
+
+顶层统一代理
+
 ![prototype01.jpg](./images/prototype01.jpg)
 
 #### 1.2.3 原型对于属性赋值操作的屏蔽现象
@@ -177,7 +180,7 @@ obj // {a:1}
 
 2. **默认情况下，所有的函数原型链上都有Function.prototype**。也就是说，所有的函数都继承Function，**其中Object构造函数也属于函数，所以Object函数也继承自Function**。
 
-3. **<u>Function函数的原型对象和原型相同</u>**，比较特殊
+3. **Function函数的原型对象和原型相同**，比较特殊
 
    ```js
    Function.__proto__ === Function.prototype  // true
@@ -191,6 +194,6 @@ obj // {a:1}
 
 
 ### 2.3 原型链的应用
-1. `for..in` 遍历对象的时候，除了遍历对象本身之外，还会遍历对象原型链上的属性
-2. `in操作符`判断属性是否在对象上的时候，也会搜索对象的原型链
+1. `for..in` 遍历对象的时候，除了遍历对象本身之外，还会遍历对象原型链上的**可枚举**属性
+2. `in操作符`判断属性是否在对象上的时候，也会搜索对象的原型链。（无论是否可枚举）
 

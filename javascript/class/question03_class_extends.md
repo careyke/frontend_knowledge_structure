@@ -61,10 +61,11 @@ Parent.prototype.eat=function(){
 function Son(name){
   this.name = name;
 }
+
+Son.prototype = new Parent();
 Son.prototype.sing=function(){
   console.log('sing a song');
 }
-Son.prototype = new Parent();
 
 var s1 = new Son('jack');
 var s2 = new Son('mary');
@@ -417,7 +418,7 @@ function (_Parent) {
 ```
 上面代码可以看出，super方法的实现有两个步骤：
 
-1. 设置 `Son.__proto__ = Parent`
+1. 设置 `Son.__proto__ = Parent`，方便在 Son 构造函数中调用 Parent 的构造函数。
 
    > 这里说明了一个很重要的点：
    >

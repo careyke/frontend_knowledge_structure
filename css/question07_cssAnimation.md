@@ -65,7 +65,7 @@ transition-delay | 动画的延时时间，过多久之后执行动画 | number[
 
 
 ### 3.animation
-animation是transition的真强版，用来实现复杂的动画。**animation动画中可以定义多个关键帧，相邻两个关键帧之间都会产生过渡动画**，意味着animation可以实现更加复杂的动画效果。
+animation是transition的增强版，用来实现复杂的动画。**animation动画中可以定义多个关键帧，相邻两个关键帧之间都会产生过渡动画**，意味着animation可以实现更加复杂的动画效果。
 
 animation由于可定义的关键帧比较多，所以**采用`keyframes`关键字来定义动画的关键帧**。
 
@@ -105,11 +105,11 @@ animation-duration | 一次完整动画的持续时间
 animation-timing-function | 动画中间帧的计算函数，规则动画速度曲线 
 animation-delay | 动画执行之前的延时时间
 animation-iteration-count | **动画的执行次数**。可选具体数值或者infinite
-animation-direction | **设置动画的播放方向（keyframes定义的时间轴）**。normal(按时间轴顺序),reverse(时间轴反方向运行),alternate(轮流，即来回往复进行),alternate-reverse(动画先反运行再正方向运行，并持续交替运行)
+animation-direction | **设置动画的播放方向（keyframes定义的时间轴）**。normal(按时间轴顺序)，reverse(时间轴反方向运行)，alternate(轮流，即来回往复进行)，alternate-reverse (动画先反运行再正方向运行，并持续交替运行) 
 animation-fill-mode | **控制动画结束后元素的样式**，有四个值：none(回到动画没开始时的状态)，forwards(动画结束后动画停留在结束状态)，backwords(动画回到第一帧的状态)，both(根据animation-direction轮流应用forwards和backwards规则)，注意与iteration-count不要冲突(动画执行无限次)
 aniamtion-play-state | **控制元素动画的播放状态**，通过此来控制动画的暂停和继续，两个值：running(继续)，paused(暂停)
 
-#### animation动画的优点，对比与transition动画
+#### animation动画的优点，与transition动画对比
 1. 实现简单，复杂的动画也可以简单的实现，animation可以定义多个关键帧
 2. 动画可以重复执行
 3. 动画可以暂停和继续播放

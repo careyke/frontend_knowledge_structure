@@ -38,14 +38,13 @@
 
 ### box-sizing属性
 这个属性**定义了渲染引擎如何来计算一个元素的总宽度和总高度**。
-1. content-box : w3c盒模型的默认值，width和height属性表示的只是盒模型中content区域的宽高。盒子的总宽高还需要加上padding border和margin。
-2. border-box : IE盒模型的默认值，width和height属性表示的是盒模型中border+padding+content区域的值。盒子的总宽高加上margin就好。
+1. **content-box** : w3c盒模型的默认值，width和height属性表示的只是盒模型中content区域的宽高。盒子的总宽高还需要加上padding、border和margin。
+2. **border-box** : IE盒模型的默认值，width和height属性表示的是盒模型中border+padding+content区域的值。盒子的总宽高加上margin就好。
 
-在现实使用中，可以通过定义box-sizing来改变盒模型的类型。
+在现实使用中，可以通过定义 box-sizing 来改变盒模型的类型。
 
 ### 参考文章
 1.  [CSS中的盒模型分类](https://blog.csdn.net/jingtian678/article/details/75452444)
-
 
 
 

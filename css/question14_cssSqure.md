@@ -46,7 +46,7 @@
 这种方法很简单，缺点就是可能会有兼容性问题。
 
 #### 2.使用margin/padding
-对于margin和padding的长度中有一点很重要：**那就是margin和pading的百分比值相对于的是父元素content区域的width**。而不是top,bottom相对于父元素的height，left,right相对于父元素的width。
+对于margin和padding的长度中有一点很重要：**那就是margin和pading的百分比值相对于的是父元素 content区域 的width （更准确的说法是相对于[包含块](https://developer.mozilla.org/zh-CN/docs/Web/CSS/Containing_block)的宽度）**。而不是top,bottom相对于父元素的height，left,right相对于父元素的width。
 
 下面两个方法都是根据这个原理来实现的。
 

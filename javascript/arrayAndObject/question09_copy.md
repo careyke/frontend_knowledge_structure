@@ -7,7 +7,7 @@
 - 浅拷贝：只拷贝对象的第一层子元素
 - 深拷贝：对象所有层级的子元素都拷贝一份
 
-注：下面所有方案的实现中，都只考虑普通对象和数组，没有对特殊对象做额外的处理
+注：下面所有方案的实现中，都只考虑**普通对象和数组**，没有对特殊对象做额外的处理
 
 
 
@@ -141,43 +141,43 @@ var newArr5 = arr.reduce((a,v)=>{
 
 ### 2.1 深拷贝的关键功能
 
-1. **是否能够拷贝所有类型的属性**
+#### 2.1.1 **是否能够拷贝所有类型的属性**
 
-   ```js
-   function testSpecial(deepClone){
-     var specialObj={
-   		a:1,
-     	b:null,
-     	c:undefined,
-     	d:{v:2}
-   	}
-     return deepClone(specialObj);
-   }
-   ```
+```js
+function testSpecial(deepClone){
+  var specialObj={
+		a:1,
+  	b:null,
+  	c:undefined,
+  	d:{v:2}
+	}
+  return deepClone(specialObj);
+}
+```
 
-2. **相同引用**是否能够保留
+#### 2.1.2 **相同引用**是否能够保留
 
-   ```js
-   function testSameQuote(deepClone){
-     var obj = {v:1}
-     var o = {
-   		a:obj,
-     	b:obj
-   	}
-     var newO = deepClone(o);
-     return newO.a === newO.b;
-   }
-   ```
+```js
+function testSameQuote(deepClone){
+  var obj = {v:1}
+  var o = {
+		a:obj,
+  	b:obj
+	}
+  var newO = deepClone(o);
+  return newO.a === newO.b;
+}
+```
 
-3. **循环引用**是否能够保留
+#### 2.1.3 **循环引用**是否能够保留
 
-   ```js
-   function testCircleQuote(deepClone){
-     var a={}
-   	a.b = a;
-     return deepClone(a); // 不会陷入死循环，超出时间限制
-   }
-   ```
+```js
+function testCircleQuote(deepClone){
+  var a={}
+	a.b = a;
+  return deepClone(a); // 不会陷入死循环，超出时间限制
+}
+```
 
 
 
@@ -298,7 +298,7 @@ pref(deepCloneSimple);
 注意：
 
 1. **WeakMap 弱引用的只是键名，而不是键值。键值依然是正常引用**
-2. **WeakMap的key只能是对象**
+2. **WeakMap 的 key 只能是对象**
 
 #### 2.5.2 代码实现
 

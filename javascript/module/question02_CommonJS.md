@@ -6,7 +6,7 @@ CommonJS是**同步引入**的模块化方案，只适用于服务端。
 
 1. **每个文件就是一个模块**
 2. 每个模块上下文中都存在require方法，module对象和exports对象
-   - require方法用来引入依赖模块的exports属性
+   - require方法用来引入依赖模块的 exports 属性
    - module对象表示模块本身，**每个模块就是一个对象**
    - exports对象表示该模块导出的内容，exports是module中的一个属性
 3. require方法的参数可以是模块标识，或者相对路径、绝对路径
@@ -99,8 +99,8 @@ var a = 1;
 var b = 2;
 
 // 第一种方式
-export.a = a;
-export.b = b;
+exports.a = a;
+exports.b = b;
 //可以使用
 
 // 第二种方式
@@ -118,13 +118,15 @@ exports={
 // 无效，取到的是空对象{}
 ```
 
-上面第三种方式不行就是因为：**赋值操作改变的是形参exports的指向，并没有改变module对象中的exports属性**
+上面第三种方式不行就是因为：**赋值操作改变的是形参 exports 的指向，并没有改变module对象中的exports属性**
 
 
 
 ## 4. CommonJS中的循环引用的规则
 
-**CommonJS中是引入一个模块的时候，其中引入的是module对象中的exports属性，这个属性默认值是`{}`，和模块代码是否执行完没有关系。**所以在循环引用的时候，仍然是遵循此规则分析
+**CommonJS中是引入一个模块的时候，其中引入的是module对象中的exports属性，这个属性默认值是`{}`，和模块代码是否执行完没有关系。**
+
+所以在循环引用的时候，仍然是遵循此规则分析
 
 ```js
 // a.js

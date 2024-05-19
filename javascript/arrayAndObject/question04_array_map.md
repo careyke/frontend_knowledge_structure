@@ -38,8 +38,8 @@ Array.prototype.myMap = function(fn, context){
 
 
 
-[1,2,3].map(v=>2*v); // [2,4,6]
-[1,2,,3].map(v=>2*v); // [2, 4, empty, 6]
+[1,2,3].myMap(v=>2*v); // [2,4,6]
+[1,2,,3].myMap(v=>2*v); // [2, 4, empty, 6]
 
 var likeArr={
   0:1,

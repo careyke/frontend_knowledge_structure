@@ -24,7 +24,7 @@ function isArrayLike(o) {
 
 常见的类数组对象有：
 
-1. 函数中的arguments对象
+1. 函数中的 arguments 对象
 2. 获取DOM对象的方法的返回值，比如 `document.getElementsByClassName()`
 
 

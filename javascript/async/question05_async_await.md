@@ -49,12 +49,12 @@ async function foo(){
   var a = await p1;
   console.log(a);
   var b = await p2;
-  console.log(b);
+  console.log('foo',b);
   return 'ok';
 }
 var p = foo(); 
-p.then((data)=>{console.log(data)}).catch((err)=>{console.log(err)});
-// 123 -> 'error'
+p.then((data)=>{console.log('then',data)}).catch((err)=>{console.log('catch',err)});
+// 123 -> 'catch error'
 
 // 例子三
 async function foo(){
@@ -106,7 +106,9 @@ p.then((data)=>{console.log(data)}).catch((err)=>{console.log(err)});
    foo().catch((err)=>{console.log(err)}); // error
    ```
 
-3. **await语句后面的Promise如果有异常的话，在函数体上也可以捕获到，也能中断函数体的执行**。这个和Generator函数是不一样，**async中给这个Promise附加了一些操作，在Promise后面增加一个catch语句捕获住错误，然后通过throw方法抛到async函数体内。**
+3. **await语句后面的Promise如果有异常的话，在函数体上也可以捕获到，也能中断函数体的执行**。这个和Generator函数是不一样的。
+
+   **async中给这个Promise附加了一些操作，在Promise后面增加一个catch语句捕获住错误，然后通过throw方法抛到async函数体内。**
 
    ```js
    async function foo(){

@@ -23,7 +23,7 @@ var g = gen();
 g.next(); // {value: 'a',done: false}
 g.next(); // {value: 'b',done: false}
 g.next(); // {value: 'c',done: false}
-g.next(); // {value: 'd',done: false}
+g.next(); // {value: 'd',done: true}
 ```
 
 
@@ -92,6 +92,7 @@ try{
 g.next(); // err
 g.next(); // {value:undefined, done:true}
 
+
 function* gen(){
   var a = yield 1;
   throw 'err';
@@ -111,7 +112,7 @@ g.next(); //{value:undefined, done:true} 因为没有在内部捕获
 Generator的遍历器对象中提供了一个throw()方法，用来**在函数体外抛出错误，在函数体内捕获。**
 
 1. throw方法抛出的错误可以在函数体内捕获，相当于**将上一个yield语句替换成一个抛出异常的语句**。如果内部没有捕获，则函数体的执行提前结束。
-2. throw()抛出的错误也可以在函数体外捕获
+2. throw()抛出的错误也可以在函数体外捕获，相当于上面函数体抛错的情况。
 3. **throw()语句也会开启下一个函数体片段的执行**，但是无法第一个就使用throw开始函数体执行
 
 ```js
@@ -257,7 +258,7 @@ g.next();
 
 **协程 VS 多线程**
 
-1. 协程之间的切换由程序自身控制，是子程序之前的切换。**切换的开销远远小于线程之间的切换**
+1. 协程之间的切换由程序自身控制，是子程序之间的切换。**切换的开销远远小于线程之间的切换**
 2. 协程不需要锁，因为都是同一个线程中，同一时间只执行一个协程。**不存在变量冲突**
 
 

@@ -111,7 +111,7 @@ for(let v of arr){
 从上面的分析中可以看出，**迭代器和Generator函数是非常相似的**
 
 1. 调用之后都是返回一个**遍历器对象**
-2. 遍历器对象中都实现了next和return方法，而且作用都是相似的，next方法用来遍历对象，return方法用来终止遍历。
+2. 遍历器对象中都实现了 next 和 return 方法，而且作用都是相似的，next方法用来遍历对象，return方法用来终止遍历。
 3. next方法和return方法的返回值的结构也是一样的
 
 所以，**迭代器最完美的方式是用Generator函数来实现。但是不能说迭代器就是Generator函数，因为使用普通的函数也能实现。**
@@ -128,7 +128,7 @@ arr[Symbol.iterator].constructor.name === 'GeneratorFunction'; //false
 
 上面代码可得，数组的迭代器不是Generator函数，也就是说，迭代器并不都是使用Generator实现的。
 
-总结迭代器和Generator之前的关系：
+总结迭代器和 Generator 之间的关系：
 
 - 迭代器不一定是生成器
 

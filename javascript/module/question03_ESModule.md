@@ -41,14 +41,6 @@ console.log(x); //1
 
 **虽然在import关键字和export关键字后面有一个大括号，但是其实并不是一个对象，而是一个接口列表，内部的接口和模块内部的变量是一对一的关系。以此来建立引用关系。**
 
-```js
-function add(){}
-export {add:add} //会报错
-
-//只能使用
-export function add(){}
-```
-
 export语句的特点：
 
 **export关键字后面只能是变量声明语句，或者是接口列表。不能是值**
@@ -73,7 +65,7 @@ export default function add(){}
 export default const b = 3;  //会报错
 ```
 
-**因为export default语句内部会创建给一个default变量作为接口，并将default变量赋值为后面的值。所以后面不能是变量声明语句**
+**因为export default语句内部会创建给一个 default 变量作为接口key，并将default变量赋值为后面的值。所以后面不能是变量声明语句**
 
 ```js
 var a = 1;

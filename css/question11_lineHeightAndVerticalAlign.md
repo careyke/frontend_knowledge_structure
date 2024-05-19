@@ -4,7 +4,7 @@
 之所以要将line-height和vertical-align拿出来一起分析，虽然这两个属性看起来没有关系，但是实际上这两个属性内部的工作原理是很相似的，都是**基于line-box来工作**的。
 
 ### 1.line-box深度分析
-元素内容中的每一行都会形成一个line-box，每一个line-box都有4条关键的线，类似于小写的拼音作业本。直接看下图
+元素内容中的每一行都会形成一个line-box，每一个line-box都有4条关键的线，类似于小学的拼音作业本。直接看下图
 ![linebox.jpg](./images/linebox.jpg)
 
 图中可以看出：
@@ -24,7 +24,7 @@
 4. containing box：包裹所有line box的各自就叫containing box，其实就是元素盒子的内容区域。
 
 ### 3.line-height属性
-line-height属性设置的是line box的高度。**对于非替换的inline元素，line-height设置的就是当前line box的高度。而对于块级元素的来说，line-height设置的是line box的最小高度。**
+line-height 属性设置的是 line box 的高度。**对于非块级的inline元素，line-height设置的就是当前line box的高度。而对于块级元素的来说，line-height设置的是line box的最小高度。**
 
 #### 1.line-height的取值
 1. normal：默认值。合适的line-height，尽可能占据最小的高度。

@@ -43,7 +43,7 @@ while(true){
 
 JS引擎执行到异步任务的时候，会将异步任务暂时挂起。这里的**挂起指的是将异步任务的回调函数暂存在某个地方**。
 
-**宿主环境中提供了宏任务队列和微任务队列来存放这些回调函数。**也就是说，异步任务分为宏任务和微任务
+**宿主环境中提供了宏任务队列和微任务队列来存放这些异步任务。**也就是说，异步任务分为宏任务和微任务
 
 #### 2.2.1 宏任务（Task）
 1. script(整体代码)
@@ -160,7 +160,7 @@ node中，将事件循环的过程分成6个阶段。按照执行的顺序依次
 3. Check Queue
 4. Close Queue
 
-Node中还存在**两个微任务队列：**
+Node中还存在**2个微任务队列：**
 1. 微任务队列(micro Queue)：普通的微任务队列。
 2. nextTick Queue：**这个微任务队列会在普通的微任务队列之前执行**。（优先级高）
 
@@ -232,7 +232,7 @@ setImmediate(function immediate () {
   console.log('immediate');
 });
 ```
-上述代码的执行顺序是不确定的，因为setTimeout在timers阶段执行，setImmediate在check阶段执行。两者的顺序取决于机器的性能。**setTimeout(fn,0)实际就是setTimeout(fn,1)，系统在进入eventLoop也是需要时间的**
+上述代码的执行顺序是不确定的，因为setTimeout在timers阶段执行，setImmediate在check阶段执行。两者的顺序取决于机器的性能。**setTimeout(fn,0)实际就是setTimeout(fn,1)，系统在进入eventLoop也是需要时间的（可以理解为执行当前tick的同步代码）**
 - **如果进入eventLoop耗费的时间大于1ms**，则进入timers阶段的时候，Timers Queue已经有任务，直接执行即可。此时setTimeout先执行
 - **如果进入eventLoop耗费的时间小于1ms**，则进入timers阶段的时候，Timers Queue为空。继续进入下一个阶段，直到check阶段中执行setImmediate。此时setImmediate先执行
 

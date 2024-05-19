@@ -42,7 +42,7 @@ span{
 ```
 
 
-#### 3.父元素使用font-size: 0px。这种情况下空白字符的宽度为0
+#### 3.父元素使用font-size: 0px。这种情况下空白字符的宽度为0（推荐）
 ```js
 .contianer{
   font-size:0px

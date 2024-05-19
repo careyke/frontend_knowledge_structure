@@ -4,11 +4,11 @@ BFC(Block Formatting Context) —— 块级格式化上下文，是**页面中�
 
 **BFC规定的规则是针对内部的Block-level box，对于Inline-level box是无效的**。
 
-FC(Formatting Context) —— **格式化上下文，也页面渲染区域的单位，是页面中一个独立的渲染区域和布局区域。定义了内部子元素的布局规则**。按照子元素的类型的不同，可以分为BFC，IFC（行级格式化上下文）,FFC（自适应格式化上下文），GFC（网格布局格式化上下文）
+FC(Formatting Context) —— **格式化上下文，是页面渲染区域的单位，是页面中一个独立的渲染区域和布局区域。定义了内部子元素的布局规则**。按照子元素的类型的不同，可以分为BFC，IFC（行级格式化上下文）,FFC（自适应格式化上下文），GFC（网格布局格式化上下文）
 
 ### 触发BFC的条件（条件很多，只列举常用的）
 1. 根元素，即html元素
-2. overflow不为visible
+2. overflow 不为 visible
 3. float不为none
 4. position属性为absolute或fixed
 5. display为inline-block、table-cell、table-aption
@@ -17,7 +17,7 @@ FC(Formatting Context) —— **格式化上下文，也页面渲染区域的单
 ### BFC定义的规则
 1. BFC是页面布局中的一个独立区域，内部元素的布局不会影响到外部元素，反之亦然。
 2. 内部的Block-level box会在垂直方向上一个一个放置。
-3. 属于同一个BFC中的两个相邻的box的margin会发生重叠
+3. **属于同一个BFC中的两个相邻的box的margin会发生重叠**
 4. BFC内部的子元素不会超过它的包含块
 5. **BFC的区域不会和float区域发生重叠**
 6. **BFC区域在计算高度的时候，会包含其中的float元素的高度**

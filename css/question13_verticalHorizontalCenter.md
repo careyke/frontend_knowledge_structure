@@ -56,7 +56,7 @@ text-align: center;
 ```
 
 ### 2.垂直居中
-#### 子元素的行内元素（inline,inline-block）
+#### 子元素是行内元素（inline,inline-block）
 1. 父元素有确定的高度，使用line-height + vertical-align
 ```css
 .father{
@@ -126,27 +126,27 @@ transform: translateY(-50%);
 1. 父元素有确定的高度：text-align + vertical + line-height
 ```css
 .father{
-height: 100px;
-line-height: 100px;
-text-align: center;
+	height: 100px;
+	line-height: 100px;
+  text-align: center;
 }
 .son{
-vertical-align: middle;
+	vertical-align: middle;
 }
 ```
 2. 父元素的高度不确定：text-align + vertical + 伪元素
 ```css
 .father{
-text-align: center;
+	text-align: center;
 }
 .father::after{
-display:inline-block;
-content: '';
-height: 100%;
-vertical-align: middle;
+	display:inline-block;
+	content: '';
+	height: 100%;
+	vertical-align: middle;
 }
 .son{
-vertical-align: middle;
+	vertical-align: middle;
 }
 ```
 

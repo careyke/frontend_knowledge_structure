@@ -90,7 +90,7 @@ readFile('1.json').then((data)=>{
 
 Promise能够链式调用的原因是：
 
-1. then方法返回一个Promise实例，也就是说then方法内部会创建一个新的Promise实例
+1. then方法**返回一个新的Promise实例**，也就是说then方法内部会创建一个新的Promise实例
 2. then方法中的回调函数有**返回值穿透**的特点
 
 then内部创建的Promise实例的状态变化规则：
@@ -421,7 +421,7 @@ p.finally(()=>{
 
 2. 参数有三种类型
 
-   - Promise对象 —— 直接返回这个promise对象
+   - Promise对象 —— 直接返回这个promise对象，即便这个 promise 对象状态是rejected。
 
    - thenable对象 —— **返回一个Promise对象，会执行thenable对象中的then方法，设置Promise的状态和决议值**。
 
@@ -564,25 +564,50 @@ MyPromise.allSettled = function(promiseArr){
 1. 参数和all()方法一致
 
 ```js
-MyPromise.any = function(promiseArr){
-  return new MyPromise(function(resolve, reject){
-    const result = [];
-    const len = promiseArr.length;
-    let count = 0;
-    promiseArr.forEach((promise, index) => {
-      MyPromise.resolve(promise).then(
+MyPromise.any = function (promises) {
+  const len = promises.length;
+  const errors = [];
+  let count = 0;
+  let isFinished = false;
+
+  return new MyPromise((resolve, reject) => {
+    promises.forEach((p, index) => {
+      MyPromise.resolve(p).then(
         (value) => {
           resolve(value);
+          isFinished = true;
         },
         (reason) => {
-          result[index] = value;
+          if (isFinished) return;
+          errors[index] = reason;
           count++;
+
           if (count === len) {
-            reject(reason);
+            const error = new AggregateError(errors.filter(Boolean));
+            reject(error);
           }
         }
       );
     });
-  })
-}
+  });
+};
 ```
+
+
+
+### 2.7 实现Promise.try
+
+**Promise.try(fn)**: 用来将 fn 的执行结果包装成一个 Promise 对象。
+
+好处：[Promise.try](https://es6.ruanyifeng.com/#docs/promise#Promise-try)
+
+- 统一同步和异步的异常处理，都可以通过 Promise.catch 来捕获。
+
+``````javascript
+MyPromise.try = function (fn) {
+  return new MyPromise((resolve) => {
+    resolve(fn());
+  });
+};
+``````
+
