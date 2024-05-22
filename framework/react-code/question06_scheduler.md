@@ -48,7 +48,7 @@ channel.port1.onmessage = performWorkUntilDeadline;
 1. 使用宏任务代替`requestIdleCallback`来调度任务，能保证触发频率的稳定性
 2. 在每帧中固定执行的时间，最大程度上实现了**空闲时间调度**的效果
 
-> `Scheduler`中是先执行任务，然后再将主线程交给UI渲染线程
+> `Scheduler`中是先执行任务，然后再将主线程交给UI渲染线程，更加类似 requestAnimationFrame
 >
 > `requestIdleCallback`中则是先执行UI渲染线程，然后判断当前帧是否有剩余时间，如果有剩余时间再执行任务
 

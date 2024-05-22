@@ -102,7 +102,7 @@ otherWindow.postMessage(message, targetOrigin, [transfer]);
 - otherWindow：**指的就是要接受消息的那个窗口**。这个目标窗口通常是以iframe或者window.open()的形式嵌套在当前窗口，使得当前窗口能够获得目标窗口的引用，从而向目标窗口发送消息
 
 - message：指的是发送给目标窗口的消息，通常是String或者Object
-- targetOrigin：**通过窗口的origin属性来指定哪些窗口能接收到消息事件，如果目标窗口的协议、主机或端口有一个和origin不相同，则消息就不会发送**。origin可以是具体的url或者`'*'`，`*`表示所以的窗口都可以接收到消息，及目标窗口肯定可以接收到消息。
+- targetOrigin：**通过窗口的origin属性来指定哪些窗口能接收到消息事件，如果目标窗口的协议、主机或端口有一个和origin不相同，则消息就不会发送**。origin可以是具体的url或者`'*'`，`*`表示所以的窗口都可以接收到消息，即目标窗口肯定可以接收到消息。
 
 ### 2.1 发送消息
 
@@ -138,8 +138,10 @@ window.addEventListener('message',(event)=>{
 })
 ```
 
+event对象分析：
+
 - data属性：表示接收的数据
-- origin属性：表示调用 `postMessage` 时消息发送方窗口的 origin，协议、域名和端口
+- origin属性：表示调用 `postMessage` 时消息发送方窗口的 origin，协议、域名和端口。
 - source属性：表示发送消息的窗口对象的引用，可以使用这个属性在不同origin之间双向传递信息
 
 
@@ -175,17 +177,21 @@ CORS分成简单请求和非简单请求
 
 1. Access-Control-Allow-Origin：**这个字段是同意跨域请求时，响应头中必须包含的。表示服务器允许跨域请求的源的范围。**也可以是一个`*`，表示所有源都可以访问该服务
 2. Access-Control-Allow-Credentials：可选字段。boolean类型的值，表示是否可以发送Cookie。默认情况下，Cookie不包含在CORS中，设置true则表示允许携带Cookie。（这个值也只能设为true，如果服务器不要浏览器发送Cookie，删除该字段即可）
-3. Access-Control-Expose-Headers：可选字段。CORS请求时，XMLHttpRequest对象的getResponseHeader()方法只能拿到6个基本字段：Cache-Control、Content-Language、Content-Type、Expires、Last-Modified、Pragma。**如果想拿到其他字段，就必须在Access-Control-Expose-Headers里面指定。**
+3. Access-Control-Expose-Headers：可选字段。CORS请求时，XMLHttpRequest对象的 getResponseHeader() 方法只能拿到6个基本字段：Cache-Control、Content-Language、Content-Type、Expires、Last-Modified、Pragma。**如果想拿到其他字段，就必须在Access-Control-Expose-Headers里面指定。**
 
 #### 发送Cookie
 
 CORS请求中，如果需要携带Cookie，除了响应头中携带`Access-Control-Allow-Credentials：true`字段之外，还需要请求头中也设定`withCredentials:true`。如此才可以携带Cookie
 
-如果需要发Cookie到后端，则`Access-Control-Allow-Origin`字段不能为`*` ，必须是明确的地址。**此外Cookie是遵循同源策略的，请求哪个源就只能携带该源下的Cookie，而不能携带其他源的Cookie。**
+如果需要发Cookie到后端，则`Access-Control-Allow-Origin`字段不能为`*` ，必须是明确的地址。
+
+**此外Cookie是遵循同源策略的，请求哪个源就只能携带该源下的Cookie，而不能携带其他源的Cookie。**
 
 > 补充：
 >
-> 这里需要描述一下同站和同源的区别
+> 这里需要描述一下同站和同源的区别。
+>
+> 参考[同源、跨域、同站、跨站、Cookie访问限制](https://juejin.cn/post/7233698667848777787)
 
 
 
@@ -194,7 +200,7 @@ CORS请求中，如果需要携带Cookie，除了响应头中携带`Access-Contr
 非简单请求的特点：**满足其中一个即可**
 
 1. 使用特殊的请求方法，比如PUT，DELETE等
-2. Content-Type为application/json
+2. **Content-Type 为 application/json**
 
 非简单请求中，在正式请求之前，会先发送一次**预检请求**
 
@@ -236,7 +242,7 @@ var xhr = new XMLHttpRequest();
 // 前端开关：浏览器是否读写cookie
 xhr.withCredentials = true;
 
-// 访问http-proxy-middleware代理服务器
+// 访问 http-proxy-middleware 代理服务器
 xhr.open('get', 'http://www.domain1.com:3000/login?user=admin', true);
 xhr.send();
 ```
