@@ -37,12 +37,12 @@
 
 其中**节点的尺寸有稳定和不稳定**两种，可以将虚拟列表分成**稳定的虚拟列表**和**不稳定的虚拟列表**。
 
-1. **稳定**的虚拟列表计算的过程比较简单，可以参考代码[**VirtualizedComponent.tsx**](https://github.com/careyke/react-virtualized-core/blob/main/src/core/VirtualizedComponent.tsx)
-2. **不稳定**的虚拟列表计算的过程比较复杂，笔者参考了 [`react-window`](https://github.com/bvaughn/react-window) 中的实现，可以参考代码[**VariableSizeVirtualizedComponent.tsx**](https://github.com/careyke/react-virtualized-core/blob/main/src/core/VariableSizeVirtualizedComponent.tsx)
+1. **稳定**的虚拟列表计算的过程比较简单，可以参考代码 [**VirtualizedComponent.tsx**](https://github.com/careyke/react-virtualized-core/blob/main/src/core/VirtualizedComponent.tsx)
+2. **不稳定**的虚拟列表计算的过程比较复杂，笔者参考了 [`react-window`](https://github.com/bvaughn/react-window) 中的实现，可以参考代码 [**VariableSizeVirtualizedComponent.tsx**](https://github.com/careyke/react-virtualized-core/blob/main/src/core/VariableSizeVirtualizedComponent.tsx)
 
 具体的实现步骤笔者在这里就不详细描述了，大家可以参考`react-window`的源码或者这篇文章：[再谈前端虚拟列表的实现](https://zhuanlan.zhihu.com/p/34585166)，作者写得非常好。
 
-这里笔者主要是想详细讲解一下在`react-window`之上的进一步的优化方案。
+这里笔者主要是想详细讲解一下在 `react-window` 之上的进一步的优化方案。
 
 
 
@@ -230,7 +230,7 @@ export const useKeyIndex = (
 
 ## 3. 总结
 
-整体优化的思路主要是围绕着`key`值来进行的，相对是比较简单的。笔者在第一家公司的时候有幸接触到了`Ag-grid`，其内部的优化思路大概就是这种方式。
+整体优化的思路主要是围绕着`key`值来进行的，相对是比较简单的。笔者在第一家公司的时候接触到了`Ag-grid`，其内部的优化思路大概就是这种方式。
 
 笔者写的源代码可以看[这里](https://github.com/careyke/react-virtualized-core)
 

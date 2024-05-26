@@ -244,7 +244,7 @@ if (shouldUpdate) {
 
 那么`flushPassiveEffects`方法主要做了什么工作？`Passsive flag`又是何时绑定上的？
 
-> **注意：**
+> **注意：**
 >
 > 调度`useEffect`的优先级是`NormalSchedulerPriority`，说明**这个任务并不用一个高优先级的任务，是可以被打断执行的**。
 >

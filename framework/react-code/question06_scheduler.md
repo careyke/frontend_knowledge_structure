@@ -73,7 +73,7 @@ port.postMessage(null);
 // setTimeout
 ```
 
-`setTimeout(fn,0)`虽然语义上立马将`fn`插入宏任务队列，但是实际上由于其内部有一些运算逻辑，比稍微慢一点，大约是`2ms`。
+`setTimeout(fn,0)`虽然语义上立马将`fn`插入宏任务队列，但是实际上由于其内部有一些运算逻辑，比稍微慢一点，大约是`1ms`。
 
 
 

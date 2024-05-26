@@ -53,7 +53,9 @@ Hooks出现之前，`FunctionComponent`表示的是没有内部状态和副作�
 
 在`FunctionComponent`中，`Hooks`的加入解决了状态复用成本大和关注点分离的问题，然后`function`本身也比`class`更容易理解和使用。
 
-所以推荐大家使用`FunctionComponent`（笔者自从Hooks出来之后，基本就没有使用过`ClassComponent`）
+所以推荐大家使用`FunctionComponent`
+
+> 笔者自从Hooks出来之后，基本就没有使用过`ClassComponent`
 
 
 

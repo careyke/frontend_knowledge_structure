@@ -264,7 +264,7 @@ function commitAttachRef(finishedWork: Fiber) {
 
 所以在一次更新中，**会优先执行销毁节点的`useEffect`逻辑，执行的方向是先父后子。然后执行更新节点的`useEffect`逻辑，执行的顺序是先子后父。**
 
-同理，对应`useLayoutEffect`和`componentWillUnmount、componentDidMount`是执行顺序也是一样的。（）
+同理，对应`useLayoutEffect`和`componentWillUnmount、componentDidMount`是执行顺序也是一样的。
 
 
 
@@ -282,7 +282,7 @@ function commitAttachRef(finishedWork: Fiber) {
 
 > **？？？**
 >
-> 这里笔者有一点**疑惑**，在源代码的逻辑中，切换`Fiber Tree`的操作放在这里与否，对于`componentDidMount`中获取子元素DOM节点并没有什么影响。
+> 这里笔者有一点**疑惑**，在源代码的逻辑中，切换`Fiber Tree`的操作放在这里与否，对于`componentDidMount`中获取子元素DOM节点并没有什么影响。
 >
 > **`componentDidMount`中获取到的始终是更新之后的DOM节点。**
 

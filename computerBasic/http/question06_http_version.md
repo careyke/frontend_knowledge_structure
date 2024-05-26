@@ -79,6 +79,7 @@ http/2.0版本相对于1.1版本来说是一个巨大的提升
 
 ## 参考文章
 
-1. [计算机网络面试（12）HTTP 各版本差异](https://lixiaoyu.cc/2018/09/04/computer-network-12-http-version-differences/)
-2. [（建议精读）HTTP灵魂之问，巩固你的 HTTP 知识体系](https://juejin.cn/post/6844904100035821575#heading-90)
+1. [*极客时间-HTTP性能优化](https://time.geekbang.org/column/article/147501)
+2. [计算机网络面试（12）HTTP 各版本差异](https://lixiaoyu.cc/2018/09/04/computer-network-12-http-version-differences/)
+3. [（建议精读）HTTP灵魂之问，巩固你的 HTTP 知识体系](https://juejin.cn/post/6844904100035821575#heading-90)
 

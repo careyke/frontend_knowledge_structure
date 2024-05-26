@@ -711,7 +711,7 @@ if (flags > PerformedWork) {
 
 <img src="./images/updateList.jpg" alt="updateList" style="zoom:50%;" />
 
-上图中的完整的effectList为：
+上图中的完整的effectList为：（后序遍历）
 
 ```javascript
 					firstEffect		nextEffect																													lastEffect

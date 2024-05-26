@@ -631,11 +631,10 @@ function commitUnmount(
 ```
 
 - `ClassComponent`删除前的操作：
-
   1. 清除`Ref`
-
+  
   2. 执行`componentWillUnmount`生命周期函数
-
+  
 - `FunctionComponent`删除前的操作：
 
   1. **收集需要执行销毁函数的`useEffect`和`Fiber`节点**，放在全局变量中保存，并且调度`useEffect`
@@ -668,7 +667,7 @@ function commitUnmount(
 
 
 
-> **问题：**在前面beforeMutation阶段的时候已经调度了一次useEffect，这里会重复调度吗？
+> **问题：**在前面 beforeMutation 阶段的时候已经调度了一次useEffect，这里会重复调度吗？
 >
 > 不会的，其中有一个全局的开关变量`rootDoesHavePassiveEffects`在控制
 

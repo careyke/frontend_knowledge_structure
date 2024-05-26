@@ -280,7 +280,7 @@ React将所有**同步的更新**都收集保存在`syncQueue`中，然后提供
 
 > 补充：
 >
-> **这里同步的更新只的就是`SyncLanePriority`优先级的`update`，其他优先级的`update`并不能被`flushSyncCallbackQueue`方法执行**
+> **这里同步的更新指的就是`SyncLanePriority`优先级的`update`，其他优先级的`update`并不能被`flushSyncCallbackQueue`方法执行**
 
 
 
