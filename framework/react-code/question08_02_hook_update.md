@@ -6,8 +6,6 @@
 
 > 这里的`Hooks`指的是上一篇文章中提到`StateHooks`，在源码中称为`Hooks`
 
-
-
 ## 1. Hook的数据结构
 
 前面我们提到过，`Hooks`是出现可以将复杂的`state`切分成多个简单的`state`，`Hooks`和`FunctionComponent`是相互独立的，所以每个`Hook`中需要维护自己的`state`。
@@ -41,13 +39,13 @@ export type Hook = {|
 ```
 
 > 一眼看过去，结构体中有一些对于Redux使用者来说非常熟悉的单词：`action、reducer和dispatch`，这些都是`Redux`中的概念。`Redux`的作者`Dan`在加入`React`研发团队之后，将`Redux`优秀的设计思想也加入了`Hooks`的设计中。
->
+> 
 > **可以将每个Hook看成是一个简化的Redux**，这也是后面为什么会以`useReducer`为例来分析`Hook`的更新流程的原因
 
 上面代码中包含三个数据结构，下面分别解释一下三个结构体中的字段：
 
 1. `Update`结构体，**描述当前`Hook`的一次状态变化**，可以类比`ClassComponent`中的`Update`。
-
+   
    - lane：状态变化的优先级（轨道）
    - action：状态变化的载体，在`useState`中`action`表示的就是最新的`state`值。
    - eagerReducer：`Update预执行`时调用的`reducer`，后面会详细讲解
@@ -55,26 +53,20 @@ export type Hook = {|
    - next：连接下一个`Update`
    - priority：预留字段，暂时没有使用
 
-   
-
 2. `UpdateQueue`结构体，描述`Hook`的待更新队列
-
+   
    - pending：本次更新新增的`Update`，**单向环状链表**
    - dispatch：更新的触发器
    - lastRenderedReducer：当前Hook上次挂载时注册的`reducer`
    - lastRenderedState：当前`Hook`上次更新时计算出的`state`
 
-   
-
 3. `Hook`结构体
-
+   
    - memoizedState：当前`Hook`对应的`state`
    - baseState：待更新队列执行前的基本状态，`Update`相互依赖时发挥作用
    - baseQueue：上次更新中遗留的未执行`Update`，也是一个**单向环状链表**
    - queue: `Hook`本次更新对应的更新队列
    - next：连接下一个`Hook`
-
-
 
 ## 2. FunctionComponent 与 Hooks
 
@@ -82,19 +74,13 @@ export type Hook = {|
 
 **在`FunctionComponent`中，`Hooks`产生的状态是以临时变量的形式存在**，每个`Hook函数`在运行之后都会返回对应的状态值，`FunctionComponent`中可以用任意的变量来保存这个值。
 
-
-
 也就是说，`Hook`产生的`state`在`FunctionComponent`中保存的时候是没有特殊标志的，那么如何能保证状态和Hook能够一一对应呢？
 
 **`FunctionComponent`使用`Hooks方法`的调用顺序不变来保证状态和`Hook`能够一一对应起来**，组件中挂载的Hooks会以**链表的形式**保存在对应的`Fiber`节点中，在`memoizedState`这个属性上，然后**每次组件渲染的时候会遍历整个链表，依次获取每个Hook，计算出最新的state保存在`FunctionComponent`的临时变量中**。
 
 <img src="./images/function_memoizedState.jpg" alt="function_memoizedState" />
 
-
-
 这个依靠调用顺序来保证一一对应的机制明显是不够可靠的，所以在用法上`Hook方法`有一些限制，不能使用在条件语句中，不能使用在`useEffect`中等。总结起来就是：**在`FunctionComponent`函数体执行的时候，所有的`Hook方法`都必须要按固定顺序执行，一旦有某个方法不执行，更新就会出错。**
-
-
 
 ## 3. Hooks的更新流程
 
@@ -139,7 +125,7 @@ export function renderWithHooks<Props, SecondArg>(
     let numberOfReRenders: number = 0;
     do {
       didScheduleRenderPhaseUpdateDuringThisPass = false;
-      
+
       numberOfReRenders += 1;
 
       // Start over from the beginning of the list
@@ -179,7 +165,7 @@ export function renderWithHooks<Props, SecondArg>(
     'Rendered fewer hooks than expected. This may be caused by an accidental ' +
       'early return statement.',
   );
-  
+
   return children;
 }
 ```
@@ -233,8 +219,6 @@ const HooksDispatcherOnUpdate: Dispatcher = {
 
 > 之所以使用`useReducer`而不是`useState`，是因为`useState`本质上是一个简化版的`useReducer`。后续会对比这两个钩子
 
-
-
 ### 3.1 创建Hook对象
 
 在组件`mount`阶段，调用`useReducer`钩子会执行`mountReducer`方法
@@ -263,7 +247,7 @@ function mountReducer<S, I, A>(
     lastRenderedState: (initialState: any),
   });
 
-	// 创建setState函数，绑定fiber节点
+    // 创建setState函数，绑定fiber节点
   const dispatch: Dispatch<A> = (queue.dispatch = (dispatchAction.bind(
     null,
     currentlyRenderingFiber,
@@ -303,8 +287,6 @@ function mountWorkInProgressHook(): Hook {
 
 这两个变化在遍历`Hooks链表`的时候会使用上，在`render函数`执行完成之后会清空。
 
-
-
 ### 3.2 更新Hook对象
 
 `FunctionComponent`的更新过程和`ClassComponent`的基本流程都是一样的，公用一套更新机制
@@ -314,8 +296,6 @@ function mountWorkInProgressHook(): Hook {
 3. 执行update
 
 其中**调度`update`是完全一致的，创建`update`和执行`update`中的实现细节会有所不同**，下面我们分析一下不同的地方。
-
-
 
 #### 3.2.1 创建update
 
@@ -394,8 +374,6 @@ function dispatchAction<S, A>(
 
 这两个优化都涉及到执行`update`阶段，等分析完执行`update`之后再来详细分析这两个优化的操作
 
-
-
 #### 3.2.2 执行update
 
 `FunctionComponent`执行update的流程和`ClassComponent`基本也是一样的，不同的点在于`执行Update对象`的处理上。对于`useReducer`来说，`执行Update`发生在`updateReducer`方法中。
@@ -412,7 +390,7 @@ function updateReducer<S, I, A>(
   const hook = updateWorkInProgressHook();
   const queue = hook.queue;
 
-	// 重置reducer
+    // 重置reducer
   queue.lastRenderedReducer = reducer;
 
   const current: Hook = (currentHook: any);
@@ -432,7 +410,7 @@ function updateReducer<S, I, A>(
     queue.pending = null;
   }
 
-	// baseQueue也是一个单向环状链表
+    // baseQueue也是一个单向环状链表
   if (baseQueue !== null) {
     const first = baseQueue.next;
     let newState = current.baseState;
@@ -464,6 +442,7 @@ function updateReducer<S, I, A>(
         markSkippedUpdateLanes(updateLane);
       } else {
         if (newBaseQueueLast !== null) {
+          // 前面已经有跳过的Update，所以后序的Update就是优先级满足，也需要跳过。
           const clone: Update<S, A> = {
             lane: NoLane, // 优先级最高，后续每次都需要执行
             action: update.action,
@@ -505,7 +484,7 @@ function updateReducer<S, I, A>(
     queue.lastRenderedState = newState;
   }
 
-	// dispatch方法不变！！！
+    // dispatch方法不变！！！
   const dispatch: Dispatch<A> = (queue.dispatch: any);
   return [hook.memoizedState, dispatch];
 }
@@ -518,8 +497,6 @@ function updateReducer<S, I, A>(
 2. 拼接`baseUpdate`和`pendingUpdate`
 
 3. 根据`renderLanes`执行符合条件的`Update`，不符合条件的`Update`克隆副本暂存在`baseUpdate`中，下一次更新再执行。
-
-
 
 ##### 3.2.2.1 克隆Hook
 
@@ -555,7 +532,7 @@ function updateWorkInProgressHook(): Hook {
 
     currentHook = nextCurrentHook;
   } else {
-    // 正常更新会走这里，从currentFiber中对应的Hook对象
+    // 正常更新会走这里，从currentFiber中克隆对应的Hook对象
     currentHook = nextCurrentHook;
 
     const newHook: Hook = {
@@ -580,8 +557,6 @@ function updateWorkInProgressHook(): Hook {
 
 这个方法的主要作用就是**遍历`currentFiber`中挂载的`Hook`对象，然后克隆一个`Hook`副本挂载在`workInProgressFiber`中并返回**。
 
-
-
 如果单纯看这个函数是比较迷惑的，因为看上面代码的逻辑，感觉正常情况下并不会走到克隆那段逻辑。因为在创建`workInProgressFiber`的时候，如果节点是`update阶段`，会执行以下代码
 
 ```javascript
@@ -603,45 +578,39 @@ workInProgress.lanes = NoLanes;
 
 所以需要从currentFiber中克隆Hook对象。
 
-
-
 这里又有一个疑问，**为什么需要先清空，然后去克隆呢？使用共享的数据有什么问题吗？**
 
 **在高优先级打断低优先级任务的场景下，使用共享的数据是有问题的**。由于是共享的数据结构，会**导致低优先级任务更新的状态会保存在`currentFiber`中，所以在执行高优任务的时候，会把低优任务会顺带执行了**，从而失去了优先级调度的意义。
 
-也就是说**`baseQueue、queue`可以共用，但是`memoizedState和baseState`不能共用**，否则会导致更新出错
+> 相当于之前的状态被某次临时的更新覆盖了，后序高优任务更新时，基于的状态是被覆盖的状态，所以结果是不符合预期的。
+
+**也就是说`baseQueue、queue`可以共用，但是`memoizedState和baseState`不能共用**，否则会导致更新出错。
 
 所以克隆Hook是非常有必要的。
-
-
 
 ##### 3.2.2.2 dispatch保持不变，reducer可变
 
 在`updateReducer`方法中还有两个细节：
 
-1. **`dispatch`方法保持不变，只在`mount`阶段赋值，后续`update`阶段直接继续使用这个值**。所以**`dispatchAction`方法中的`fiber和queue`参数也是一直不变的**，就是`mount`阶段设置的值。乍一看可能会觉得有点问题，每次更新时应该使用最新的值才是合理的，但是其实仔细分析下来，也确实没有影响。（感觉是个优化操作）
-
+1. **`dispatch`方法保持不变，只在`mount`阶段赋值，后续`update`阶段直接继续使用这个值。所以`dispatchAction`方法中的`fiber和queue`参数也是一直不变的**，就是`mount`阶段设置的值。乍一看可能会觉得有点问题，每次更新时应该使用最新的值才是合理的，但是其实仔细分析下来，也确实没有影响。（感觉是个优化操作）
+   
    > **补充**
-   >
+   > 
    > currentFiber和workInProgressFiber在很多状态上保持一致的，很多数据结构也是共享的。比如memoizedState、hook和lanes等等
-   >
+   > 
    > 所以Update对象添加在哪个节点，都是**共享**的。
 
 2. `useReducer`中，**`reducer`是可以变化的**，每次执行的时候可以传入新的`reducer`。
-
-
 
 ##### 3.2.2.3 Update执行流程图
 
 <img src="./flowCharts/Hook-Update执行流程.png" alt="Hook-Update执行流程" style="zoom:60%;" />
 
-
-
 ### 3.3 优化update-in-render(rerender阶段)
 
 在分析`dispatchAction`时，我们提到过其中涉及两种优化操作，这里我们来分析其中的一种 —— `update-in-render`。
 
-**`update-in-render`表示的就是在执行`render`函数的过程中，执行更新操作。**举个例子
+**`update-in-render`表示的就是在执行`render`函数的过程中，执行更新操作**。举个例子
 
 ```react
 function App(){
@@ -693,7 +662,7 @@ if (didScheduleRenderPhaseUpdateDuringThisPass) {
 }
 ```
 
-对于这种情况，**`React`会切换`HookDispatcher`，然后再执行一次`render`函数**，进入**`rerender`**阶段。
+对于这种情况，**`React`会切换`HookDispatcher`，然后再执行一次`render`函数**，进入**rerender**阶段。
 
 #### 3.3.1 rerenderReducer
 
@@ -709,12 +678,12 @@ function rerenderReducer<S, I, A>(
   queue.lastRenderedReducer = reducer;
 
   const dispatch: Dispatch<A> = (queue.dispatch: any);
-	// pending中应该只有render阶段创建的Update，之前的Update拼接在了baseUpdate中
+    // pending中应该只有render阶段创建的Update，之前的Update拼接在了baseUpdate中
   const lastRenderPhaseUpdate = queue.pending;
   let newState = hook.memoizedState;
   if (lastRenderPhaseUpdate !== null) {
     queue.pending = null;
-		// 没有拼接pendingUpdate和baseUpdate的操作
+        // 没有拼接pendingUpdate和baseUpdate的操作
     const firstRenderPhaseUpdate = lastRenderPhaseUpdate.next;
     let update = firstRenderPhaseUpdate;
     // 执行rerender产生的Update
@@ -747,8 +716,6 @@ function rerenderReducer<S, I, A>(
 
 优化的效果：**`render`函数执行两次，但是只执行一次`update`**
 
-
-
 ### 3.4 优化不必要的更新
 
 如果更新前后值没有什么变化，这个就属于不必要的更新。举个例子
@@ -756,22 +723,20 @@ function rerenderReducer<S, I, A>(
 ```react
 function App(){
   const [count,setCount] = useState(0);
-  
+
   const handleClick = ()=>{
     setCount(0);
   }
-  
+
   return <span onClick={handleClick}>{count}</span>;
 }
 ```
 
 点击`span`的之后组件并不会重新渲染。
 
-
-
 #### 3.4.1 Update预执行
 
-由于需要判断`当前Update`是否会导致状态更新，所以在调度`update`之前需要预执行这个`Update`。
+由于需要判断`当前Update`是否会导致状态更新，所以在调度`update`之前需要**预执行**这个`Update`。
 
 对应的代码在`dispatchAction`函数中
 
@@ -780,7 +745,7 @@ if (
     fiber.lanes === NoLanes &&
     (alternate === null || alternate.lanes === NoLanes)
 ) {
-  	// 当前节点上不存在其他的更新
+      // 当前节点上不存在其他的更新
     const lastRenderedReducer = queue.lastRenderedReducer;
     if (lastRenderedReducer !== null) {
         let prevDispatcher;
@@ -789,9 +754,9 @@ if (
             const eagerState = lastRenderedReducer(currentState, action);
             update.eagerReducer = lastRenderedReducer;
             update.eagerState = eagerState;
-          	// Object.is
+              // Object.is
             if (is(eagerState, currentState)) {
-              	// 跳过调度update
+                  // 跳过调度update
                 return;
             }
         } catch (error) {
@@ -802,16 +767,14 @@ if (
 scheduleUpdateOnFiber(fiber, lane, eventTime);
 ```
 
-`Update`预执行的前提：**当前节点上不存在其他的Update**。如果存在其他的Update，为了保证状态依赖的连续性，无法优化，所以也就没有预执行。
+`Update`预执行的前提：**当前节点上不存在其他的Update**。如果存在其他的Update，为了保证状态依赖的连续性以及优先级，无法优化，所以也就没有预执行。
 
 **当`Update`满足预执行的条件时，而且执行的结果并没有导致状态变化，那么当前`Update`不会调度`update`**。也就是不触发更新
-
-
 
 这里有两个点需要**注意**：
 
 1. 虽然预执行`Update`不会调度`update`，但是这个`Update对象`还是会挂载在`Fiber`节点中，意味着**后续的更新中还是会执行这个`Update`**。
-2. `预执行Update`的时候使用的是`lastRenderedReducer`，但是**`reducer`是可以更改的**。
+2. `预执行Update`的时候使用的是`lastRenderedReducer`，但是**reducer是可以更改的**。
 
 这里之所以所有的Update仍然会挂载在Fiber节点中，是为了**防止状态更新错误**。
 
@@ -819,7 +782,7 @@ scheduleUpdateOnFiber(fiber, lane, eventTime);
 
 所以说，**预执行的Update并不能丢弃。**
 
-
+> 从数据结构上来看，Update是一个链表的结构，而且后置的Update可能对于前面的Update是有数据依赖的，所以是不能轻易丢弃的。
 
 #### 3.4.2 不重复执行reducer
 
@@ -827,16 +790,14 @@ scheduleUpdateOnFiber(fiber, lane, eventTime);
 
 ```javascript
 if (update.eagerReducer === reducer) {
-  	// reducer没有改变
+      // reducer没有改变
     newState = ((update.eagerState: any): S);
 } else {
-  	// reducer发生改变
+      // reducer发生改变
     const action = update.action;
     newState = reducer(newState, action);
 }
 ```
-
-
 
 ### 3.5 不规范使用Hook报错
 
@@ -868,9 +829,6 @@ function throwInvalidHookError() {
 
 > `render函数`指的就是`FunctionComponent`函数本身，和ClassComponent中的render方法相似，故采用了同样的名称
 
-
-
 ## 4. 总结
 
 至此整个`Hook`的数据结构和更新过程就算是分析完了，更新的过程和`ClassComponnet`基本是一样的，主要是Hook的数据结构和后面的更新优化需要反复分析。
-

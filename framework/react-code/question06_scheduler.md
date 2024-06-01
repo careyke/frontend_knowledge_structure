@@ -6,7 +6,9 @@
 
 至于为什么不直接使用`requestIdleCallback`，前面也介绍过主要是因为`requestIdleCallback`**触发的频率很不稳定**而且还有**兼容性**问题。
 
-
+> React 更新任务本身并**不是不重要的低优先级任务**，在定义上和requestIdleCallback 是有本质区别的。
+> 
+> 之所以做时间切片是想尽可能保证帧数，而不是说更新的任务优先级很低。
 
 ## 1. MessageChannel模拟实现requestIdleCallback
 
@@ -38,23 +40,23 @@ channel.port1.onmessage = performWorkUntilDeadline;
 2. 每帧中利用`5ms`的时间来执行任务，时间用完之后会尝试将主线程交给UI渲染线程，未执行的任务会在下一个宏任务来执行
 
 > 注意：
->
+> 
 > 这里的宏任务可以理解为`MessageChannel.postMessage`注册的宏任务。
->
+> 
 > 因为本质上UI渲染也属于一次宏任务
 
 ### 1.2 模拟实现的优点
 
 1. 使用宏任务代替`requestIdleCallback`来调度任务，能保证触发频率的稳定性
-2. 在每帧中固定执行的时间，最大程度上实现了**空闲时间调度**的效果
+2. 在每帧中固定执行的时间，最大程度上实现了**空闲时间调度**的效果。
 
 > `Scheduler`中是先执行任务，然后再将主线程交给UI渲染线程，更加类似 requestAnimationFrame
->
+> 
 > `requestIdleCallback`中则是先执行UI渲染线程，然后判断当前帧是否有剩余时间，如果有剩余时间再执行任务
 
 ### 1.3 为什么使用MessageChannel，不是使用`setTimeout(fn,0)`
 
-虽然`MessageChannel`和`setTimeout`都是宏任务，但是**`MessageChannel`触发的优先级比`setTimeout`更高**。
+虽然`MessageChannel`和`setTimeout`都是宏任务，但是**MessageChannel 触发的优先级比`setTimeout`更高**。
 
 ```javascript
 setTimeout(()=>{
@@ -75,15 +77,17 @@ port.postMessage(null);
 
 `setTimeout(fn,0)`虽然语义上立马将`fn`插入宏任务队列，但是实际上由于其内部有一些运算逻辑，比稍微慢一点，大约是`1ms`。
 
-
-
 ## 2. 任务队列
 
 由于任务队列是动态变化的，而且每次变化之后都需要重新计算出优先级最高的任务，所以非常适合用**小顶堆**来实现。
 
 > 关于堆这个结构可以看[这里](https://github.com/careyke/frontend_knowledge_structure/blob/master/algorithm/heap/question01_heap.md)
 
-实际上`Scheduler`内部维护了两个小顶堆，分别用来保存**正在执行的任务队列（taskQueue）**和**延时执行的任务队列（timerQueue）**
+实际上`Scheduler`内部维护了两个小顶堆，分别用来保存
+
+- **正在执行的任务队列（taskQueue）**
+
+- **延时执行的任务队列（timerQueue）**
 
 ```javascript
 var taskQueue = []; // 正在运行的任务队列
@@ -198,7 +202,7 @@ var newTask = {
 > 对应的源代码看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/scheduler/src/SchedulerPriorities.js#L13)
 
 ```javascript
-export const NoPriority = 0;
+export const NoPriority = 0; // 与NormalPriority类似
 export const ImmediatePriority = 1; // 立即执行的任务
 export const UserBlockingPriority = 2; // 用户交互的任务，比如输入框，按钮点击
 export const NormalPriority = 3; // 正常任务，大多数任务
@@ -210,13 +214,11 @@ export const IdlePriority = 5; // 最低优先级的任务
 
 #### 2.1.3 任务的过期时间
 
-如果任务排序的时候完全按照优先级来排序，那么在某些情况下**低优先级的任务会很长时间得不到执行**，也就是常说的**“任务饿死”**现象。
+如果任务排序的时候完全按照优先级来排序，那么在某些情况下**低优先级的任务会很长时间得不到执行**，也就是常说的**任务饿死**现象。
 
 为了解决这个问题，**`Scheduler`内部给每个任务根据优先级设置了一个过期时间（expirationTime），然后在对`taskQueue`中的任务排序的时候会按照任务的过期时间来排，这样就可以防止“任务饿死”的现象。**
 
 对应的处理逻辑在上面代码中
-
-
 
 ### 2.2 任务调度
 
@@ -240,7 +242,7 @@ function requestHostCallback(callback) {
 const performWorkUntilDeadline = () => {
   if (scheduledHostCallback !== null) {
     const currentTime = getCurrentTime();
-    
+
     // 和浏览器约定，每帧只给5ms来执行任务
     deadline = currentTime + yieldInterval;
     const hasTimeRemaining = true;
@@ -289,7 +291,7 @@ function workLoop(hasTimeRemaining, initialTime) {
       currentTask.expirationTime > currentTime &&
       (!hasTimeRemaining || shouldYieldToHost())
     ) {
-     	// 当前宏任务已经达到约定的deadline
+         // 当前宏任务已经达到约定的deadline
       break;
     }
     const callback = currentTask.callback;
@@ -302,9 +304,11 @@ function workLoop(hasTimeRemaining, initialTime) {
       const continuationCallback = callback(didUserCallbackTimeout);
       currentTime = getCurrentTime();
       if (typeof continuationCallback === 'function') {
-        // 关键实现：任务执行中断，下次调度
+        // 1. 返回function表示当前任务没有执行完成，下一帧还要继续执行。
+        // 所以这个task并没有从队列中弹出。
         currentTask.callback = continuationCallback;
       } else {
+        // 2. 返回不是function，表示当前任务执行完成。所以当前任务需要从队列弹出
         if (currentTask === peek(taskQueue)) {
           pop(taskQueue);
         }
@@ -355,7 +359,7 @@ function advanceTimers(currentTime) {
 
 ##### 2.2.1.2 中断调度
 
-上面代码中，在每个任务开始执行之前，都会判断是否需要中断本次调度。中断要同时满足两个条件：
+上面代码中，在**每个任务开始执行之前**，都会判断是否需要中断本次调度。中断要同时满足两个条件：
 
 1. **当前任务还没有过期**：过期的任务必须在当前帧执行
 2. **判断宏任务是否超时**：判断逻辑在`shouldYieldToHost`方法中
@@ -410,7 +414,7 @@ if (typeof continuationCallback === 'function') {
 }
 ```
 
-实现的思路：**任务执行被打断的时候，重新返回一个回调函数给当前任务，表示当前任务没有执行完，依然放在在taskQueue中，下一帧调度任务的时候再执行。**
+实现的思路：**任务执行被打断的时候，重新返回一个回调函数给当前任务，表示当前任务没有执行完，依然放在在 taskQueue 中，下一帧调度任务的时候再执行。**
 
 `React Fiber`中的**时间切片**就是借助这个功能来实现的。
 
@@ -435,8 +439,6 @@ function performConcurrentWorkOnRoot(root) {
 > 这里的`shouldYield`方法对应Scheduler中的`shouldYieldToHost`方法
 
 任务执行过程中是否中断取决于开发者，`Scheduler`在实现层面支持了任务的中断
-
-
 
 ## 3. 修改优先级
 
@@ -472,20 +474,16 @@ function unstable_runWithPriority(priorityLevel, eventHandler) {
 
 这个方法在`React`中多处会使用到，创建`Update`的时候需要根据当前优先级上下文来确定`Update`的优先级（`lane`）。后面会详细介绍
 
-
-
 ## 4. Scheduler调度的流程图
 
 ![Scheduler的调度流程](./flowCharts/Scheduler的调度流程.png)
-
-
 
 ## 5. Scheduler与React
 
 React在`React FIber`架构加入了`Scheduler`，在`ConcurrentMode`中完全开启了`Scheduler`的功能，实现了**时间切片**和**优先级调度**的特性。`Scheduler`在`React`中扮演的是一个大脑的角色，每一次更新都需要先经过`Scheduler`，由`Scheduler`来统一调度执行，调度的过程中会优先执行高优先级的更新任务，达到最好的用户体验。
 
 > 补充：
->
+> 
 > React内部有一套自己有优先级模型，称为lane模型。在内部对更新的优先级进一步细分，两者共同来实现优先级调度的特性。
->
+> 
 > 后续的文章中会详细讲解

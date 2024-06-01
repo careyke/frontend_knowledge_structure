@@ -34,8 +34,6 @@ class App extends React.Component {
 
 这里`didMount`放在`state`中会导致组件多更新一次
 
-
-
 FunctionComponent：(legacy模式下)
 
 ```react
@@ -68,8 +66,6 @@ function Test() {
 1. useCallback
 2. useMemo
 3. useRef
-
-
 
 ## 1. useCallback
 
@@ -136,9 +132,7 @@ function areHookInputsEqual(
 }
 ```
 
-整体实现上还是比较简单的。
-
-
+整体实现上还是比较简单的。使用Object.is来判断
 
 ### 1.3 闭包陷阱
 
@@ -149,18 +143,18 @@ function areHookInputsEqual(
 ```react
 const Test=()=>{
   const [num, setNum] = useState(0);
-  
+
   const handleAdd=()=>{
     setNum(prev => prev+1);
   }
-  
+
   const handlePrint=useCallback(()=>{
     console.log(num);
   },[])
-  
+
   return (
-  	<div>
-    	<button onClick={handleAdd}>加1</button>
+      <div>
+        <button onClick={handleAdd}>加1</button>
       <button onClick={handlePrint}>输出</button>
     </div>
   );
@@ -178,25 +172,23 @@ const Test=()=>{
 ```react
 const Test=()=>{
   const [num, setNum] = useState(0);
-  
+
   const handleAdd=()=>{
     setNum(prev => prev+1);
   }
-  
+
   const handlePrint=useCallback(()=>{
     console.log(num);
   },[num]) // 加入依赖
-  
+
   return (
-  	<div>
-    	<button onClick={handleAdd}>加1</button>
-      <button onClick={handlePrint}>输出</button>
+      <div>
+        <button onClick={handleAdd}>加1</button>
+        <button onClick={handlePrint}>输出</button>
     </div>
   );
 }
 ```
-
-
 
 ## 2. useMemo
 
@@ -250,13 +242,11 @@ function updateMemo<T>(
 
 基本和`useCallback`的逻辑是一样的。
 
-
-
 ## 3. useRef
 
 `useRef`更像是`ClassComponent`中的`this`，其**对应`Hook`中保存的状态除非手动修改，否则不会发生变化**。
 
-### 3.1 mount阶段 
+### 3.1 mount阶段
 
 ```javascript
 function mountRef<T>(initialValue: T): {|current: T|} {
@@ -278,8 +268,6 @@ function updateRef<T>(initialValue: T): {|current: T|} {
 
 实现上非常简单
 
-
-
 ## 4. 总结
 
 虽然`useCallback、useMemo和useRef`都是用来存储无副作用的状态，但是其中的区别还是很明显的。
@@ -287,4 +275,5 @@ function updateRef<T>(initialValue: T): {|current: T|} {
 **`useCallback`和`useMemo`通常用来保存由`state`计算所得的状态，类比Vue中的计算属性。**
 
 **`useRef`可以用来保存任何状态，但是需要手动修改。**
+
 

@@ -2,8 +2,6 @@
 
 前面分析了一些和状态有关的Hook，这篇文章中我们来分析一下和**副作用**相关的`Hook`。主要是`useEffect`和`useLayoutEffect`
 
-
-
 ## 1. Effect的数据结构
 
 `useEffect`和`useLayoutEffect`是特殊的`Hook`，**除了会创建`Hook`对象之外还会创建一个`Effect`对象**。
@@ -23,20 +21,20 @@ export type Effect = {|
 **解释一下各个属性的含义：**
 
 1. tag：**表示当前`Effect`的状态和类型**，有三个值
+   
    - HasEffect：表示当前`Effect`在本次更新之后需要执行，处于**激活态**
    - Layout：表示是`useLayoutEffect`产生的`Effect`
    - Passive：表示是`useEffect`产生的`Effect`
 
 2. create：表示`Effect`的创建函数，副作用相关逻辑在这个函数中
+
 3. destroy：表示`Effect`的销毁函数
+
 4. deps：表示`Effect`的依赖项
+
 5. next：指向下一个`Effect`，**单向环状链表**
 
-
-
 下面我们以`useEffect`为例，结合源码来分析一下`Effect`的调用流程。
-
-
 
 ## 2. Effect的调用流程
 
@@ -62,7 +60,7 @@ function mountEffectImpl(fiberFlags, hookFlags, create, deps): void {
   const hook = mountWorkInProgressHook();
   const nextDeps = deps === undefined ? null : deps;
   currentlyRenderingFiber.flags |= fiberFlags;
-	// 创建Effect
+    // 创建Effect
   hook.memoizedState = pushEffect(
     HookHasEffect | hookFlags,
     create,
@@ -77,8 +75,6 @@ function mountEffectImpl(fiberFlags, hookFlags, create, deps): void {
 可以看到，**`useEffect`对应的`Hook`对象中，`memoizedState`存储的是`Effect`对象**
 
 这里还有一个细节，**在执行`useEffect（useLayoutEffect）`的时候，会给Fiber节点打上对应的`flag`，因为`Effect`是在`commit`阶段才执行**。
-
-
 
 #### 2.1.1 创建Effect对象
 
@@ -123,8 +119,6 @@ function createFunctionComponentUpdateQueue(): FunctionComponentUpdateQueue {
 }
 ```
 
-
-
 ### 2.2 update阶段
 
 更新阶段对应的方法是`updateEffect`
@@ -147,8 +141,8 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
   const nextDeps = deps === undefined ? null : deps;
   let destroy = undefined;
 
-	// rerender阶段 currentHook有可能不存在
-	// mount阶段的时候就进入rerender
+    // rerender阶段 currentHook有可能不存在
+    // mount阶段的时候就进入rerender
   if (currentHook !== null) {
     // 考虑到rerender阶段的情况，所以需要从currentHook中获取
     const prevEffect = currentHook.memoizedState;
@@ -158,18 +152,19 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
       // 对比依赖项
       if (areHookInputsEqual(nextDeps, prevDeps)) {
         // 非激活状态Effect
+        // effect的create方法每次用的都是最新的,create方法没有闭包陷阱
         pushEffect(hookFlags, create, destroy, nextDeps);
-        
+
         // 应该要改成下面，需要effect在Hook和updateQueue中状态保持一致
         // hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
-        
+
         return;
       }
     }
   }
 
   currentlyRenderingFiber.flags |= fiberFlags;
-	// 激活态Effect
+    // 激活态Effect
   hook.memoizedState = pushEffect(
     HookHasEffect | hookFlags, // 需要执行的Effect的tag
     create,
@@ -183,8 +178,6 @@ function updateEffectImpl(fiberFlags, hookFlags, create, deps): void {
 
 1. 对于`rerender`阶段的兼容处理
 2. 对于`Effect`状态的处理
-
-
 
 #### 2.2.1 rerender阶段的兼容处理（*）
 
@@ -222,23 +215,23 @@ function App() {
 
 但是第二次点击`button`时，`create`函数会执行。
 
+预期应该是都不会执行。
+
 **这里感觉是React代码中出现了一个`bug`**
 
 产生的原因是：**当`deps`没有发生修改的时候，`React`只将新的`Effect`对象更新到了`updateQueue`，并没有更新到对应`Hook`中的`memoizedState`，会导致两边状态不对应。正常情况下并没有问题，因为两边的`deps`至少是相同的，但是`rerender`阶段的介入，可能会导致两边的`deps`不对应，从而出现例子中的异常**。
 
 > （?）这里的逻辑应该不是故意为之吧，打算去提一个`issue`看看
->
+> 
 > 已经提了一个[issue](https://github.com/facebook/react/issues/20675)，官方也接收了这个bug
->
+> 
 > 官方的修复代码：
->
+> 
 > ```
 > hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
 > ```
 
-
-
-这里还有一个细节要提一下：**`updateQueue`中保存的`Effect`和对应组件中调用的`useEffect和useLayoutEffect`是一一对应的关系，个数和顺序都是相同的。**
+这里还有一个细节要提一下：**`updateQueue`中保存的`Effect`和对应组件中调用的`useEffect和useLayoutEffect`是一一对应的关系，个数和顺序都是相同的，副作用是否激活通过effect.tag来判断**。
 
 所以在每次执行`render函数`的之前，需要清空`updateQueue`
 
@@ -262,7 +255,7 @@ export function renderWithHooks<Props, SecondArg>(
   workInProgress.lanes = NoLanes;
 
   // ...省略
-  
+
   let children = Component(props, secondArg);
 
   if (didScheduleRenderPhaseUpdateDuringThisPass) {
@@ -270,7 +263,7 @@ export function renderWithHooks<Props, SecondArg>(
     do {
       didScheduleRenderPhaseUpdateDuringThisPass = false;
       numberOfReRenders += 1;
-      
+
       // 清空状态
       currentHook = null;
       workInProgressHook = null;
@@ -290,8 +283,6 @@ export function renderWithHooks<Props, SecondArg>(
 }
 ```
 
-
-
 #### 2.2.2 更新Effect的状态
 
 前面分析`Effect`数据结构的时候提到过，**`tag`属性既可以表示`Effect`的类型又可以表示`Effect`的状态**
@@ -300,8 +291,6 @@ export function renderWithHooks<Props, SecondArg>(
 
 1. 对于需要执行的`Effect`，`tag值`中**包含**`HookHasEffect`
 2. 对于不需要执行的`Effect`，tag值中**不包含**`HookHasEffect`
-
-
 
 在`commit`阶段执行`Effect`的时候，会将包含`HookHasEffect`的`Effect`挑选出来执行。
 
@@ -330,13 +319,9 @@ function schedulePassiveEffects(finishedWork: Fiber) {
 }
 ```
 
-
-
 #### 2.2.3 Effect更新流程图
 
 <img src="./flowCharts/Hook-Effect更新流程.png" alt="Hook-Effect更新流程" />
-
-
 
 ### 2.3 执行Effect（useEffect）
 
@@ -352,9 +337,9 @@ function schedulePassiveEffects(finishedWork: Fiber) {
 function commitBeforeMutationEffects() {
   while (nextEffect !== null) {
     const current = nextEffect.alternate;
-    
+
     if ((flags & Passive) !== NoFlags) {
-     	// 尝试注册一个异步任务来执行useEffect对应的Effect
+         // 尝试注册一个异步任务来执行useEffect对应的Effect
       if (!rootDoesHavePassiveEffects) {
         rootDoesHavePassiveEffects = true;
         scheduleCallback(NormalSchedulerPriority, () => {
@@ -368,17 +353,14 @@ function commitBeforeMutationEffects() {
 }
 ```
 
-以上代码表明**`useEffect`对应的`Effect`是异步执行的。**
-
-
+以上代码**表明`useEffect`对应的`Effect`是异步执行的**。
 
 ## 2.4 updateQueue总结
 
 到目前为止我们已经介绍完了三种常用updateQueue的结构。下面来总结一下
 
-| Fiber类型         | updateQueue结构                                            |
-| ----------------- | ---------------------------------------------------------- |
+| Fiber类型           | updateQueue结构                     |
+| ----------------- | --------------------------------- |
 | HostComponent     | Array。偶数索引表示更新属性的key，奇数索引表示更新属性的值 |
-| ClassComponent    | Object。用来存储对应组件产生的`Update`                     |
-| FunctionComponent | Linked List。用来保存对应组件产生的`Effect`                |
-
+| ClassComponent    | Object。用来存储对应组件产生的`Update`        |
+| FunctionComponent | Linked List。用来保存对应组件产生的`Effect`   |

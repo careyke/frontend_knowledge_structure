@@ -6,17 +6,13 @@
 
 > 思考：这里之所以不直接使用ReactElement作为载体，感觉是因为ReactElement是直接面向使用者的，不宜放置很多使用者不需要看到的信息
 
-
-
 > **备注**
->
-> 本系列文章中的源码都是来自最新的**`master`**代码，React17.0.1版本之后，最新一次提交编号是（#20254）
->
+> 
+> 本系列文章中的源码都是来自最新的**master**代码，React17.0.1版本之后，最新一次提交编号是（#20254）
+> 
 > 也可以直接查看笔者当时fork的[代码](https://github.com/careyke/react)
->
+> 
 > 调试使用的实验版本是`0.0.0-experimental-4ead6b530`，这个版本的代码和笔者`fork`的源码基本是一致的，只有一些细小的差别，不影响分析。
-
-
 
 **几个概念先说明一下**：
 
@@ -24,8 +20,6 @@
 
 1. **`render`阶段**：Reconciler作用的阶段。因为会调用组件的`render`方法
 2. **`commit`阶段**：Renderer作用的阶段。就像你完成一个需求的编码后执行`git commit`提交代码到分支上一样。`commit`阶段会把`render`阶段提交的信息渲染在页面上
-
-
 
 ## 1. Fiber节点的数据结构
 
@@ -138,9 +132,9 @@ this.index = 0;
 
 ```react
 <App>
-	<p></p>
+    <p></p>
   <div>
-  	<span>littleknife</span>
+      <span>littleknife</span>
   </div>
 </App>
 ```
@@ -207,8 +201,6 @@ this.alternate = null;
 ```
 
 为了实现双缓存，Fiber架构内部构建了两棵Fiber树。后面会详细介绍
-
-
 
 ## 2. Fiber架构的工作原理
 
@@ -316,11 +308,11 @@ function FiberRootNode(containerInfo, tag, hydrate) {
   // 表示当前根节点的类型 LegacyRoot、BlockingRoot、ConcurrentRoot
   // 使用ReactDOM.Render创建的应用，默认是LegacyRoot
   this.tag = tag;
-  
+
   // 表示当前React应用挂载的DOM节点
   this.containerInfo = containerInfo;
   this.pendingChildren = null;
-  
+
   // 表示当前页面对应的Fiber Tree
   this.current = null;
   this.pingCache = null;
@@ -374,7 +366,7 @@ function FiberRootNode(containerInfo, tag, hydrate) {
 >   return getPublicRootInstance(fiberRoot);
 > }
 > ```
->
+> 
 > 在Legacy模式下，可以通过挂载DOM节点的`_reactRootContainer`属性查看当前应用的`FiberRootNode`，而且一个DOM节点最多只能有挂载一个`FiberRootNode`
 
 #### 2.3.3 mount流程
@@ -385,8 +377,8 @@ function FiberRootNode(containerInfo, tag, hydrate) {
 function App(){
   const [num,addNum] = useState(0);
   return (
-  	<div onClick={()=>addNum(num+1)}>
-    	{num}
+      <div onClick={()=>addNum(num+1)}>
+        {num}
     </div>
   );
 }
@@ -397,24 +389,23 @@ function App(){
 <img src="./images/fiber_workflow_1.png" alt="fiber_workflow_1" style="zoom:50%;" />
 
 2. 接下来进入`render`阶段，根据ReactElement Tree创建Fiber节点组成一个Fiber Tree，叫做`workInProgress Fiber Tree`。在构建`workInProgress Fiber`的时候会尝试复用对应`current Fiber`的属性。
-
+   
    <img src="./images/fiber_workflow_2.png" alt="fiber_workflow_2" style="zoom:50%;" />
 
 3. 接下来进入`commit`节点，将workInProgress Fiber Tree对应的DOM Tree渲染到页面中。然后调整fiberRootNode中current指针的指向。
-
+   
    <img src="./images/fiber_workflow_3.png" alt="fiber_workflow_3" style="zoom:50%;" />
 
 #### 2.3.4 update流程
 
 1. 当我们点击`div`节点时，会触发一次更新，这会开启一次新的**`render`**阶段，然后创建一颗新的`workInProgress Fiber Tree`。在创建`workInProgress Fiber`节点的时候，会尝试复用current Fiber Tree中对应的节点。（决定是否复用涉及到Diff算法，后面会详细介绍）
-
+   
    <img src="./images/fiber_workflow_4.png" alt="fiber_workflow_4" style="zoom:50%;" />
 
 2. 进入`commit`阶段，将`workInProgress Fiber Tree`渲染到页面中，同时修改`fiberRootNode`中current的指向。
-
+   
    <img src="./images/fiber_workflow_5.png" alt="fiber_workflow_5" style="zoom:50%;" />
 
 > **注意**：React内部对于单个文本的节点做了优化，不会创建Fiber节点。这里标注出来是为了体现出变化。
 
 至此，Fiber架构的工作流程就介绍完了。
-

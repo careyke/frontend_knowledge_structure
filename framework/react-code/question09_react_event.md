@@ -2,8 +2,6 @@
 
 使用过的`React`的同学应该都或多或少听说过`React`内部在原生事件的基础上实现了一套自己的事件机制，这里我们称为**React事件系统**
 
-
-
 ## 1. 为什么要自己实现一套事件系统（*）
 
 在分析React事件系统的实现原理之前，我们首先要知道`React`为什么要自己来实现一套事件系统。
@@ -23,8 +21,6 @@
 
 具体的实现会在后面代码分析中来详细讲解
 
-
-
 ### 1.1 事件委托
 
 在以前开发原生`JS`应用的时候，对于列表来说我们通常是使用**事件委托**的方案将列表项的事件绑定在父级DOM节点上，然后利用**事件冒泡**的机制来响应每个列表项的事件。
@@ -40,8 +36,6 @@ React事件系统的实现就是使用了事件委托的方案，**将React应�
 
 因为React应用是一个多层级的应用，如果想要**像原生事件一样来使用`React`事件**，不另外增加学习成本，就需要实现自己的**事件捕获**和**事件冒泡**等一系列原生事件中常用的特性。这些特点的实现也会在后面代码分析中来详细分析。
 
-
-
 ## 2. React事件系统的实现
 
 React事件系统的实现主要分成以下三个阶段：
@@ -54,8 +48,6 @@ React事件系统的实现主要分成以下三个阶段：
 
 > 整个源码分析的过程中，笔者会以`click`事件为例来分析
 
-
-
 ### 2.1 事件系统初始化
 
 **事件初始化阶段主要做了两个事情**：
@@ -63,12 +55,9 @@ React事件系统的实现主要分成以下三个阶段：
 1. 收集所有`React`事件对应的原生事件
 2. 根据人机交互的研究成果给事件划分优先级
 
-
-
 初始化阶段的入口文件是`DOMPluginEventSystem.js`
 
 ```javascript
-
 SimpleEventPlugin.registerEvents(); // 普通事件插件
 
 // 高级事件插件
@@ -76,7 +65,6 @@ EnterLeaveEventPlugin.registerEvents();
 ChangeEventPlugin.registerEvents();
 SelectEventPlugin.registerEvents();
 BeforeInputEventPlugin.registerEvents();
-
 ```
 
 在React事件系统中，内部实现了4个高级事件，**高级事件也是以原生事件为基础来实现的**。（具体的实现后面详细分析）
@@ -131,8 +119,6 @@ React事件系统中，将事件按照优先级分成三类：
 
 > **事件对应的优先级存储在`eventPriorities`这个`Map`中。**
 
-
-
 看一下`registerTwoPhaseEvent`方法
 
 > 对应的代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-dom/src/events/EventRegistry.js#L35)
@@ -163,16 +149,12 @@ export function registerDirectEvent(
 1. registrationNameDependencies：用来保存**React事件和依赖的原生事件之间的映射关系**
 2. allNativeEvents：用来保存**所有需要注册的原生事件**，`Set`结构
 
-
-
 ### 2.2 事件注册
 
 事件注册阶段主要做两个事情：
 
 1. 选取事件绑定的元素
 2. 根据事件的优先级注册不同的回调函数
-
-
 
 #### 2.2.1 选取事件绑定的元素
 
@@ -230,8 +212,6 @@ export function listenToNativeEvent(
 ```
 
 这里有一个特例，**`selectionchange`事件需要绑定在`document`元素上。**
-
-
 
 #### 2.2.2 根据优先级注册不同的回调函数
 
@@ -309,8 +289,6 @@ function addTrappedEventListener(
 1. 根据优先级创建回调函数——`createEventListenerWrapperWithPriority`
 2. 调用`DOM API`来绑定事件
 
-
-
 ##### 2.2.2.1 createEventListenerWrapperWithPriority
 
 这个方法是整个注册阶段最重要的一个方法
@@ -350,7 +328,7 @@ export function createEventListenerWrapperWithPriority(
 这个方法中根据每个事件的优先级创建了不同的回调函数。
 
 > **补充**
->
+> 
 > **回调函数的优先级决定了在内部触发更新时，对应的`Update`的优先级**，不同类型的事件触发的更新优先级不一样
 
 `dispatchDiscreteEvent`和`dispatchUserBlockingUpdate`函数中最终调用的都是`dispatchEvent`方法。`dispatchDiscreteEvent`和`dispatchUserBlockingUpdate`中设置了Scheduler中的优先级上下文。
@@ -371,19 +349,15 @@ runWithPriority(
 `dispatchDiscreteEvent`和`dispatchUserBlockingUpdate`这两个方法设置的**优先级上下文**都是一样的，其中不同的地方在与React内部对于离散事件增加了很多额外的处理。
 
 > 感觉没有必要展开来说
->
+> 
 > 1. 增加了对于是否处于事件内部的处理
 > 2. 在React执行上下文中增加了离散事件对应的上下文的值
-
-
 
 #### 2.2.3 总结
 
 在事件注册的过程中，**会预先在root节点中绑定几乎所有的原生事件**
 
 <img src="./images/react_event.jpg" alt="react_event" style="zoom:50%;" />
-
-
 
 ### 2.3 事件执行
 
@@ -395,8 +369,6 @@ runWithPriority(
 
 2. **React事件系统需要和原生的事件系统保持一致**，所以需要实现自己的事件捕获和事件冒泡。
 
-
-
 事件执行的入口函数是`dispatchEvent`
 
 > 对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-dom/src/events/ReactDOMEventListener.js#L181)
@@ -407,8 +379,6 @@ runWithPriority(
 2. **收集捕获或者冒泡事件队列**
 3. **创建合成事件对象**
 4. **依次触发队列中的回调函数**
-
-
 
 #### 2.3.1 获取触发React事件元素对应的Fiber节点
 
@@ -474,8 +444,6 @@ export function getClosestInstanceFromNode(targetNode: Node): null | Fiber {
 ```
 
 可以看到，在**创建真实DOM节点的时候会在每个DOM对象中引用对应的Fiber节点**
-
-
 
 #### 2.3.2 收集执行事件队列
 
@@ -596,7 +564,7 @@ function extractEvents(
   let SyntheticEventCtor = SyntheticEvent;
   let reactEventType: string = domEventName;
 
-	// ... 省略
+    // ... 省略
 
   const inCapturePhase = (eventSystemFlags & IS_CAPTURE_PHASE) !== 0;
   if (
@@ -634,11 +602,9 @@ function extractEvents(
 }
 ```
 
-这里有一个细节需要注意一下：**事件触发的时候，由于事件捕获或者冒泡而一起触发的事件称为同一批事件，会共用同一个合成事件对象**。捕获期和冒泡期是分开的，因为原生是两个事件
+这里有一个细节需要注意一下：**事件触发的时候，由于事件捕获或者冒泡而一起触发的事件称为同一批事件（类型相同)，会共用同一个合成事件对象**。捕获期和冒泡期是分开的，因为原生是两个事件
 
 > **这里之所以能够共用同一个合成事件对象，是因为每个回调函数的事件对象基本都是一样的，除了`currentTarget`属性不同，共用同一个对象可以节省重复创建的成本**
-
-
 
 **向上遍历**收集事件的方法是`accumulateSinglePhaseListeners`
 
@@ -694,8 +660,6 @@ export function accumulateSinglePhaseListeners(
   currentTarget： // 当前回调函数中事件对象中的currentTarget属性，添加事件监听的DOM
 }
 ```
-
-
 
 #### 2.3.3 创建合成事件对象
 
@@ -769,7 +733,7 @@ function createSyntheticEvent(Interface: EventInterfaceType) {
       } else if (typeof event.cancelBubble !== 'unknown') {
         event.cancelBubble = true;
       }
-			// 判断当前执行队列是否有回调函数中执行了stopPropagation方法
+            // 判断当前执行队列是否有回调函数中执行了stopPropagation方法
       this.isPropagationStopped = functionThatReturnsTrue;
     },
     persist: function() {
@@ -791,8 +755,6 @@ function createSyntheticEvent(Interface: EventInterfaceType) {
 2. 阻止`React`事件冒泡：需要在合成事件对象中实现一个`stopPropagation`方法，当该方法被调用的时候，会在`SyntheticEvent`中记录一个状态判断是否需要阻止后面的回调函数执行。
 
 > **这里是同一批方法共用一个合成事件对象的另一个原因，方便判断**
-
-
 
 #### 2.3.4 执行队列中的回调函数
 
@@ -848,12 +810,10 @@ function processDispatchQueueItemsInOrder(
 这里有**两个细节**需要分析一下：
 
 1. 捕获期的`React`事件会在对应的捕获期原生事件触发时才收集，然后执行；冒泡期的也是一样。所以**冒泡和捕获期的React事件回调函数一般不在同一个队列中**。
-
+   
    > 高级事件除外
 
 2. **React事件中，捕获期的事件也是可以阻止冒泡的，阻止向下冒泡。**
-
-
 
 执行回调函数的方法是`executeDispatch`
 
@@ -873,19 +833,13 @@ function executeDispatch(
 
 这里需要提一下对于合成事件对象的处理，一个回调函数执行完成之后需要清空`currentTarget`属性
 
-
-
 ### 2.4 React事件系统执行流程
 
 <img src="./flowCharts/React-EventSystem流程.png" alt="React-EventSystem流程" />
 
-
-
 ## 3. 高级事件
 
 （期待）
-
-
 
 ## 4. 总结
 
@@ -894,5 +848,5 @@ function executeDispatch(
 1. 利用**事件委托**机制，将React应用的所有事件交给React事件系统来处理
 
 2. 构建`React`合成事件对象，抹平多平台多浏览器之间的差异，也能较少内存消耗
-3. 在原生事件回调函数中**动态向上遍历**获取需要执行的React事件队列，实现自己的事件捕获和冒泡。
 
+3. 在原生事件回调函数中**动态向上遍历**获取需要执行的React事件队列，实现自己的事件捕获和冒泡。

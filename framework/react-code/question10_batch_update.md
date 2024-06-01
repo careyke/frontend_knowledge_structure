@@ -4,18 +4,14 @@ React技术栈的小伙伴在面试的时候应该都有遇到过这样一个问
 
 大家在网上搜索答案的时候，往往都能搜索到这样的答案：**在React事件或者React生命周期方法中直接调用多个`setState`的时候，是批量更新，其他情况下是一个个更新**
 
-实际上这只是对于`Legacy模式`而言的，换一个更全面的说话是：**在React应用的执行上下文中调用多个`setState`会批量更新，脱离了执行上下文的`setState`会一个个同步更新**
+实际上这只是对于`Legacy模式`而言的，换一个更全面的说话是：**在React应用的执行上下文中调用多个`setState`会批量更新，脱离了执行上下文的`setState`会一个个同步更新**。
 
 常见的**脱离执行上下文**的情况
 
 1. 异步执行`setState`
 2. 在原生的事件回调函数中执行`setState`
 
-
-
 在介绍批量更新的实现之前，有必要先来了解一下React应用的执行上下文。
-
-
 
 ## 1. React应用的执行上下文
 
@@ -25,8 +21,6 @@ React技术栈的小伙伴在面试的时候应该都有遇到过这样一个问
 // Describes where we are in the React execution stack
 let executionContext: ExecutionContext = NoContext;
 ```
-
-
 
 ### 1.1 executionContext的取值
 
@@ -57,8 +51,6 @@ const CommitContext = /*                */ 0b0100000;
 **在某个阶段开始之前加上这个阶段对应的执行上下文的值，当这个阶段执行结束，去掉对应的执行上下文的值。**
 
 > **离散型React事件**执行时会同时拥有`EventContext`和`DiscreteEventContext`这两个上下文
-
-
 
 比如执行离散React事件时，调用`discreteUpdates`方法
 
@@ -92,8 +84,6 @@ export function discreteUpdates<A, B, C, D, R>(
 }
 ```
 
-
-
 ## 2. 批量更新的实现原理分析
 
 通常情况下，我们要实现**将多个方法由原来的一个个执行变成批量执行**，实现的要点有两个：
@@ -102,8 +92,6 @@ export function discreteUpdates<A, B, C, D, R>(
 2. **异步执行** — 在下一个`tick`去执行暂存起来的所有方法
 
 在React内部中也是使用这种思路来实现批量执行的。
-
-
 
 整个过程发生在`ensureRootIsScheduled`方法中
 
@@ -172,15 +160,13 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 
 ### 2.1 同步收集
 
-在创建`Update`的时候，会根据当前`Update`的优先级在`fiberRootNode.pendingLanes`中占领轨道，相同优先级的`Update`占领的轨道是一样的。这实际上就是一个收集的过程
+在创建`Update`的时候，会根据当前`Update`的优先级在`fiberRootNode.pendingLanes`中占领轨道，相同优先级的`Update`占领的轨道是一样的。这实际上就是一个收集的过程。
 
 ### 2.2 异步执行
 
 当收集完成之后，会借助`Scheduler`来异步批量执行同一优先级中所有的`Update`。`Concurrent`模式中加入了优先级调度的逻辑
 
 如此就实现了多次调用setState的**批量更新**
-
-
 
 ## 3. Legacy模式下的非批量更新
 
@@ -194,8 +180,6 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
 
 1. 预留同步执行的入口
 2. 根据执行上下文判断是否需要同步执行
-
-
 
 ### 3.1 预留同步执行的入口
 
@@ -279,18 +263,14 @@ React将所有**同步的更新**都收集保存在`syncQueue`中，然后提供
 > `flushSyncCallbackQueue`这个方法在很多地方都有使用，目的就是用来**同步执行所有的同步更新（sync）**
 
 > 补充：
->
+> 
 > **这里同步的更新指的就是`SyncLanePriority`优先级的`update`，其他优先级的`update`并不能被`flushSyncCallbackQueue`方法执行**
-
-
 
 对于**同步的更新，React有两种处理方式**：
 
 1. 默认情况下和其他优先级的更新一样，借助`Scheduler`来异步调度，在下一个`tick`执行
 
 2. 直接调用`flushSyncCallbackQueue`，在当前`tick`执行
-
-
 
 ### 3.2 根据执行上下文判断是否需要同步执行
 
@@ -336,13 +316,9 @@ export function scheduleUpdateOnFiber(
 
 > 同步执行的例子可以看[这里](https://codesandbox.io/s/lagecyreact-8ig9z?file=/src/App.js)
 
-
-
 `Legacy`模式中，**React事件处理中也是使用`flushSyncCallbackQueue`来同步执行，但是执行的时机是在事件回调函数完成之后再执行，所以可以达到批量执行的效果**
 
 > 对应的代码在 [discreteUpdates](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1188) 中
-
-
 
 ## 4. 总结
 
@@ -356,14 +332,10 @@ React内部对于批量更新的实现步骤如下：
 1. 在`Legacy`模式下，如果`Update`脱离执行上下文，会**立即同步执行**
 2. React事件回调中创建的**同步`Update`**，会在当前tick执行
 
-
-
 所以：
 
 1. **对于`Concurrent`模式来说，是否批量执行取决于`Update`的优先级。**
 2. **对于`Legacy`模式来说，是否批量执行取决于当前所在的执行上下文**。因为`Legacy`模式下所有的`Update`优先级是一样的
-
-
 
 分析一下例子的执行情况：
 
@@ -405,4 +377,3 @@ export default class BatchUpdate extends React.Component {
 2. 在Concurrent模式下，只会输出一次 “render”，优先级是相同的
 
 > 对应的例子可以看[这里](https://codesandbox.io/s/reactcodeexamples-el2gu?file=/src/BatchUpdate.js)
-

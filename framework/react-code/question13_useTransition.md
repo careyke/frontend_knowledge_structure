@@ -9,8 +9,6 @@
 
 `useTransition`通常会配合`Suspense`一起使用，用来解决`Suspense`使用中遇到的问题。具体是什么问题以及如何解决的，我们后面再来分析，这里我们先来分析一下`useTransition`的实现。
 
-
-
 ## 1. useTransition的源码实现
 
 ### 1.1 mount阶段
@@ -72,9 +70,7 @@ function startTransition(setPending, callback) {
 1. 以**不小于`UserBlockingPriority`的优先级**更新过渡的状态，开启过渡
 2. 以**不大于`NormalPriority`的优先级**执行传入的更新，更新完成之后关闭过渡
 
-在创建`Update`对象的时候，会**根据当前优先级的上下文来给`Update`分配对应的`lane`**。这里`setPending(false)`和`callback()`中创建的`Update`优先级是一样的，而且是同步创建的，所以**只会触发一次更新**
-
-
+在创建`Update`对象的时候，会**根据当前优先级的上下文来给`Update`分配对应的`lane`**。这里`setPending(false)`和`callback()`中创建的`Update`优先级是一样的，而且是同步创建的，所以**只会触发一次更新**。
 
 前面我们讲过，`useTransition`其中一个功能是用来**延迟更新**，但是这里`callback`中创建的更新对应的优先级是`NormalPriority`，在React应用中，默认的更新优先级就是`NormalPriority`，所以使用这个优先级来延迟更新的效果不会很好。
 
@@ -139,7 +135,9 @@ export function findTransitionLane(wipLanes: Lanes, pendingLanes: Lanes): Lane {
 
 所以在过渡阶段调度的更新，对应的优先级是`TransitionPriority`，从而实现了延迟更新的目的。
 
-
+> **注意**：
+> 
+> **这里是借助上下文临时变量来标识 transition update 的，所以要求 startTransition 中 callback 内部的更新时同步产生的更新**。如果是异步产生的更新，不会被标记为TransitionLanes
 
 ### 1.2 update阶段
 
@@ -154,15 +152,30 @@ function updateTransition(): [(() => void) => void, boolean] {
 }
 ```
 
-`updateTransition`方法中返回的`start`方法**重用**了`mount`阶段创建的start方法。没有什么特殊的逻辑
+`updateTransition`方法中返回的`start`方法**重用**了`mount`阶段创建的start方法。没有什么特殊的逻辑。
+
+### 1.3 startTransition - 两次更新
+
+上面代码中可以看到，useTransition 会返回一个 startTransition 的方法，这个方法执行的时候会调用两次更新。
+
+- 以**不小于`UserBlockingPriority`的优先级**更新过渡的状态，开启过渡。
+- 以**不大于`NormalPriority`的优先级**执行传入的更新，更新完成之后关闭过渡。
+
+所以当有多个 startTransition 执行的时候，由于startTransition 会有一个高优的任务先执行，会打断上一个 startTransition 中的低优任务。
+
+根据这个原理可以保证就算前面有耗时较长的低优任务没有执行完成，也不会阻塞后续的过渡任务。
+
+所以使用 startTransition 包裹的更新在连续执行的时候，会有类似**debounce**的效果。
 
 
 
-### 1.3 总结
+### 1.4 总结
 
-通过对`useTransition`源码的分析，我们可以得出这么一个结论：
+通过对`useTransition`源码的分析，我们可以得出：
 
-**`useTransition`本身的功能就是通过降低更新的优先级，达到延迟更新的目的。**
+- **`useTransition`本身的功能就是通过降低更新的优先级，达到延迟更新的目的。**
+
+- startTransition 内部会触发一个高优任务一个低优任务，连续执行时会有类似 debounde 的效果。
 
 
 
@@ -172,11 +185,9 @@ function updateTransition(): [(() => void) => void, boolean] {
 
 但是`Suspense`模式本身也会带来一个问题：
 
-**在请求没有完成的时候，会回退到`fallbackChildren`**。在`mount`阶段的时候这种交互是可以接受的，但是在`update`阶段，这种回退的交互是不友好的
+**在请求没有完成的时候，会回退到`fallbackChildren`**。在`mount`阶段的时候这种交互是可以接受的，但是在`update`阶段，这种回退的交互是不友好的。
 
 `useTransition`配合`Suspense`使用刚好就可以解决这个问题，也就是我们开篇介绍的`useTransition`的第二个功能。
-
-
 
 ### 2.1 Suspense组件树更新时经历的三个阶段
 
@@ -193,14 +204,12 @@ function updateTransition(): [(() => void) => void, boolean] {
 3. **Complete**: 所有的Suspense都渲染对应的`primaryChildren`，新页面渲染完成
 
 > 区别 Receded 和 Skeleton 阶段：
->
+> 
 > **Receded感觉是面向用户”后退“了一步，页面从完整页面到降级页面；Skeleton感觉是面向用户”前进“了一步，慢慢渲染成更多内容**
 
-对于用户来说Receded阶段的交互是不友好的，用户能够接受在旧页面显示`pending`状态，但是无法接受页面直接回退到空白。
+对于用户来说 Receded 阶段的交互是不友好的，用户能够接受在旧页面显示`pending`状态，但是无法接受页面直接回退到空白。
 
-所以优化的思路就是**将原来的Receded阶段替换成Pending阶段，当新页面中必要的数据完成之后再来更新页面，进入Skeleton阶段**
-
-
+所以优化的思路就是**将原来的Receded阶段替换成Pending阶段，当新页面中必要的数据完成之后再来更新页面，进入Skeleton阶段**。
 
 #### 2.1.2 useTransition优化处理
 
@@ -212,23 +221,19 @@ function updateTransition(): [(() => void) => void, boolean] {
 
 也就是我们上面提到的期望的优化方式
 
-
-
 借用官方文档中的一张图来表示这个优化过程：
 
 ![cm-steps-simple](./images/cm-steps-simple.png)
 
 > **注意：**
->
+> 
 > 上面图对应的React版本比较老，在当前版本中React将其中的`timeout`处理去掉了。
->
+> 
 > 目前官方文档中对于`useTransition`的描述和例子对应的都是比较老的React版本，当前版本对useTransition的功能有了一些更新
-
-
 
 ### 2.2 优化的源码实现
 
-上面我们说到`useTransition`配合`Suspense`可以将`Receded`阶段优化成`Pending`阶段。但是我们在分析useTransition源码的时候，其本质的功能就是通过降低更新的优先级延迟更新。如果没有特殊处理的话，并不能达到期望的优化效果。
+上面我们说到`useTransition`配合`Suspense`可以将`Receded`阶段优化成`Pending`阶段。但是我们在分析 useTransition 源码的时候，其本质的功能就是通过降低更新的优先级延迟更新。如果没有特殊处理的话，并不能达到期望的优化效果。
 
 那么源码中是如何实现的呢？
 
@@ -283,20 +288,16 @@ function finishConcurrentRender(root, exitStatus, lanes) {
 1. **优化的过程只可能发生在`Suspense`组件`update`阶段，状态由unsuspended变成suspended**
 
 2. 当命中`useTransition`优化的时候，会抛弃掉当前`render`阶段创建的`workInProgress tree`，下次更新时会重新创建
-
-   > 对这源码分析：
-   >
+   
+   > 对照源码分析：
+   > 
    > `workInProgressRoot`会被重置
 
 3. **当命中`useTransition`优化的时候，不会走commit阶段，也就是promise不能在commit阶段注册回调函数**。前面分析Suspense时讲过，在`Concurrent`模式中，`promise`会在是`render`阶段注册一个回调函数，**在当前优化命中的情况下，promise完成之后就是调用这个回调函数来触发更新的**。
-
+   
    > 这种情况在分析Suspense时没有提到，这里补充一下
 
-
-
 至此我们就分析完了`useTransition`的实现原理和对`Suspense`的优化实现。
-
-
 
 #### 2.2.1 suspendedLanes 和 pingedLanes （***）
 
@@ -328,7 +329,7 @@ function performConcurrentWorkOnRoot(root) {
     // ...省略
   } else if (exitStatus !== RootIncomplete) {
     // ...省略
-    
+
     const finishedWork: Fiber = (root.current.alternate: any);
     root.finishedWork = finishedWork;
     root.finishedLanes = lanes;
@@ -369,8 +370,8 @@ export function markRootSuspended(root: FiberRoot, suspendedLanes: Lanes) {
   // The suspended lanes are no longer CPU-bound. Clear their expiration times.
   /**
    * 这个将suspendedLanes中每个lane对应的过期时间去掉了
-	 * 表示suspendedLanes中的lanes不会自动调度执行，需要借助于pingedLanes来执行
-	 * 所以不需要过期时间
+     * 表示suspendedLanes中的lanes不会自动调度执行，需要借助于pingedLanes来执行
+     * 所以不需要过期时间
    */
   const expirationTimes = root.expirationTimes;
   let lanes = suspendedLanes;
@@ -385,7 +386,7 @@ export function markRootSuspended(root: FiberRoot, suspendedLanes: Lanes) {
 }
 ```
 
-这个方法中一个重要的操作就是将`suspendedLanes`中lane对应的过期时间去掉，也就是不会因为过期而强制被执行。
+这个方法中一个重要的操作就是**将`suspendedLanes`中lane对应的过期时间去掉，也就是不会因为过期而强制被执行**。
 
 这里理解起来似乎有点困难，我们来看一下调度更新时获取当前最高优先级的方法`getNextLanes`
 
@@ -418,11 +419,11 @@ export function getNextLanes(root: FiberRoot, wipLanes: Lanes): Lanes {
     if (nonIdlePendingLanes !== NoLanes) {
       const nonIdleUnblockedLanes = nonIdlePendingLanes & ~suspendedLanes;
       if (nonIdleUnblockedLanes !== NoLanes) {
-        // 先处理非suspended的任务
+        // 1.先处理非suspended的任务
         nextLanes = getHighestPriorityLanes(nonIdleUnblockedLanes);
         nextLanePriority = return_highestLanePriority;
       } else {
-        // suspendedLanes中的任务 只能通过pingedLanes来调度
+        // 2.suspendedLanes中的任务 只能通过pingedLanes来调度
         const nonIdlePingedLanes = nonIdlePendingLanes & pingedLanes;
         if (nonIdlePingedLanes !== NoLanes) {
           nextLanes = getHighestPriorityLanes(nonIdlePingedLanes);
@@ -449,11 +450,9 @@ export function getNextLanes(root: FiberRoot, wipLanes: Lanes): Lanes {
 
 上面代码中可以看到，在获取下一次更新的优先级时，会跳过suspendedLanes中包含的lane。也就是说**suspendedLanes对应的lanes默认是不会执行的，除非标记成pingedLanes**
 
-也就是说，**pingedLanes是动态构建用来执行suspendedlanes对应的更新的**
+也就是说，**pingedLanes是动态构建用来执行suspendedlanes对应的更新的**。
 
-**suspendedLanes和pingedLanes会在commit执行时进行销毁**，可以看[markRootFinished](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberLane.js#L762) 方法，也就是说suspendedLanes和pingedLanes只在当前render阶段产生作用
-
-
+**suspendedLanes和pingedLanes会在commit执行时进行销毁**，可以看[markRootFinished](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberLane.js#L762) 方法，也就是说**suspendedLanes和pingedLanes只在当前render阶段产生作用**。
 
 ##### 2.2.1.2 pingedLanes
 
@@ -475,18 +474,15 @@ export function markRootPinged(
 
 suspendedLanes中的lanes需要依赖pingedLanes才能够被调度执行。
 
-
-
 ##### 2.2.1.3 总结
 
 1. **suspendedLanes对应的lanes在优先级调度的时候会被跳过，而且每个lane对应的过期时间也被销毁，所以默认suspendedLanes中包含的更新不会被调度执行**
 
-2. **pingedLanes是suspendedLanes的子集，pingedLanes中包含的lanes会被调度执行，优先级小于`pendingLanes & ~suspendedLanes`。如果suspendedLanes中某些lanes需要调度执行，必须先将这个lanes合并到pingedLanes中**
+2. **pingedLanes是suspendedLanes的子集，pingedLanes中包含的lanes会被调度执行。如果suspendedLanes中某些lanes需要调度执行，必须先将这个lanes合并到pingedLanes中**。
+
 3. suspendedLanes是pendingLanes的子集，pingedLanes是suspendedLanes的子集
 
 也就是说，**suspendedLanes是用来标记当前pendingLanes中某些lanes为暂停状态，不参与优先级调度。pingedLanes用来尝试恢复suspendedLanes中某些lanes的调度执行**。
-
-
 
 #### 2.2.2 结合suspendedLanes和pingedLanes来详细分析优化代码的实现
 
@@ -521,14 +517,12 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
     }
     return;
   }
-  
+
   // ...省略
 }
 ```
 
 上述代码中，重置了`root.callbackNode`，所以不会调度一次新的更新。
-
-
 
 **那么当promise完成之后又是如何更新的呢？**
 
@@ -555,7 +549,7 @@ export function pingSuspendedRoot(
     workInProgressRoot === root &&
     isSubsetOfLanes(workInProgressRootRenderLanes, pingedLanes)
   ) {
-    // 这种请你情况不会命中
+    // 这种情况不会命中
     // 不是在render阶段 workInProgressRoot === null
     if (
       workInProgressRootExitStatus === RootSuspendedWithDelay ||
@@ -578,7 +572,7 @@ export function pingSuspendedRoot(
       );
     }
   }
-  
+
   ensureRootIsScheduled(root, eventTime);
   schedulePendingInteractions(root, pingedLanes);
 }
@@ -588,13 +582,9 @@ export function pingSuspendedRoot(
 
 至此，useTransition优化Suspense的实现原理就分析完了。
 
-
-
 ### 2.3 useTransition优化Suspense的实现流程
 
 ![React-useTransition优化Suspense实现流程](./flowCharts/React-useTransition优化Suspense实现流程.png)
-
-
 
 ## 3. 版本迭代
 
@@ -613,18 +603,14 @@ export function pingSuspendedRoot(
 
 > 官方文章中有一个功能是”使用 `<Suspense>` 包裹惰性功能“，这个功能实际上利用的就是旧版的`useTransition`有`timeout`这个特性
 
-
-
 ### 3.2 新版 useTransition
 
 在新版中，`useTransition`中删除了`timeout`的概念，所以**必须要等到`Suspense`对应的`promise`完成之后才会退出过渡阶段。**
 
-
-
 这里我们看两个useTransition优化多Suspense嵌套的例子
 
 1. switchTab，对应的demo看[这里](https://codesandbox.io/s/usetransition-switchtab-7xgxi?file=/src/App.js)
-
+   
    ```js
    const User = ({ resource }) => {
      const user = resource.user.read();
@@ -673,15 +659,13 @@ export function pingSuspendedRoot(
      );
    };
    ```
-
+   
    这里点击按钮的时候，**等待user数据加载完成之后才会切换到下一个页面，但是并不会等待`age`数据也加载完成**。
-
+   
    因为`age`对应的`Suspense`组件是**新创建**的，处于`mount`状态，所以达不到`useTransition`优化的条件。
 
-
-
 2. switchApi，对应的demo可以看[这里](https://codesandbox.io/s/usetransition-switchapi-ficp5?file=/src/wrapPromise.js:0-497)
-
+   
    ```js
    const User = ({ resource }) => {
      const user = resource.user.read();
@@ -717,20 +701,15 @@ export function pingSuspendedRoot(
      );
    };
    ```
-
+   
    这个例子中，点击按钮之后会**等待`Suspense`子树中所有的`promise`完成之后才会退出过渡阶段**
-
+   
    按照前面`useTransition`优化的流程分析下来可知，其中一个`promise`完成之后仍然会命中`useTransition`优化。
 
-
-
-在多个Suspense嵌套时，useTransition优化之后，有些场景下过渡的时间长，有些场景下过渡的时间短。当我们了解useTransition优化Suspense的原理之后，就可以准确判断过渡的时间长短，可以更好的使用`Suspense`和`useTransition`
-
-
+在多个Suspense嵌套时，useTransition优化之后，有些场景下过渡的时间长，有些场景下过渡的时间短。当我们了解useTransition优化Suspense的原理之后，就可以准确判断过渡的时间长短，可以更好的使用`Suspense`和`useTransition`。
 
 ## 4. 总结
 
-1. useTransition本身的功能就是降低更新的优先级，达到延迟更新的目的
+1. useTransition本身的功能就是**降低更新的优先级**，达到延迟更新的目的
 2. useTransition之所以能够优化Suspense组件，是因为`Suspense`组件内部对于`useTransition`做了一些特殊处理
 3. 目前useTransition仍然是一个实验功能，可能在以后的版本中仍会发生较大修改
-

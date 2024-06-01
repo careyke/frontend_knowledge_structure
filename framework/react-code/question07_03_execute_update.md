@@ -8,8 +8,6 @@
 
 以`ClassComponent`为例
 
-
-
 ## 1. 执行Update(*)
 
 `Update`中包含了组件最新的状态，需要在组件重新渲染的时候来执行，也就是发生在`beginWork`阶段。
@@ -69,11 +67,11 @@ export function processUpdateQueue<State>(
 
   // These values may change as we process the queue.
   if (firstBaseUpdate !== null) {
-   	// 用来记录执行Update之后的state
+       // 用来记录执行Update之后的state
     let newState = queue.baseState;
-   	// 用来记录未执行Update的lane
+       // 用来记录未执行Update的lane
     let newLanes = NoLanes;
-		// 用来记录执行Update之后的baseState
+        // 用来记录执行Update之后的baseState
     let newBaseState = null;
     let newFirstBaseUpdate = null;
     let newLastBaseUpdate = null;
@@ -181,8 +179,6 @@ export function processUpdateQueue<State>(
 1. 构造`Update`执行链表`UpdateList`
 2. 遍历`UpdateList`执行`Update`
 
-
-
 ### 1.1 构造Update执行链表UpdateList
 
 `pendingUpdate`指的是本次更新**新增**的`Update`，存储在`updateQueue.shared.pending`中。
@@ -201,7 +197,7 @@ let lastBaseUpdate = queue.lastBaseUpdate;
 
 let pendingQueue = queue.shared.pending;
 if (pendingQueue !== null) {
-  	// 清空pending
+      // 清空pending
     queue.shared.pending = null;
 
     // 剪环
@@ -245,8 +241,6 @@ if (pendingQueue !== null) {
 
 > 克隆的方法可以看[cloneUpdateQueue](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactUpdateQueue.new.js#L165)
 
-
-
 ### 1.2 遍历UpdateList执行Update
 
 完成拼接之后会遍历`UpdateList`执行满足条件的`Update`，得到新的`state`。
@@ -256,7 +250,7 @@ if (pendingQueue !== null) {
 ```javascript
 // 判断条件
 if (!isSubsetOfLanes(renderLanes, updateLane))
-  
+
 // 方法实现
 export function isSubsetOfLanes(set: Lanes, subset: Lanes | Lane) {
   return (set & subset) === subset;
@@ -267,8 +261,6 @@ export function isSubsetOfLanes(set: Lanes, subset: Lanes | Lane) {
 
 1. 处理不满足条件的`Update`
 2. 处理满足条件的`Update`
-
-
 
 #### 1.2.1 处理不满足条件的Update
 
@@ -286,12 +278,12 @@ if (!isSubsetOfLanes(renderLanes, updateLane)) {
     };
     if (newLastBaseUpdate === null) {
         newFirstBaseUpdate = newLastBaseUpdate = clone;
-      	// 防止下一次更新的baseState不正确
+          // 防止下一次更新的baseState不正确
         newBaseState = newState;
     } else {
         newLastBaseUpdate = newLastBaseUpdate.next = clone;
     }
-  	// 保存被跳过的Update的lane
+      // 保存被跳过的Update的lane
     newLanes = mergeLanes(newLanes, updateLane);
 }
 ```
@@ -302,8 +294,6 @@ if (!isSubsetOfLanes(renderLanes, updateLane)) {
 2. 放在新的`baseUpdate`链表中
 3. 记录当前`Update`的`lane`
 
-
-
 #### 1.2.2 处理满足条件的Update
 
 ```javascript
@@ -311,7 +301,7 @@ if (newLastBaseUpdate !== null) {
     // 一个Update被跳过，后面所有的都会跳过
     const clone: Update < State > = {
         eventTime: updateEventTime,
-      	// 注意这里lane设置为0，是所有renderLanes的子集，后续更新时这个Update一定会执行
+          // 注意这里lane设置为0，是所有renderLanes的子集，后续更新时这个Update一定会执行
         lane: NoLane,
         tag: update.tag,
         payload: update.payload,
@@ -361,8 +351,6 @@ if (callback !== null) {
 
 所以说为了保证状态的连续性，这两个操作都是很有必要的。
 
-
-
 #### 1.2.3 newState和newBaseState
 
 上面执行过程中还有一个关键的点需要分析一下，就是`newState`和`newBaseState`的取值问题。
@@ -381,8 +369,6 @@ if (callback !== null) {
 但是`newState`需要实时拿到最新的执行结果，对用户的操作做出反应，保证最后的状态是对的即可。
 
 > **所以对于高优任务打断低优任务的场景，用户可能会看到错误的中间状态，但是最终的状态是正确的**。
-
-
 
 #### 1.2.4 举个例子
 
@@ -415,8 +401,6 @@ A1 - B2 - C1 - D2
 }
 // 最终情况下，baseState和state值是一样的
 ```
-
-
 
 ## 2. 更新`root.pendingLanes`和`root.expiredLanes`
 
@@ -469,29 +453,23 @@ export function markRootFinished(root: FiberRoot, remainingLanes: Lanes) {
 }
 ```
 
-
-
 ### 2.1 `fiber.lanes和fiber.childLanes`的更新流程
 
 下面我们结合整个`update`流程来分析一下`fiber.lanes`和`fiber.childLanes`的更新流程，看React如何实现更新lanes的闭环。
 
 **第一步**：**初始化`fiber.lanes和fiber.childLanes`**。这个操作发生在`markUpdateLaneFromFiberToRoot`方法中。这个方法上一节我们详细的讲过，这里不再赘述。
 
-
-
 第二步：**在`beginWork阶段`更新`fiber.lanes`**。这个操作分成两个步骤
 
 1. 执行`render`函数之前清空`fiber.lanes`。对应的源代码可以看[这里](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L3233)
-
+   
    ```javascript
    workInProgress.lanes = NoLanes;
    ```
-
+   
    > 其实感觉这一步有点多余
 
 2. 执行完`Update`之后，更新`fiber.lanes`，此时已经剔除了已经执行的`lane`。上面代码中有
-
-
 
 第三步：在`completeWork阶段`更新`fiber.childLanes`。对应的方法是`resetChildLanes`
 
@@ -529,11 +507,7 @@ function resetChildLanes(completedWork: Fiber) {
 
 这个过程和构造`effectList`的过程有点类似，都是在`completeWork`阶段将子节点的信息收集在父节点中。
 
-
-
 这就是`fiber.lanes`和`fiber.childLanes`更新的整个流程。**React内部会循环的`调度update、执行update`直到`root.pendingLanes`为0为止。**
-
-
 
 ## 3. 总结
 
@@ -542,8 +516,6 @@ function resetChildLanes(completedWork: Fiber) {
 总结一下整个update的流程:
 
 <img src="./images/update.png?" alt="update" style="zoom:50%;" />
-
-
 
 ## 4. 问题分析
 
@@ -559,7 +531,7 @@ function resetChildLanes(completedWork: Fiber) {
 
 新增了两个生命周期：
 
-- static getDerivedStateFromProps
+- **static** getDerivedStateFromProps
 - getSnapshotBeforeUpdate
 
 React给出的解释是三个`will_`生命周期经常被滥用，比如在其中执行`this.state`逻辑、操作`DOM`。在异步渲染中这些问题会被进一步放大，可能会产生`bug`，所以才会去掉。
@@ -570,10 +542,7 @@ React给出的解释是三个`will_`生命周期经常被滥用，比如在其�
 
 也就是说，**在异步渲染中，组件的`will_`生命周期都是在`render阶段`执行，可能会被执行多次，如果其中做了什么不规范的操作，也就会被执行多次**。
 
-
-
 那么替换的这两个生命周期可以避免吗？答案是可以
 
 1. `getDerivedStateFromProps`是一个**静态**的生命周期，可以理解为一个纯函数，其中并不能获取到组件实例（this），所以即便是会执行多次，也并不会影响组件实例。
 2. `getSnapshotBeforeUpdate`的**调用发生在`commit阶段`**，一次更新只会执行一次。
-

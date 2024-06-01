@@ -39,7 +39,7 @@ export function updateContainer(
   }
 
   enqueueUpdate(current, update);
-  
+
   // 开启一次更新
   scheduleUpdateOnFiber(current, lane, eventTime);
 
@@ -56,12 +56,7 @@ export function updateContainer(
 1. 如果是**异步更新**，则先**接入`Scheduler`**，然后调用`performConcurrentWorkOnRoot`方法进入`render`阶段；
 2. 如果是**同步更新**，则直接调用`performSyncWorkOnRoot`方法进入`render`阶段
 
-
-
->
 > 下面以mount阶段为例来分析
-
-
 
 ## 2. render阶段工作流程
 
@@ -71,8 +66,6 @@ render阶段主要是Reconciler在工作，目的是**将新的`ReactElement`节
 
 > Fiber节点的数据结构中加入`return`和`sibling`指针感觉就是为了更简单的使用循环来实现递归。
 
-
-
 render阶段的工作可以分成两个部分：
 
 1. **”递“阶段** —— 从`workInProgress rootFiber`开始向下进行**深度优先遍历**，每遍历一个`Fiber节点`就调用一次`beginWork`方法，该方法会创建该`Fiber节点`的子节点。然后继续向下遍历并创建，直到遇到叶子节点的时候，进入”归“阶段。
@@ -81,8 +74,6 @@ render阶段的工作可以分成两个部分：
 可以看出，”递“和”归“是**交错运行**的，直到`rootFiber`的“归”阶段执行完，整个`render`阶段才算完成。
 
 > React内部遍历Fiber Tree使用的算法是深度优先遍历。如果强行使用广度优先遍历，会非常麻烦，sibling指针不适合广度优先遍历
-
-
 
 ### 2.1 创建workInProgress rootFiber
 
@@ -125,8 +116,6 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes) {
 
 > 对应的源码见[这里](https://github.com/careyke/react/blob/08f393c93f260219d21a91aa7216fa0689c4fd97/packages/react-reconciler/src/ReactFiberWorkLoop.new.js#L1557)
 
-
-
 `root Fiber`创建完成之后，在`workLoopSync`方法中，开始用**循环**的方式遍历树。
 
 ```javascript
@@ -145,8 +134,8 @@ function performUnitOfWork(unitOfWork: Fiber): void {
     next = beginWork(current, unitOfWork, subtreeRenderLanes);
   }
 
-	// 子节点创建完成之后，最新的props(pendingProps)就已经被消费完成
-	// 可以作为下一次更新的memoizedProps
+    // 子节点创建完成之后，最新的props(pendingProps)就已经被消费完成
+    // 可以作为下一次更新的memoizedProps
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
     // 如果是叶子节点，插入一个”归“过程
@@ -167,8 +156,6 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 
 后面主要是解析这两个方法，看看究竟做了哪些工作。
 
-
-
 ### 2.2 ”递“过程——beginWork
 
 > 该方法的源码看[这里](https://github.com/careyke/react/blob/08f393c93f260219d21a91aa7216fa0689c4fd97/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L3035)
@@ -180,11 +167,11 @@ function beginWork(
   renderLanes: Lanes,
 ): Fiber | null {
   const updateLanes = workInProgress.lanes;
-  
+
   if (current !== null) {
     // update阶段
-  	// 先判断优化路径是否匹配，如果不匹配就需要新建Fiber节点
-    
+      // 先判断优化路径是否匹配，如果不匹配就需要新建Fiber节点
+
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;
 
@@ -202,7 +189,7 @@ function beginWork(
       didReceiveUpdate = false;
     }
   } else {
- 		// mount阶段
+         // mount阶段
     didReceiveUpdate = false;
   }
   workInProgress.lanes = NoLanes;
@@ -229,9 +216,8 @@ function beginWork(
 1. `current `—— 表示当前Fiber节点对应`current Fiber Tree`上的Fiber节点，也就是`workInProgress.alternate`
 
 2. `workInProgress` —— 表示**本次更新**中，当前组件对应的Fiber节点，也就是workInProgress Fiber Tree上的节点
+
 3. `renderLanes` —— 优先级相关的属性，暂时可以不考虑
-
-
 
 上面函数体中可以看出，**根据`current === null`可以判断当前组件是处于`mount`阶段还是`update`阶段**，因为对于本次新增的组件，在`current Fiber Tree`上是不存在对应的节点的，所以`currentFiber === null`
 
@@ -239,8 +225,6 @@ function beginWork(
 
 1. 组件`mount`阶段：直接创建新的子Fiber节点，没有优化流程
 2. 组件`update`阶段：判断是否匹配优化路径，如果不满足则需要新创建子`Fiber`节点；如果匹配优化路径，则进入优化流程**复用对应的`currentFiber`**。
-
-
 
 #### 2.2.2 更新优化（*）—— 复用currentFiber
 
@@ -277,25 +261,19 @@ function bailoutOnAlreadyFinishedWork(
 
 > `FunctionComponent`除外，因为`FunctionComponent`可能会先执行render函数，然后来判断是否需要优化
 
-
-
 节点复用也分成两种情况：
 
 1. **复用`currentFiber`下的所有子树（subtree）**：当节点的**后代节点本次都不需要更新**的时候，所有的后代节点会直接复用对应`current Fiber Tree`中的节点，后代节点不需要执行`beginWork`。
 
 2. **复用`currentFiber`的子节点（一层）**：当节点的**后代节点本次需要更新**的时候，只能复用`currentFiber`的子节点这一层。子节点仍然需要执行`beginWork`的逻辑。
-
+   
    > 第二种情况下中的复用指的是**克隆**，并不是直接拿对应的currentFiber来用，而是克隆其中的属性。
-   >
+   > 
    > 对应的方法看[cloneChildFibers](https://github.com/careyke/react/blob/765e89b908206fe62feb10240604db224f38de7d/packages/react-reconciler/src/ReactChildFiber.new.js#L1344)
 
-
-
 > 这里需要说明的一点是：**由于在commit阶段中，都会执行`workInProgress = null`这个操作，所以每次更新的时候，都会从rootFiber开始遍历生成新的`workInProgress Fiber Tree`，在遍历的过程中插入优化的环节**。
->
+> 
 > 通过`currentFiber`来创建`workInProgressFiber`的时候，会执行`workInProgress.child = current.child`，所以才会产生前面复用整个`currentFiber`的情况。（创建函数见[这里](https://github.com/careyke/react/blob/08f393c93f260219d21a91aa7216fa0689c4fd97/packages/react-reconciler/src/ReactFiber.new.js#L248)）
-
-
 
 ##### 2.2.2.2 优化路径
 
@@ -306,16 +284,12 @@ function bailoutOnAlreadyFinishedWork(
 
 > 这里是笔者自己总结的称呼，这里的创建是指**进入创建子节点的流程**
 
-
-
 ###### 2.2.2.2.1 创建前优化
 
 在进入创建子节点的流程之前，如果**同时满足**以下条件，会直接进入优化处理。
 
 1. `oldProps === newProps` — 即更新前后的`props`不变，默认情况下并**没有做对象的浅对比**，所以调用`render`新生成的`Fiber节点`都不满足该条件，因为`pendingProps`是新创建的对象。
 2. `!includesSomeLane(renderLanes, updateLanes)=== true`  — 即表示**当前节点的优先级不够**，不参与本次更新。后面优先级调度的章节再细讲。
-
-
 
 ###### 2.2.2.2.2 创建后优化
 
@@ -333,7 +307,7 @@ function updateFunctionComponent(
   nextProps: any,
   renderLanes,
 ) {
-	// ... 省略
+    // ... 省略
   let nextChildren;
   // 依赖的context如果发生变化，也会修改didReceiveUpdate的值
   prepareToReadContext(workInProgress, renderLanes);
@@ -354,7 +328,7 @@ function updateFunctionComponent(
     bailoutHooks(current, workInProgress, renderLanes);
     return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
   }
-	// ...省略
+    // ...省略
 }
 ```
 
@@ -365,8 +339,6 @@ function updateFunctionComponent(
 **当前节点的`前后props`并没有发生变化，但是满足当前的更新优先级**，所以无法命中创建前优化，需要进入创建子节点的流程。在调用`render`方法生成子`ReactElement`的时候，如果节点的**内部状态**没有发生修改，此时会进入**创建后优化**。
 
 > 在执行`render`函数的时候，如果内部有状态变化，会修改`didReceiveUpdate`的值。后面Hooks章节有提到
-
-
 
 **ClassComponent：**
 
@@ -385,7 +357,7 @@ function finishClassComponent(
   hasContext: boolean,
   renderLanes: Lanes,
 ) {
-	// ... 省略
+    // ... 省略
   const didCaptureError = (workInProgress.flags & DidCapture) !== NoFlags;
 
   if (!shouldUpdate && !didCaptureError) {
@@ -396,17 +368,13 @@ function finishClassComponent(
 
     return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
   }
-	// ... 省略
+    // ... 省略
 }
 ```
-
-
 
 ##### 2.2.2.3 优化路径流程图
 
 ![递阶段-创建子节点优化路径](./flowCharts/递阶段-创建子节点优化路径.png)
-
-
 
 #### 2.2.3 创建子fiber节点
 
@@ -476,8 +444,6 @@ function placeSingleChild(newFiber: Fiber): Fiber {
 ”递“阶段的流程图：
 
 <img src="./flowCharts/render-递阶段.png" alt="render-递阶段" />
-
-
 
 ### 2.3 “归”过程——completeWork
 
@@ -624,12 +590,12 @@ updateHostComponent = function (
     const oldProps = current.memoizedProps;
     if (oldProps === newProps) {
         // 表示当前节点经过了beginWork中的优化，复用了currentFiber
-      	// 所以真实DOM没有更新
+          // 所以真实DOM没有更新
         return;
     }
     const instance: Instance = workInProgress.stateNode;
     const currentHostContext = getHostContext();
-  	// 对比oldProps和newProps，获取更新的部分
+      // 对比oldProps和newProps，获取更新的部分
     const updatePayload = prepareUpdate(
         instance,
         type,
@@ -641,7 +607,7 @@ updateHostComponent = function (
     // HostComponent类型的Fiber 其updateQueue是对比之后需要更新的Props，在commit阶段将这些变化渲染到DOM上
     workInProgress.updateQueue = (updatePayload: any);
     if (updatePayload) {
-      	// 给当前节点打上update flag
+          // 给当前节点打上update flag
         markUpdate(workInProgress);
     }
 };
@@ -668,8 +634,6 @@ updateHostComponent = function (
 
 ![render - 归过程](./flowCharts/render-归过程.png)
 
-
-
 ### 2.4 effectList
 
 在`completeUnitOfWork`方法中，节点执行完`completeWork`之后，会**将当前节点中保存的effect拼接到effectList中，并且将effectList传递到父节点中**。
@@ -680,7 +644,7 @@ if (returnFiber.firstEffect === null) {
 }
 if (completedWork.lastEffect !== null) {
     if (returnFiber.lastEffect !== null) {
-      	// 拼接当前节点上以保存的effect，保存的是子代的effect节点
+          // 拼接当前节点上以保存的effect，保存的是子代的effect节点
         returnFiber.lastEffect.nextEffect = completedWork.firstEffect;
     }
     returnFiber.lastEffect = completedWork.lastEffect;
@@ -690,7 +654,7 @@ const flags = completedWork.flags;
 
 if (flags > PerformedWork) {
     if (returnFiber.lastEffect !== null) {
-      	// 如果当前节点也有flag，则将当前节点插入effectList后面
+          // 如果当前节点也有flag，则将当前节点插入effectList后面
         returnFiber.lastEffect.nextEffect = completedWork;
     } else {
         returnFiber.firstEffect = completedWork;
@@ -714,7 +678,7 @@ if (flags > PerformedWork) {
 上图中的完整的effectList为：（后序遍历）
 
 ```javascript
-					firstEffect		nextEffect																													lastEffect
+                    firstEffect        nextEffect                                                                                                                    lastEffect
 rootFiber ----------> D ---------> E ----------> B ----------> F ---------> C ---------> A <---------rootFiber
 ```
 
@@ -729,7 +693,7 @@ function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
     }
     const last = returnFiber.lastEffect;
     if (last !== null) {
-      	// 将Deletion的节点插入effectList中
+          // 将Deletion的节点插入effectList中
         last.nextEffect = childToDelete;
         returnFiber.lastEffect = childToDelete;
     } else {
@@ -746,8 +710,6 @@ function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
 
 至此，render阶段的工作已经完成了，下面来总结一下
 
-
-
 ## 3.总结
 
 **render过程中的主要工作**：
@@ -755,7 +717,7 @@ function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
 1. 在“递”阶段，利用`更新优化`和`diff算法`，根据`current Fiber Tree` 和最新的`ReactElment Tree`来生成`workInProgress Fiber Tree`。
 
 2. 在“归”阶段，提前创建`新增的DOM subtree`和找出需要`增量更新的DOM属性`，保存在Fiber节点中
+
 3. 在整个render过程中，对需要更新的节点，打上相应类型的`flag`并且组成`effectList`链表。
 
 render阶段收集出了所有的变化，commit阶段来消费这些变化。
-

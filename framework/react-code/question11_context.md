@@ -8,8 +8,6 @@
 
 > 这里我们只会分析新版的`Context`，老版的`Context`会直接跳过
 
-
-
 ## 1. Context相关的数据结构
 
 React提供了`createContext` API来创建`Context`对象
@@ -30,11 +28,11 @@ export function createContext<T>(
     $$typeof: REACT_CONTEXT_TYPE,
     _calculateChangedBits: calculateChangedBits,
     _currentValue: defaultValue,
-    
+
     // 这里是为了并发渲染预留的字段，暂时不需要了解
     _currentValue2: defaultValue,
     _threadCount: 0,
-    
+
     // These are circular
     Provider: (null: any),
     Consumer: (null: any),
@@ -60,15 +58,11 @@ export function createContext<T>(
 1. `Provider`对象中可以通过`_context`属性获取`context`对象，`Consumer`本身就是`context`对象
 2. 创建`context`对象的时候，预留了一个参数`calculateChangedBits`，这个方法可以**让开发者自己来判断context的值是否发生变化**。（暂时还没有开放出来）
 
-
-
 > `context`对象中有两个字段用来保存值。其中`_currentValue`用来保存主渲染器的值，`_currentValue2`用来保存副渲染器的值。
->
+> 
 > 这个涉及到同时使用多个渲染器的问题，暂时不需要了解，我们只看主渲染器
->
+> 
 > （React未来的发展路径）
-
-
 
 ## 2. Provider
 
@@ -78,8 +72,6 @@ export function createContext<T>(
 
 - **`Provider`类似于发布者**。负责对比数据有没有发生变化，如果发生变化则需要通知对应的订阅者。
 - **`Consumer`类似于订阅者**。表示当前这个组件订阅对应context的值，如果context的值发生变化，组件需要更新。
-
-
 
 这里我们先来看看在`beginWork`阶段中，对于`Provider`类型的节点是如何处理的。
 
@@ -141,20 +133,18 @@ function updateContextProvider(
 1. **mount阶段**：直接根据`子ReactElement`来生成对应的`Fiber`节点
 
 2. **update阶段**：判断`context`的值是否发生变化
-
+   
    - **如果值没有发生变化，而且`children`也没有发生变化**，会进入优化处理，复用`current Fiber Tree`中的节点
-
+     
      > 在`render`阶段的文章中介绍过：
-     >
+     > 
      > 这里对比`children`使用的是**全等`===`**，如果执行了`render`函数，生成的`children`必然是一个新对象
-     >
+     > 
      > 可以看看`babel`转换之后的`React`代码，线上[试试](https://www.babeljs.cn/repl#?browsers=&build=&builtIns=false&spec=false&loose=false&code_lz=JYWwDg9gTgLgBAJQKYEMDG8BmUIjgcilQ3wG4AoctAGxQGc64ARJECOJADxiQDsATRsnQwAdAGFckXnxgBvcgEg0EXnRhQArhmgAKMDjB0AlArjm4iuprBIo-wyYoW4AX3LnFRAXd2mPLnBEMJpQvHAAPPzAAG4AfBF0YCi8CQD0SSnp0fEB5u6uQA&debug=false&forceAllTransforms=false&shippedProposals=false&circleciRepo=&evaluate=false&fileSize=false&timeTravel=false&sourceType=module&lineWrap=true&presets=es2015%2Creact&prettier=false&targets=&version=7.6.2&externalPlugins=)
-
+   
    - **如果值发生了变化**，则需要**向下遍历**寻找当前`context`的订阅者，打上更新标记，本次一起更新。
 
 下面我们重点来分析`update`阶段的实现代码。
-
-
 
 ### 2.1 更新context的值
 
@@ -167,8 +157,8 @@ export function pushProvider<T>(providerFiber: Fiber, nextValue: T): void {
   if (isPrimaryRenderer) {
     // 主渲染器，考虑到并发渲染
     // 这里只考虑主渲染器
-    
-    
+
+
     push(valueCursor, context._currentValue, providerFiber);
 
     context._currentValue = nextValue; // 赋值
@@ -181,8 +171,6 @@ export function pushProvider<T>(providerFiber: Fiber, nextValue: T): void {
 ```
 
 其中`push`方法用来记录`Provider`的嵌套堆栈，暂时没看出其具体作用，感觉是用在开发阶段，方便调试。
-
-
 
 ### 2.2 对应context的值是否发生变化
 
@@ -212,8 +200,6 @@ export function calculateChangedBits<T>(
 这个方法返回 0 则表示context前后的值没有变化。其中对比值的方法使用的是 `Object.is` API。
 
 这里还有一个细节就是创建`context`时传入的判断方法会在这里执行，由开发者来判断当前的`context`值是否发生变化。**前提条件是`is(oldValue, newValue) === false`**
-
-
 
 ### 2.3 向下遍历寻找context的订阅者
 
@@ -319,13 +305,11 @@ export function propagateContextChange(
 
 2. 给满足条件的节点打上更新的标记，也就是给节点增加`renderLanes`，本次一起更新。
 
-
-
 > 注意：
->
+> 
 > 上面代码中有关与`Provider`类型节点的处理需要注意一下。context的依赖遵从的是**就近原则**。
-
-
+> 
+> 如果同一个Context，Provider两次，第一个Provider值发生变化，第二个不发生变化。从执行流程分析，这两个Provider执行的时候，contextValue都会发生变化，所以会往下查找两次，但是对应的Consumer节点只会重渲染一次，因为两次变化发生在同一个render流程中。
 
 这里有一个细节，在给满足条件的节点增加更新标记的时候。由于context是跨层级更新的，所以需要更新**节点对应所有祖先节点的`childLanes`**。
 
@@ -358,15 +342,11 @@ export function scheduleWorkOnParentPath(
 }
 ```
 
-
-
 > **注意：**
->
+> 
 > 整个遍历寻找的过程感觉是个比较耗时的过程，既要向下遍历，又需要向上遍历。**层级跨度越大，遍历的过程就越耗时。**
->
+> 
 > `React-Redux`就是使用`context`的方案来管理更新的，性能需要考量！（感觉有隐患）
-
-
 
 ## 3. Consumer
 
@@ -375,8 +355,6 @@ export function scheduleWorkOnParentPath(
 从上面寻找的代码中我们可以看到，**订阅者对应的`Fiber`中有一个`dependencies`属性，用来保存当前组件所依赖的context。**
 
 `dependencies`属性在组件渲染的时候会赋值。
-
-
 
 下面来看一下`Comsumer`类型的节点是如何处理。
 
@@ -387,7 +365,7 @@ function updateContextConsumer(
   renderLanes: Lanes,
 ) {
   let context: ReactContext<any> = workInProgress.type;
-  
+
   const newProps = workInProgress.pendingProps;
   const render = newProps.children;
 
@@ -401,13 +379,12 @@ function updateContextConsumer(
     newChildren = render(newValue);
   }
 
+  // PerformedWork是给React DevTool 使用
   workInProgress.flags |= PerformedWork;
   reconcileChildren(current, workInProgress, newChildren, renderLanes);
   return workInProgress.child;
 }
 ```
-
-
 
 ### 3.1 读取context之前的准备工作
 
@@ -427,7 +404,7 @@ export function prepareToReadContext(
     const firstContext = dependencies.firstContext;
     if (firstContext !== null) {
       if (includesSomeLane(dependencies.lanes, renderLanes)) {
-				// 修改didReceiveUpdate的值，表示该组件需要更新
+        // 修改didReceiveUpdate的值，表示该组件需要更新
         markWorkInProgressReceivedUpdate();
       }
       // 清空数据，后面会重置
@@ -443,8 +420,6 @@ export function prepareToReadContext(
 2. 如果依赖链表中的context有更新，需要修改`didReceiveUpdate`的值。这个值在`beginWork`中会用到，通常是`FunctionComponent`
 
 > `FunctionComponent`在渲染的时候也会执行这个方法，可以看[updateFunctionComponent](https://github.com/careyke/react/blob/a22834e3f44f2a361a378ed36b4543a09da49116/packages/react-reconciler/src/ReactFiberBeginWork.new.js#L700)
-
-
 
 ### 3.2 读取context的值并更新依赖链表
 
@@ -481,7 +456,8 @@ export function readContext<T>(
     if (lastContextDependency === null) {
       lastContextDependency = contextItem;
       currentlyRenderingFiber.dependencies = {
-        lanes: NoLanes, // 重置更新标记（优先级）
+        // 重置更新标记（优先级）,contextValue变化的时候会向下遍历更新
+        lanes: NoLanes, 
         firstContext: contextItem,
         responders: null,
       };
@@ -495,8 +471,6 @@ export function readContext<T>(
 ```
 
 这里代码的逻辑还是很清晰的。我们重点看一下`dependencies`的数据结构。
-
-
 
 #### 3.2.1 dependencies和contextItem的数据结构
 
@@ -514,13 +488,11 @@ contextItem：
 
 ```javascript
 {
-	context: ((context: any): ReactContext<mixed>), // 依赖的context对象
+  context: ((context: any): ReactContext<mixed>), // 依赖的context对象
   observedBits: resolvedObservedBits,
   next: null,
 };
 ```
-
-
 
 ## 4. useContext
 
@@ -529,8 +501,6 @@ contextItem：
 而对于`FunctionComponent`来说，可以**使用`useContext`依赖多个不同的`context`对象。**
 
 **调用`useContext`时，实际上调用的就是上面的`readContext`方法**
-
-
 
 ## 5. context的更新流程图
 

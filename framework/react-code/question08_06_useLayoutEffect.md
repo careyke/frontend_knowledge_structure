@@ -37,30 +37,23 @@ function updateLayoutEffect(
 1. `Fiber`节点上增加的`flag`不同
 2. `Effect`中增加的`tag`不同
 
-
-
 #### 1.2.1 给Fiber增加的flag不同
 
 执行`useLayoutEffect`给`Fiber`加上的是`Update flag`，表明`useLayoutEffect`对应的`Effect`并不是异步执行，而是**同步执行**。
 
 之前在分析`commit`阶段的文章有提到过，`useLayoutEffect`对应Effect是在`commit`阶段同步执行的。
 
-
-
 #### 1.2.2 Effect中的tag不同
 
 `useLayoutEffect`对应的`Effect`的`tag属性`会包括`HookLayout tag`，表明其是由`useLayoutEffect`产生的。
-
-
 
 ## 2. useEffect VS useLayoutEffect
 
 下面来对比总结一下`useEffect`和`useLayoutEffect`之间的不同。
 
-| 对比维度                 | useEffect                                                    | useLayoutEffect                                              |
-| ------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 产生的副作用(Fiber flag) | Update \| Passive                                            | Update                                                       |
-| Effect的类型             | Passive                                                      | Layout                                                       |
-| Effect执行的方式         | 异步执行                                                     | 同步执行                                                     |
-| Effect执行的时机         | 主要在`commit-layout`阶段收集激活的Effect，异步执行destory和create函数（组件销毁时commit-mutation也会收集） | 在`commit-mutation`阶段执行destory函数，在`commit-layout`阶段执行create函数 |
-
+| 对比维度               | useEffect                                                                      | useLayoutEffect                                              |
+| ------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| 产生的副作用(Fiber flag) | Update \| Passive                                                              | Update                                                       |
+| Effect的类型          | Passive                                                                        | Layout                                                       |
+| Effect执行的方式        | 异步执行                                                                           | 同步执行                                                         |
+| Effect执行的时机        | 主要在`commit-layout`阶段收集激活的Effect，异步执行destory和create函数（组件销毁时commit-mutation也会收集） | 在`commit-mutation`阶段执行destory函数，在`commit-layout`阶段执行create函数 |

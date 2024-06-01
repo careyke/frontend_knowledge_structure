@@ -10,8 +10,6 @@
 
 这篇文章中我们主要分析`创建update`阶段
 
-
-
 ## 1. 状态变化
 
 `React`应用中，产生更新的前提条件就是发生状态变化，`React`提供了几种发生状态变化的`API`：
@@ -31,8 +29,6 @@
 > 前面的文章中我们就提到过，`ReactDOM.render`初始化`React`应用和更新`React`应用流程是一样的，都会创建`Update`对象，然后再调度更新。
 
 接下来笔者会以`ClassComponent`为例来分析整个`update`的过程，`FunctionComponent`的更新流程会在后面介绍`Hooks`的时候一起分析。
-
-
 
 ## 2. 创建Update对象
 
@@ -82,28 +78,26 @@ function adoptClassInstance(workInProgress: Fiber, instance: any): void {
 
 ```javascript
 enqueueSetState(inst, payload, callback) {
-  	// 通过实例和fiber之间的索引关系来获取对应的fiber
-  	// 这里获取到的不一定的current Fiber 有可能是workInProgress Fiber
+      // 通过实例和fiber之间的索引关系来获取对应的fiber
+      // 这里获取到的不一定的current Fiber 有可能是workInProgress Fiber
     const fiber = getInstance(inst);
     const eventTime = requestEventTime();
-  	// 获取本次更新的优先级
+      // 获取本次更新的优先级
     const lane = requestUpdateLane(fiber);
 
-  	// 创建Update
+      // 创建Update
     const update = createUpdate(eventTime, lane);
     update.payload = payload;
     if (callback !== undefined && callback !== null) {
         update.callback = callback;
     }
 
-  	// 将当前更新加入Update链表
+      // 将当前更新加入Update链表
     enqueueUpdate(fiber, update);
-  	// 调度更新入口，发起一次调度
+      // 调度更新入口，发起一次调度
     scheduleUpdateOnFiber(fiber, lane, eventTime);
 },
 ```
-
-
 
 ### 2.2 Update的数据结构（*）
 
@@ -139,8 +133,6 @@ export function createUpdate(eventTime: number, lane: Lane): Update<*> {
 
 对于`ClassComponent`和`HostRoot`类型的节点来说，`Update`对象会保存在**`fiber.updateQueue`**中。
 
-
-
 ### 2.3 updateQueue的数据结构（*）
 
 **在组件初始化的时候，会调用`initializeUpdateQueue`方法来初始化`updateQueue`**，从这个方法中可以大致看出`updateQueue`的基本结构
@@ -165,16 +157,14 @@ export function initializeUpdateQueue<State>(fiber: Fiber): void {
 - baseState：表示更新之前的`state`，在执行`Update`的时候会基于`baseState`来计算更新之后的`state`
 
 - **`firstBaseUpdate`和`lastBaseUpdate`**：表示本次更新之前`Fiber`节点中已经存在的`Update`。是一个链表，`firstBaseUpdate`表示第一个节点，`lastBaseUpdate`表示最后一个节点。
-
+  
   > 这里之所以在本次更新产生之前`Fiber`节点中就存在`Update`，是**因为上一次执行`Update`链表的时候，有一些`Update`因为优先级低会被跳过执行**。
 
 - `shared.pending`：本次更新产生的`Update`会以一个**单向环状链表**的形式保存在`shared.pending`中。在**执行`Update`的时候，这个环状链表会被剪开拼接在`lastBaseUpdate`后面。**
-
+  
   > 后面分析执行过程的时候会详细讲解
 
 - effects：用来收集本次执行的`Update`中，存在`callback`的`Update`，是一个数组。后面`commit阶段`需要使用
-
-
 
 ### 2.4 单向环状链表
 
@@ -204,23 +194,21 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
 上面代码可以看出，本次更新产生的`Update`会以**单向环状链表**的形式保存在`sharedQueue.pending`中，其中**`sharedQueue.pending`表示的是最后一个加入的`Update`。**
 
 > 什么情况下会一次更新产生多个`Update`？
->
+> 
 > 这里其实涉及到的是React内部**批量更新**的实现，后面有专门的章节来介绍。
->
+> 
 > 这里介绍一种常见会产生多个`Update`的更新
->
+> 
 > ```jsx
 > onClick=()=>{
-> 	this.setState({a:1});
-> 	this.setState({b:2});
+>     this.setState({a:1});
+>     this.setState({b:2});
 > }
 > ```
 
 图解单向环状链表的形成流程：
 
 ![ClassComponent-pendingQueue单向环状链表](./flowCharts/ClassComponent-pendingQueue单向环状链表.png)
-
-
 
 ## 3. 调度更新
 
@@ -229,4 +217,3 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
 **`scheduleUpdateOnFiber`方法是`调度update`节点的入口方法**，不管是哪种方式导致的状态变化，在完成`创建update阶段`之后，都会调用这个方法进入`调度update阶段`
 
 下一节笔者将会来分析`调度update阶段`
-

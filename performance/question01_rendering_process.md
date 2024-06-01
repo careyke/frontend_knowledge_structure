@@ -13,19 +13,19 @@
 4. 服务器接收到请求之后返回响应报文
 
 5. 浏览器拿到响应报文之后开始渲染页面，第一次请求一般返回的是一个html文件
-
+   
    1. 浏览器解析html的响应报文，网络传输的都是字节数据，所以需要解析装换，最终生成一颗DOM Tree
-
+   
    ```js
    Bytes -> Characters -> Tokens -> Nodes -> DOM
    ```
-
+   
    2. 在解析DOM的过程中，如果遇到`link`标签，就会请求CSS文件，然后也进行解析，最终生成一颗CSSOM Tree
-
+   
    ```js
    Bytes -> Characters -> Tokens -> Nodes -> CSSOM
    ```
-
+   
    3. 在解析DOM的过程中，如果遇到`<script>`标签，会判断是否存在defer或async属性
       - 如果存在，会并行下载js文件，defer类型的js会在html解析完成之后顺序执行；async类型的js文件会在下载完之后立即执行
       - 如果不存在，则会**阻塞渲染流程（CSSOM和DOM）**，等js文件下载执行都完成之后，再开始后面的渲染流程
@@ -34,8 +34,6 @@
    6. 渲染引擎根据Render Tree中的节点信息，计算每个节点的大小和在当前图层的位置
    7. 根据节点的位置绘制Render Tree，计算页面像素信息
    8. 然后将图层的信息交给GPU，GPU会将各个图层进行合层处理（**composite**），显示在屏幕上
-
-
 
 ## 2. （*）解释一些结论
 
@@ -61,8 +59,6 @@
 
 所以整个浏览器的渲染过程，可以理解为是一个边解析边渲染的过程。
 
-
-
 ## 参考文章
 
 1. [知己知彼——解锁浏览器背后的运行机制](https://juejin.im/book/5b936540f265da0a9624b04b/section/5bac3a4df265da0aa81c043c)
@@ -71,4 +67,3 @@
 4. [对浏览器首次渲染时间点的探究](https://juejin.im/post/5cbfc852f265da035378df3d)
 5. [再谈 load 与 DOMContentLoaded](https://juejin.im/post/5b2a508ae51d4558de5bd5d1)
 6. [css加载会造成阻塞吗？](https://juejin.im/post/5b88ddca6fb9a019c7717096)
-

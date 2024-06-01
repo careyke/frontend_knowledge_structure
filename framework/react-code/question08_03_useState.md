@@ -35,8 +35,6 @@ function mountState<S>(
 }
 ```
 
-
-
 ## 2. update阶段
 
 对应的函数是`updateState`
@@ -48,8 +46,6 @@ function updateState<S>(
   return updateReducer(basicStateReducer, (initialState: any));
 }
 ```
-
-
 
 ## 3. rerender阶段
 
@@ -67,8 +63,6 @@ function rerenderState<S>(
 
 最大的不同在于：**`useReducer`使用的是开发者定义的`reducer`，`useState`使用的是固定的`reducer`**
 
-
-
 看一下固定的`reducer`：`basicStateReducer`
 
 ```javascript
@@ -78,4 +72,3 @@ function basicStateReducer<S>(state: S, action: BasicStateAction<S>): S {
 ```
 
 逻辑非常简单。
-
