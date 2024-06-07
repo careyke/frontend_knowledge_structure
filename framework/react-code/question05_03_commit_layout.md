@@ -23,8 +23,6 @@ do {
 nextEffect = null;
 ```
 
-
-
 ## 1. commitLayoutEffects
 
 直接`commitLayoutEffects`方法的代码。
@@ -72,7 +70,7 @@ function commitLayoutEffects(root: FiberRoot, committedLanes: Lanes) {
 case ClassComponent: {
     const instance = finishedWork.stateNode;
     if (finishedWork.flags & Update) {
-      	// 判断是mount还是update
+          // 判断是mount还是update
         if (current === null) {
             if (
                 enableProfilerTimer &&
@@ -81,7 +79,7 @@ case ClassComponent: {
             ) {
               // ...省略
             } else {
-              	// 执行componentDidMount生命周期
+                  // 执行componentDidMount生命周期
                 instance.componentDidMount();
             }
         } else {
@@ -97,12 +95,12 @@ case ClassComponent: {
             ) {
                 // ...省略
             } else {
-              	// 执行componentDidUpdate生命周期
+                  // 执行componentDidUpdate生命周期
                 instance.componentDidUpdate(
                     prevProps,
                     prevState,
-                  	// 这个属性表示的是getSnapshotBeforeUpdate函数的返回值
-                  	// 在before mutation阶段执行getSnapshotBeforeUpdate时塞进去的
+                      // 这个属性表示的是getSnapshotBeforeUpdate函数的返回值
+                      // 在before mutation阶段执行getSnapshotBeforeUpdate时塞进去的
                     instance.__reactInternalSnapshotBeforeUpdate,
                 );
             }
@@ -114,8 +112,8 @@ case ClassComponent: {
         , >
         | null = (finishedWork.updateQueue: any);
     if (updateQueue !== null) {
-      	// 执行调用setState时传入的第二个参数
-      	// 会存储在effect.callback中
+          // 执行调用setState时传入的第二个参数
+          // 会存储在effect.callback中
         commitUpdateQueue(finishedWork, updateQueue, instance);
     }
     return;
@@ -140,12 +138,12 @@ case FunctionComponent: {
     ) {
         // ...省略
     } else {
-      	// 调用useLayoutEffect创建函数
+          // 调用useLayoutEffect创建函数
         commitHookEffectListMount(HookLayout | HookHasEffect, finishedWork);
     }
-		
-  	// 记录useEffect的销毁函数和创建函数
-  	// 调度执行所有的useEffect
+
+      // 记录useEffect的销毁函数和创建函数
+      // 调度执行所有的useEffect
     schedulePassiveEffects(finishedWork);
     return;
 }
@@ -191,7 +189,7 @@ case HostRoot: {
                     break;
             }
         }
-      	// 执行render函数的第三个参数
+          // 执行render函数的第三个参数
         commitUpdateQueue(finishedWork, updateQueue, instance);
     }
     return;
@@ -238,8 +236,6 @@ function commitAttachRef(finishedWork: Fiber) {
 
 从上面代码可以看出，**节点的`Ref`值取的就是对应`Fiber`节点的`stateNode`的值，所以`FunctionComponent`类型的节点给`Ref`赋值为`null`**
 
-
-
 ### 1.3 节点销毁和更新情况下`useEffect`的执行顺序（*）
 
 #### 1.3.1 执行的操作
@@ -266,8 +262,6 @@ function commitAttachRef(finishedWork: Fiber) {
 
 同理，对应`useLayoutEffect`和`componentWillUnmount、componentDidMount`是执行顺序也是一样的。
 
-
-
 ## 2. 切换`current tree`
 
 在前面讲`Fiber`架构的时候讲过，`Fiber`架构使用**双缓存**的机制来更新`Fiber Tree`。`workInProgress FIber Tree`会在`commit`阶段变成`current Fiber Tree`。
@@ -278,15 +272,11 @@ function commitAttachRef(finishedWork: Fiber) {
 
 代码中给了一段注释，大致的意思就是对于`ClassComponent`来说，**在执行`componentWillUnmount`的时候需要获取到更新之前的DOM节点。而在`componentDidMount`和`componentDidUpdate`中需要获取到更新之后的DOM节点。所以才在`mutation`和`layout`阶段之间来执行`Fiber Tree`切换的操作。**
 
-
-
 > **？？？**
->
+> 
 > 这里笔者有一点**疑惑**，在源代码的逻辑中，切换`Fiber Tree`的操作放在这里与否，对于`componentDidMount`中获取子元素DOM节点并没有什么影响。
->
+> 
 > **`componentDidMount`中获取到的始终是更新之后的DOM节点。**
-
-
 
 ## 3. layout之后
 
@@ -298,7 +288,7 @@ const rootDidHavePassiveEffects = rootDoesHavePassiveEffects;
 
 if (rootDoesHavePassiveEffects) {
     rootDoesHavePassiveEffects = false;
-  	// 判断是否执行useEffect创建和销毁函数的开关属性
+      // 判断是否执行useEffect创建和销毁函数的开关属性
     rootWithPendingPassiveEffects = root;
     pendingPassiveEffectsLanes = lanes;
     pendingPassiveEffectsRenderPriority = renderPriorityLevel;
@@ -308,8 +298,8 @@ if (rootDoesHavePassiveEffects) {
         const nextNextEffect = nextEffect.nextEffect;
         nextEffect.nextEffect = null;
         if (nextEffect.flags & Deletion) {
-          	// 清空被删除节点的持有属性
-          	// 方便该节点执行GC
+              // 清空被删除节点的持有属性
+              // 方便该节点执行GC
             detachFiberAfterEffects(nextEffect);
         }
         nextEffect = nextNextEffect;
@@ -336,14 +326,12 @@ return null;
 2. **执行本次更新中产生的同步更新任务，主要是生命周期中执行`setState`触发的更新**。（后面讲更新阶段的时候会详细介绍）
 
 > **重要补充**
->
+> 
 > `useLayoutEffect` 和 `DidMount/Update` 中产生同步更新的原因是执行`commitRootImpl`方法是以`ImmediateSchedulerPriority`优先级来执行的。内部产生的更新会被这个优先级影响。
->
+> 
 > useEffect由于是**异步执行**的，所以不会被影响
 
 下面我们来总结一下`useEffect`的执行过程。
-
-
 
 ### 3.1 总结useEffect的执行过程
 
@@ -376,7 +364,7 @@ const rootDidHavePassiveEffects = rootDoesHavePassiveEffects;
 
 if (rootDoesHavePassiveEffects) {
     rootDoesHavePassiveEffects = false;
-  	// 判断是否执行useEffect创建和销毁函数的开关属性
+      // 判断是否执行useEffect创建和销毁函数的开关属性
     rootWithPendingPassiveEffects = root;
     pendingPassiveEffectsLanes = lanes;
     pendingPassiveEffectsRenderPriority = renderPriorityLevel;
@@ -394,19 +382,15 @@ function flushPassiveEffectsImpl() {
   if (rootWithPendingPassiveEffects === null) {
     return false;
   }
-	// ...省略处理逻辑，前面分析过
+    // ...省略处理逻辑，前面分析过
 }
 ```
 
 可以看到这三个过程是环环相扣的，**通过全局变量来控制下一个阶段是否开启**。
 
-
-
 ## 4. commit阶段流程图
 
 ![commit阶段流程图](./flowCharts/commit阶段流程图.png)
-
-
 
 ## 5. 总结
 
@@ -417,14 +401,9 @@ function flushPassiveEffectsImpl() {
 1. 创建`workInProgress Fiber Tree`
 2. 生成`effectList`
 
-
-
 **`commit`阶段也有两个主要的工作：**
 
 1. 执行`effectList`中描述的DOM操作
 2. 执行`effectList`中节点更新之后对应的副作用
 
-
-
 **`render`阶段的工作可以被打断，`commit`阶段的工作是同步执行完**
-

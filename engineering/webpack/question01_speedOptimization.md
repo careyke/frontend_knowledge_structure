@@ -33,8 +33,6 @@ module.exports=smp.wrap({
 
 这种方案是最简单的，Node和Webpack在不断的迭代过程中，内部会进行很多的优化。比如内部使用一些更高效的js方法来实现
 
-
-
 ### 2.2 缩小模块的打包范围和搜索路径
 
 在代码中我们常常会引入一些第三方的包，比如react，但是这些包本身就已经通过babel转化，所以在查找分析的时候是不需要再去分析这些包的。
@@ -45,7 +43,7 @@ module.exports=smp.wrap({
 
 ```js
 {
-	test:/\.js$/,
+    test:/\.js$/,
   include:path.resolve('src'),
   loader: 'babel-loader'
 }
@@ -60,8 +58,6 @@ module.exports=smp.wrap({
 <img src="./images/include02.jpg" alt="include02" style="zoom:50%;" />
 
 可以看到速度的提升还是很明显的。
-
-
 
 **2. 使用resolve属性来缩短查找的关键路径**
 
@@ -81,8 +77,6 @@ resolve:{
 
 <img src="./images/resolve.jpg" alt="resolve" style="zoom:50%;" />
 
-
-
 ### 2.3 并行打包
 
 **并行打包使用的是多进程的方式来打包。内部会创建一个线程池，然后将当前类型模块的打包操作分配到多个线程中打包，打包完成之后合并到主线程中。**
@@ -99,14 +93,14 @@ const HappyPack = require('happypack');
 
 // rules
 {
-	test:/\.js$/,
+    test:/\.js$/,
   include:path.resolve('src'),
   loader: 'babel-loader'
 }
 
 //plugins
 plugins: [
-	...
+    ...
   new HappyPack({
     loaders:['babel-loader'],
     threads:4
@@ -115,13 +109,11 @@ plugins: [
 ]
 ```
 
-
-
 #### 2.3.1 thread-loader
 
 ```js
 {
-	test:/\.js$/,
+    test:/\.js$/,
   include:path.resolve('src'),
   use:[
     {
@@ -134,8 +126,6 @@ plugins: [
   ]
 }
 ```
-
-
 
 ### 2.4 并行压缩
 
@@ -165,17 +155,15 @@ optimization:{
 
 速度上还是有所提升的
 
-
-
 ### 2.5 使用缓存，提高二次构建的速度
 
 开启缓存之后，默认会在node_modules文件夹下创建一个**`.cache`**目录，用来存放缓存数据。通常开启缓存的地方有三个：
 
 1. babel-loader 开启缓存：提高二次解析js的速度
-
+   
    ```js
    {
-   	test:/\.js$/,
+       test:/\.js$/,
      include:path.resolve('src'),
      use:[
        'bable-loader?cacheDirectory=true'
@@ -185,7 +173,7 @@ optimization:{
    ```
 
 2. terser-webpack-plugin 开启缓存：提高第二次压缩代码的速度（webpack生产环境中会默认打开）
-
+   
    ```js
    optimization:{
        minimize:true,
@@ -202,10 +190,10 @@ optimization:{
    ```
 
 3. cache-loader和hard-source-webpack-plugin：缓存webpack内部模块处理的中间结果，提高二次模块转化速度
-
+   
    ```js
    {
-   	test:/\.js$/,
+       test:/\.js$/,
      include:path.resolve('src'),
      use:[
        'cache-loader',
@@ -213,25 +201,23 @@ optimization:{
      ]
    }
    ```
-
+   
    ```js
    const HardSourceWebpackPlugin = require('hard-source-webpack-plugin');
    
    plugins: [
-   	...
+       ...
      new HardSourceWebpackPlugin(),
      ...
    ]
-     
+   
    //效果特别明显
    ```
    
    > **补充：**
-   >
+   > 
    > - cache-loader用来缓存对应loader处理之后的产物，存放在磁盘中
    > - hard-source-webpack-plugin用来为模块提供中间缓存，缓存的东西更多，对于第二次构建速度的提升也更大。但是第一次打包时的时间也更长
-
-
 
 ### 2.6 预编译基础资源
 
@@ -245,9 +231,6 @@ webpack提供了`DllPlugin`和`DLLReferencePlugin`插件，来实现包的分拆
 
 - `DllPlugin`负责生成基础包的描述文件
 - `DLLReferencePlugin`负责在bundle打包中引用基础包的描述文件，建立两者之间的关系
-
-
-
 1. 通常会建立一个webpack.config.dll.js文件来打包基础包，并使用`DllPlugin`生成一个描述文件
 
 ```js
@@ -312,4 +295,3 @@ new webpack.DllReferencePlugin({
 ## 3. 示例项目
 
 [webpack_test](https://github.com/careyke/webpack-test)
-

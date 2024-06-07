@@ -24,8 +24,6 @@ react中常用的表单组件：
 2. Formik 只负责表单数据层面的管理，灵活性比较好。但是Formik提供的是**包裹式**的API，也就是需要在组件外部再包裹一个组件。而且内部也是使用受控组件，组件重新渲染的次数过多，导致性能下降。
 3. react-hook-form 也只负责表单数据的统一管理，UI层面由开发者来自己解决。react-hook-form采用hook API，**嵌入式**的在目标组件中插入数据管理的逻辑。而且内部使用非受控组件，极大程度的减少了组件重新渲染的次数，性能更佳。
 
-
-
 ## 2. react-hook-form源码实现的一些点
 
 ### 2.1 数据管理和组件刷新完全分开
@@ -121,7 +119,7 @@ const setFieldValue = React.useCallback(
             rawValue;
 
         if (isRadioInput(ref) && options) {
-            
+
         } else if (isFileInput(ref) && !isString(value)) {
         } else if (isMultipleSelect(ref)) {
         } else if (isCheckBoxInput(ref) && options) {
@@ -132,8 +130,6 @@ const setFieldValue = React.useCallback(
     [],
 );
 ```
-
-
 
 #### 2.1.2 使用useState来控制组件的刷新
 
@@ -147,8 +143,6 @@ const reRender = React.useCallback(
   [],
 );
 ```
-
-
 
 ### 2.2 提供了字段的watch功能
 
@@ -212,7 +206,7 @@ const watchInternal = React.useCallback(
 React-hook-form提供了两种watch方式：
 
 1. 字段变化的时候**刷新整个表单组件**，使用useForm()返回的watch方法来观察组件
-
+   
    ```js
    /** 被watch的字段会存在 watchFieldsRef.current中 */
    
@@ -220,10 +214,8 @@ React-hook-form提供了两种watch方式：
    let shouldRender = setDirty(name) || isFieldWatched(name);
    ```
 
-   
-
 2. 隔离刷新，字段变化的时候只**刷新部分组件**
-
+   
    ```js
    /** 被watch的字段会存在 watchFieldsHookRef.current中 */
    
@@ -243,7 +235,7 @@ React-hook-form提供了两种watch方式：
         defaultValuesRef.current :
         defaultValue,
     );
-     
+   
      React.useEffect(() => {
        const id = (idRef.current = generateId());
        const watchFieldsHookRender = watchFieldsHookRenderRef.current;
@@ -265,8 +257,6 @@ React-hook-form提供了两种watch方式：
        defaultValueRef,
      ]);
    ```
-
-
 
 ### 2.3 兼容受控组件
 
@@ -310,8 +300,6 @@ const onChange = (...event: any[]) =>
 
 **本质上是通过高阶组件的方式，将useRef和受控组件联动起来。其中一边值改变的时候，同时需要修改另一边的值。**
 
-
-
 ### 2.4 进一步的性能优化，不做无意义的刷新
 
 在上面第一点已经讲到，react-hook-form采用useRef和非受控组件的方式，很大程度上减少了组件刷新的次数。但是实际的场景中，可能会根据表单的状态来更新UI，这就意味着表单的状态变化的时候可能也要刷新组件。
@@ -350,8 +338,6 @@ formState: isProxyEnabled
       : formState,
 ```
 
-
-
 ## 3. React-hook-form的缺点
 
 1. 大量使用useRef()，而且使用的是手动刷新。使代码看起来有点乱，逻辑比较跳跃，不好扩展和维护。增加一个新的功能可能会涉及到多个地方的修改。
@@ -360,4 +346,3 @@ formState: isProxyEnabled
 
 1. [react-hook-form 源码](https://github.com/careyke/react-hook-form) — fork到个人仓库，增加了消息的注释
 2. [react-hook-form 官网](https://react-hook-form.com/zh/api/#Controller)
-

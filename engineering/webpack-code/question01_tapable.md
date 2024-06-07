@@ -4,8 +4,6 @@ Webpack是一款基于事件流的打包构建工具，其中最为出彩的是�
 
 Tapable的实现类似于EventEmitter，基本**发布-订阅**的设计模式。但是它考虑的场景更多，实现起来更复杂。
 
-
-
 ## 1. Hook的分类
 
 Tapable内部根据**任务类型、组织方式和执行方式**不同，实现了9中不同的Hook来覆盖各种常见的场景。
@@ -28,25 +26,23 @@ Tapable内部根据**任务类型、组织方式和执行方式**不同，实现
 - 串行（series）
 - 并行（parallel）
 
-| Hook                     | 任务类型   | 组织方式   | 执行方式 | 说明                                                         |
-| ------------------------ | ---------- | ---------- | -------- | ------------------------------------------------------------ |
-| SyncHook                 | 同步       | 无         | 串行     | 同步串行执行，任务之间没有关系，没有返回值                   |
-| SyncBailHook             | 同步       | 熔断       | 串行     | “熔断” - 同步串行执行，一旦某个任务有返回值，终止执行。这个返回值作为hook的返回值 |
-| SyncWaterfallHook        | 同步       | 返回值传递 | 串行     | 上一个任务的返回值作为下一个任务的参数。最后一个任务的返回值作为hook的返回值 |
-| SyncLoopHook             | 同步       | 循环       | 串行     | 当某个任务的返回值不为undefined时，从头重新开始执行整个任务队列 |
-| AsyncSeriesHook          | 同步、异步 | 无         | 串行     | 串行执行，上一个任务执行完成之后再执行下一个                 |
-| AsyncSeriesBailHook      | 同步、异步 | 熔断       | 串行     | 当某个任务有**决议值**即停止执行                             |
-| AsyncSeriesWaterfallHook | 同步、异步 | 返回值传递 | 串行     | 上一个任务的决议值作为下一个任务的参数                       |
-| AsyncSeriesLoopHook      | 同步、异步 | 循环       | 串行     | 当某个任务的决议值不为undefined时，从头重新开始执行整个任务队列 |
-| AsyncParallelHook        | 同步、异步 | 无         | 并行     | 任务并行执行，当最后一个任务完成之后才算是本次发布执行完成，才能执行对应的回调函数 |
-| AsyncParallelBailHook    | 同步、异步 | 熔断       | 并行     | **按照任务的执行顺序**，当某个任务有决议值时，停止本次执行。并且该决议值作为本次发布的决议值。 |
+| Hook                     | 任务类型  | 组织方式  | 执行方式 | 说明                                                |
+| ------------------------ | ----- | ----- | ---- | ------------------------------------------------- |
+| SyncHook                 | 同步    | 无     | 串行   | 同步串行执行，任务之间没有关系，没有返回值                             |
+| SyncBailHook             | 同步    | 熔断    | 串行   | “熔断” - 同步串行执行，一旦某个任务有返回值，终止执行。这个返回值作为hook的返回值     |
+| SyncWaterfallHook        | 同步    | 返回值传递 | 串行   | 上一个任务的返回值作为下一个任务的参数。最后一个任务的返回值作为hook的返回值          |
+| SyncLoopHook             | 同步    | 循环    | 串行   | 当某个任务的返回值不为undefined时，从头重新开始执行整个任务队列              |
+| AsyncSeriesHook          | 同步、异步 | 无     | 串行   | 串行执行，上一个任务执行完成之后再执行下一个                            |
+| AsyncSeriesBailHook      | 同步、异步 | 熔断    | 串行   | 当某个任务有**决议值**即停止执行                                |
+| AsyncSeriesWaterfallHook | 同步、异步 | 返回值传递 | 串行   | 上一个任务的决议值作为下一个任务的参数                               |
+| AsyncSeriesLoopHook      | 同步、异步 | 循环    | 串行   | 当某个任务的决议值不为undefined时，从头重新开始执行整个任务队列              |
+| AsyncParallelHook        | 同步、异步 | 无     | 并行   | 任务并行执行，当最后一个任务完成之后才算是本次发布执行完成，才能执行对应的回调函数         |
+| AsyncParallelBailHook    | 同步、异步 | 熔断    | 并行   | **按照任务的执行顺序**，当某个任务有决议值时，停止本次执行。并且该决议值作为本次发布的决议值。 |
 
 > 这里所说的**决议值指的就是当前任务的执行结果**
->
+> 
 > - 对于同步任务来说，决议值就是函数的返回值
 > - 对于异步任务来说，决议值就是异步任务执行之后得到的结果
-
-
 
 ## 2. 结合源码分析具体实现细节
 
@@ -62,10 +58,8 @@ Tapable内部根据**任务类型、组织方式和执行方式**不同，实现
 下面就以SyncHook为例子来分析源码的实现细节
 
 > 笔者fork的源代码可以看[这里](https://github.com/careyke/tapable/tree/littleknife_v2.2.0)，里面笔者对于一些重要的地方加了注释，可以参考一下。
->
+> 
 > 笔者分析源码时写的demo可以看[这里](https://github.com/careyke/hello-tapable)，里面有**每一种类型的demo和对应的动态生成的任务执行函数**
-
-
 
 ### 2.1 Hook类
 
@@ -75,8 +69,6 @@ Tapable内部根据**任务类型、组织方式和执行方式**不同，实现
 2. 订阅流程
 3. 发布流程
 
-
-
 #### 2.1.1 任务的数据结构
 
 首先可以来看一下Hook类的构造函数
@@ -85,16 +77,16 @@ Tapable内部根据**任务类型、组织方式和执行方式**不同，实现
 constructor(args = [], name = undefined) {
   // 任务回调函数的形参
   this._args = args;
-  
+
   // 当前hook的名称
   this.name = name;
-  
+
   // 任务队列
   this.taps = [];
-  
+
   // 当前hook的拦截器，整个流程的各个环节都可以拦截
   this.interceptors = [];
-  
+
   // 发布api
   this._call = CALL_DELEGATE;
   this.call = CALL_DELEGATE;
@@ -102,14 +94,14 @@ constructor(args = [], name = undefined) {
   this.callAsync = CALL_ASYNC_DELEGATE;
   this._promise = PROMISE_DELEGATE;
   this.promise = PROMISE_DELEGATE;
-  
+
   // 当前hook所有任务的回调函数集合，数组
   // HookCodeFactory.js
   this._x = undefined;
 
   // 任务执行函数的编译方法
   this.compile = this.compile;
-  
+
   // 订阅api
   this.tap = this.tap;
   this.tapAsync = this.tapAsync;
@@ -119,7 +111,7 @@ constructor(args = [], name = undefined) {
 
 从构造函数中可以看出，Hook实例中不仅存储了任务队列和拦截器队列，还定义了任务回调函数的形参。这个形参主要是在动态创建任务执行函数的时候会使用。这个在后面创建任务执行函数的时候会讲到
 
-除此之外，Hook中还分别定义了三种发布方法和订阅方法，用来针对不同的场景，这个后面也会讲到。
+除此之外，Hook中还分别定义了**三种发布方法和订阅方法**，用来针对不同的场景，这个后面也会讲到。
 
 这里我们主要是来分析任务的数据结构，其实光看构造函数是无法分析出任务的数据结构的，需要分析订阅的过程才能分析出来。这里我们直接前置这个数据结构，方便后面流程的代码分析。
 
@@ -133,8 +125,6 @@ interface Tap{
   stage: number; // 任务的相对顺序标识
 }
 ```
-
-
 
 #### 2.1.2 订阅流程
 
@@ -230,8 +220,6 @@ _insert(item) {
 
 整个订阅过程其实就是**将任务按照特定的顺序插入队列中对应的位置**
 
-
-
 #### 2.1.3 发布流程
 
 发布的api同样也有三种：
@@ -243,17 +231,17 @@ _insert(item) {
 
 ```js
 const CALL_DELEGATE = function(...args) {
-	// 修改了this.call, 所以后续需要重置
-	this.call = this._createCall("sync");
-	return this.call(...args);
+    // 修改了this.call, 所以后续需要重置
+    this.call = this._createCall("sync");
+    return this.call(...args);
 };
 const CALL_ASYNC_DELEGATE = function(...args) {
-	this.callAsync = this._createCall("async");
-	return this.callAsync(...args);
+    this.callAsync = this._createCall("async");
+    return this.callAsync(...args);
 };
 const PROMISE_DELEGATE = function(...args) {
-	this.promise = this._createCall("promise");
-	return this.promise(...args);
+    this.promise = this._createCall("promise");
+    return this.promise(...args);
 };
 
 
@@ -266,16 +254,16 @@ this.promise = PROMISE_DELEGATE;
 
 
 compile(options) {
-	throw new Error("Abstract: should be overridden");
+    throw new Error("Abstract: should be overridden");
 }
 _createCall(type) {
-	// 委托代理模式
-	return this.compile({
-		taps: this.taps,
-		interceptors: this.interceptors,
-		args: this._args,
-		type: type
-	});
+    // 委托代理模式
+    return this.compile({
+        taps: this.taps,
+        interceptors: this.interceptors,
+        args: this._args,
+        type: type
+    });
 }
 ```
 
@@ -285,10 +273,8 @@ _createCall(type) {
 2. 执行这个任务执行函数
 
 > 这里有一个优化的细节：
->
+> 
 > **动态创建了任务执行函数之后，修改了发布方法（`this.call`）的指向。这样做可以避免每次调用发布方法时都动态创建执行函数。但是当任务队列发生变化之后，再次发布时就需要重新动态创建任务执行函数**
-
-
 
 ### 2.2 HookCodeFactory类
 
@@ -380,30 +366,26 @@ create(options) {
 
 上面代码可以看到，**不同类型的触发方式，任务执行完成之后的返回的结果也不一样，对应的任务完成的标志也不一样，所以针对不同的触发方式，定义了不同的任务结束代码块**。
 
-- onDone：返回结束任务代码块，但是不关心决议值
-- onResult：返回结束任务代码块，并且返回了决议值
-- onError：返回任务异常处理代码块，提前跳出
-
-
+- **onDone**：返回结束任务代码块，但是不关心决议值
+- **onResult**：返回结束任务代码块，并且返回了决议值
+- **onError**：返回任务异常处理代码块，提前跳出
 
 #### 2.2.1 创建函数形参
 
 ```js
 args({ before, after } = {}) {
-	let allArgs = this._args;
-	if (before) allArgs = [before].concat(allArgs);
-	if (after) allArgs = allArgs.concat(after);
-	if (allArgs.length === 0) {
-		return "";
-	} else {
-		return allArgs.join(", ");
-	}
+    let allArgs = this._args;
+    if (before) allArgs = [before].concat(allArgs);
+    if (after) allArgs = allArgs.concat(after);
+    if (allArgs.length === 0) {
+        return "";
+    } else {
+        return allArgs.join(", ");
+    }
 }
 ```
 
 任务执行函数的形参主要来自于Hook实例化时定义好的形参
-
-
 
 #### 2.2.2 创建函数头
 
@@ -427,8 +409,6 @@ header() {
 
 这里函数头主要是一些通用变量的定义
 
-
-
 #### 2.2.3 创建函数体
 
 前面介绍的函数形参和函数头基本上都是一些通用的代码块，不同类型的Hook中也基本都是一样的。而函数体的代码涉及不同逻辑的处理，在实现上有较大的差异。
@@ -448,20 +428,18 @@ contentWithInterceptors(options) {
 
 `HookCodeFactory`类中封装了很多代码片段生成方法来供每个具体的Hook类使用
 
-| 方法             | 作用                                       |
-| ---------------- | ------------------------------------------ |
+| 方法               | 作用                    |
+| ---------------- | --------------------- |
 | callTap          | 根据任务的类型，生成执行每个任务的代码片段 |
-| callTapsSeries   | 生成以串行方式执行所有任务的代码片段       |
-| callTapsLooping  | 生成以串行循环方式执行所有任务的代码片段   |
-| callTapsParallel | 生成以并行方式执行所有任务的代码片段       |
+| callTapsSeries   | 生成以串行方式执行所有任务的代码片段    |
+| callTapsLooping  | 生成以串行循环方式执行所有任务的代码片段  |
+| callTapsParallel | 生成以并行方式执行所有任务的代码片段    |
 
 各个Hook类通过这些方法来组织自己的任务处理流程。
 
 > 这一块的代码能分析的点不多
->
+> 
 > 具体的可以看笔者fork的仓库，有比较详细的注释
-
-
 
 #### 2.2.4 总结
 
@@ -472,8 +450,6 @@ contentWithInterceptors(options) {
 1. 代码复用的颗粒度更小，代码更加简洁
 2. 考虑到多个任务的组织方式和执行方式，使用传统的方法实现起来感觉更加繁琐，特别是对于异步任务的处理。使用代码块拼接的方式，虽然代码看起来难懂，但是其实处理逻辑很直观也很清晰。
 
-
-
 这个库本质上没有这么难，和传统的`发布-订阅`库最大的不同在于作者对于**不同场景下任务执行的逻辑异同点**剖析得更加彻底，主要的区别在于：
 
 1. 不同类型任务执行代码块不同
@@ -481,4 +457,3 @@ contentWithInterceptors(options) {
 3. 不同类型Hook发布之后返回值不同
 
 作者根据这三个点分别封装工具方法来解决，极大程度得提高了代码的复用性，也降低了任务执行函数的复杂度。
-

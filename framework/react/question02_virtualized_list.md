@@ -14,8 +14,6 @@
 
 无论是滚动加载还是无限滚动，无非是获取数据的时机不一样。优化的核心还是需要虚拟列表的支撑，下面我们就来讲解一下虚拟列表的实现思路和优化方案。
 
-
-
 ## 1. 虚拟列表的实现思路
 
 虚拟列表实现的**关键目标**是：
@@ -33,8 +31,6 @@
 
 通过上面的前提条件，我们就可以计算出前面关键目标中所需要的数据。
 
-
-
 其中**节点的尺寸有稳定和不稳定**两种，可以将虚拟列表分成**稳定的虚拟列表**和**不稳定的虚拟列表**。
 
 1. **稳定**的虚拟列表计算的过程比较简单，可以参考代码 [**VirtualizedComponent.tsx**](https://github.com/careyke/react-virtualized-core/blob/main/src/core/VirtualizedComponent.tsx)
@@ -43,8 +39,6 @@
 具体的实现步骤笔者在这里就不详细描述了，大家可以参考`react-window`的源码或者这篇文章：[再谈前端虚拟列表的实现](https://zhuanlan.zhihu.com/p/34585166)，作者写得非常好。
 
 这里笔者主要是想详细讲解一下在 `react-window` 之上的进一步的优化方案。
-
-
 
 ## 2. 虚拟列表的优化方案 - key值优化
 
@@ -61,16 +55,14 @@
 要实现key值优化的前提条件就是**列表子节点需要使用绝对定位，将节点的索引顺序和真实的渲染位置顺序区分开来。**
 
 1. **`react-window`中的`key`变化**
-
+   
    <img src="./images/mutativeKeyIndex.jpg" alt="mutativeKeyIndex" style="zoom:50%;" />
 
 2. **`key`值优化**
-
+   
    <img src="./images/stableKeyindex.jpg" alt="stableKeyindex" style="zoom:50%;" />
 
 如上图所示：**根据`key`值来确定节点在列表中的顺序，根据`index`来确定`DOM`节点的偏移量从而确定展示顺序。**
-
-
 
 ### 2.2 代码实现
 
@@ -176,8 +168,6 @@ export const useKeyIndex = (
 };
 ```
 
-
-
 ### 2.3 优化效果比较
 
 > 以垂直方向的列表为例，渲染3000个节点
@@ -187,46 +177,40 @@ export const useKeyIndex = (
 ##### 2.3.1.1 react-window FixedSizeList
 
 1. 正常情况
-
+   
    <img src="./images/react-window-fixed-list.gif" alt="react-window-fixed-list" style="zoom:50%;" />
 
 2. chrome 6x slowdown
-
+   
    <img src="./images/react-window-fixed-list-slow.gif" alt="react-window-fixed-list-slow" style="zoom:50%;" />
 
 ##### 2.3.1.2 key优化之后的列表
 
 1. 正常情况
-
+   
    <img src="./images/stable-key-list.gif" alt="stable-key-list" style="zoom:50%;" />
 
 2. chrome 6x slowdown
-
+   
    <img src="./images/stable-key-list-slow.gif" alt="stable-key-list-slow" style="zoom:50%;" />
 
 上面对比可以看到，在一般情况下，`react-window`和`key优化`之后列表性能表现上差不多；但是降低浏览器的性能之后，`key优化`之后的列表在表现上比`react-window`的列表更好。
 
-
-
 > **由于笔者只实现了虚拟列表的核心功能，在功能上并没有`react-window`那么全，所以有可能因为react-window增加了附加功能才导致性能受损，不能证明是key值的原因。**
->
+> 
 > 所以笔者去掉了自己组件中`key优化`的相关代码，采用和`react-window`中一样的方式获取key值，来比较两者的性能
-
-
 
 ##### 2.3.1.3 去掉key优化的列表
 
 1. 正常情况
-
+   
    <img src="./images/mutative-key-list.gif" alt="mutative-key-list" style="zoom:50%;" />
 
 2. chrome 6x slowdown
-
+   
    <img src="./images/mutative-key-list-slow.gif" alt="mutative-key-list-slow" style="zoom:50%;" />
 
 可以看出，去掉key优化之后的列表，在降低浏览器的性能之后，快速滚动时仍然会出现大面积的白屏。
-
-
 
 ## 3. 总结
 
@@ -237,4 +221,3 @@ export const useKeyIndex = (
 参考文章：
 
 1. [再谈前端虚拟列表的实现](https://zhuanlan.zhihu.com/p/34585166)
-
